@@ -129,6 +129,7 @@ router.get("/settings", (_req, res) => {
     try {
         const types = db.prepare(`
             SELECT tc.id_type_compte as id, tc.nom_type as name, tc.description,
+                   tc.max_ordonnances as maxOrdonnances, tc.max_rappels as maxRappels,
                    COALESCE(f.montant, 0) as price, COALESCE(f.devise, 'FCFA') as currency
             FROM TypesComptes tc
             LEFT JOIN FraisComptesProfessionnels f ON tc.id_type_compte = f.id_type_compte
@@ -143,11 +144,11 @@ router.get("/settings", (_req, res) => {
 
 router.put("/settings/:id", (req, res) => {
     const { id } = req.params;
-    const { price, description } = req.body;
+    const { price, description, maxOrdonnances, maxRappels } = req.body;
     try {
-        // Update description in TypesComptes
-        db.prepare("UPDATE TypesComptes SET description = ? WHERE id_type_compte = ?")
-            .run(description, id);
+        // Update description and limits in TypesComptes
+        db.prepare("UPDATE TypesComptes SET description = ?, max_ordonnances = ?, max_rappels = ? WHERE id_type_compte = ?")
+            .run(description, maxOrdonnances, maxRappels, id);
         // Upsert pricing in FraisComptesProfessionnels
         db.prepare(`
             INSERT INTO FraisComptesProfessionnels (id_type_compte, montant, devise)
@@ -158,6 +159,24 @@ router.put("/settings/:id", (req, res) => {
     } catch (error) {
         console.error("Settings update error:", error);
         res.status(500).json({ error: "Failed to update settings" });
+    }
+});
+
+// List all pharmacies
+router.get("/pharmacies", (_req, res) => {
+    try {
+        const pharmacies = db.prepare(`
+            SELECT p.id_pharmacie as id, p.nom_pharmacie as name, p.adresse as address, p.telephone as phone, 
+                   COUNT(sp.id_medicament) as stockCount, u.nom_complet as ownerName
+            FROM Pharmacies p
+            LEFT JOIN StockMedicamentsPharmacie sp ON p.id_pharmacie = sp.id_pharmacie
+            LEFT JOIN ProfilsUtilisateurs u ON p.id_pharmacien = u.id_utilisateur
+            GROUP BY p.id_pharmacie
+            ORDER BY p.id_pharmacie DESC
+        `).all();
+        res.json({ pharmacies });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch pharmacies" });
     }
 });
 

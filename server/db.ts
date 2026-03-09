@@ -79,6 +79,20 @@ export function initializeDatabase() {
                 db.exec("ALTER TABLE Ordonnances ADD COLUMN categorie_age TEXT CHECK(categorie_age IN ('bébé', 'enfant', 'adulte')) DEFAULT 'adulte'");
             }
 
+            // New Migrations for Phase 14
+            const typeComptesColumns = db.prepare("PRAGMA table_info(TypesComptes)").all() as { name: string }[];
+            const hasMaxOrdonnances = typeComptesColumns.some(c => c.name === 'max_ordonnances');
+            const hasMaxRappels = typeComptesColumns.some(c => c.name === 'max_rappels');
+
+            if (!hasMaxOrdonnances) {
+                console.log("Adding max_ordonnances column to TypesComptes...");
+                db.exec("ALTER TABLE TypesComptes ADD COLUMN max_ordonnances INT DEFAULT -1");
+            }
+            if (!hasMaxRappels) {
+                console.log("Adding max_rappels column to TypesComptes...");
+                db.exec("ALTER TABLE TypesComptes ADD COLUMN max_rappels INT DEFAULT -1");
+            }
+
             // Create PosologieDefautMedicaments table if not exists
             db.exec(`
                 CREATE TABLE IF NOT EXISTS PosologieDefautMedicaments (

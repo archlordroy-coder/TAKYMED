@@ -212,15 +212,15 @@ export function ActivityChart() {
         <div className="bg-white rounded-[2.5rem] p-8 border shadow-sm h-full" style={{ borderColor: "#e2e8f0" }}>
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h4 className="text-base font-bold text-slate-800 tracking-tight">Activité du Système</h4>
+                    <h4 className="text-lg font-black text-slate-800 tracking-tight">Activité Mensuelle du Système</h4>
                     <div className="flex gap-4 mt-2">
                         <div className="flex items-center gap-1.5">
                             <div className="w-3 h-3 rounded-full" style={{ background: TEAL }} />
-                            <span className="text-[10px] text-slate-400 font-bold uppercase">Prescriptions</span>
+                            <span className="text-xs text-slate-600 font-bold uppercase">Prescriptions</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <div className="w-3 h-3 rounded-full" style={{ background: EMERALD }} />
-                            <span className="text-[10px] text-slate-400 font-bold uppercase">Visites</span>
+                            <span className="text-xs text-slate-600 font-bold uppercase">Visites</span>
                         </div>
                     </div>
                 </div>
@@ -237,13 +237,13 @@ export function ActivityChart() {
                             dataKey="name"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }}
+                            tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                             dy={8}
                         />
                         <YAxis
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#94a3b8', fontSize: 11 }}
+                            tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }}
                         />
                         <Tooltip
                             cursor={{ fill: '#f8fafc', radius: 8 }}

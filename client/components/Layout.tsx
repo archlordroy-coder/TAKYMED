@@ -69,7 +69,7 @@ export function Layout({ children }: LayoutProps) {
                 </Link>
                 <Link to="/search" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <Search className="w-4 h-4" />
-                  Stocks
+                  Recherche
                 </Link>
                 {user.type === "pharmacist" && (
                   <>
@@ -162,7 +162,7 @@ export function Layout({ children }: LayoutProps) {
                         </Link>
                         <Link to="/search" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
                           <Search className="w-6 h-6" />
-                          Médicaments & Stocks
+                          Recherche
                         </Link>
                         {user.type === "pharmacist" && (
                           <>

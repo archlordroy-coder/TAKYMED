@@ -66,6 +66,15 @@ interface UserRecord {
     name: string;
 }
 
+interface AdminPharmacy {
+    id: number;
+    name: string;
+    address: string;
+    phone: string;
+    stockCount: number;
+    ownerName: string;
+}
+
 interface AdminMedication {
     id: number;
     name: string;
@@ -78,6 +87,8 @@ interface AccountTypeSetting {
     name: string;
     description: string;
     price: number;
+    maxOrdonnances: number | null;
+    maxRappels: number | null;
 }
 
 export default function AdminDashboard() {
@@ -85,14 +96,13 @@ export default function AdminDashboard() {
     const location = useLocation();
     const navigate = useNavigate();
 
-    // Determine active tab from URL path
     const getActiveTab = () => {
         const path = location.pathname;
         if (path.includes("clients")) return "users";
         if (path.includes("catalogue")) return "meds";
         if (path.includes("abonnements") || path.includes("settings")) return "settings";
+        if (path.includes("pharmacies")) return "pharmacies";
         if (path.includes("analytics")) return "analytics";
-        if (path.includes("pharmacies")) return "analytics"; // Fallback to analytics for pharmacies since there's no tab yet
         return "analytics"; // Default for /admin
     };
 
@@ -100,11 +110,13 @@ export default function AdminDashboard() {
         if (value === "users") navigate("/admin/clients");
         else if (value === "meds") navigate("/admin/catalogue");
         else if (value === "settings") navigate("/admin/settings");
+        else if (value === "pharmacies") navigate("/admin/pharmacies");
         else if (value === "analytics") navigate("/admin");
     };
 
     const [stats, setStats] = useState<AdminStats | null>(null);
     const [users, setUsers] = useState<UserRecord[]>([]);
+    const [pharmacies, setPharmacies] = useState<AdminPharmacy[]>([]);
     const [medications, setMedications] = useState<AdminMedication[]>([]);
     const [settings, setSettings] = useState<AccountTypeSetting[]>([]);
     const [loading, setLoading] = useState(true);
@@ -116,13 +128,14 @@ export default function AdminDashboard() {
 
     const refreshData = async () => {
         try {
-            const [statsRes, usersRes, medsRes, settingsRes] = await Promise.all([
+            const [statsRes, usersRes, medsRes, settingsRes, pharmRes] = await Promise.all([
                 fetch("/api/admin/stats"),
                 fetch("/api/admin/users"),
                 fetch("/api/admin/medications"),
-                fetch("/api/admin/settings")
+                fetch("/api/admin/settings"),
+                fetch("/api/admin/pharmacies")
             ]);
-            if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok) {
+            if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok) {
                 setStats(await statsRes.json());
                 const uData = await usersRes.json();
                 setUsers(uData.users);
@@ -130,6 +143,8 @@ export default function AdminDashboard() {
                 setMedications(mData.medications);
                 const sData = await settingsRes.json();
                 setSettings(sData.types);
+                const pData = await pharmRes.json();
+                setPharmacies(pData.pharmacies);
             }
         } catch (err) {
             console.error(err);
@@ -180,11 +195,11 @@ export default function AdminDashboard() {
         else toast.error("Erreur de suppression");
     };
 
-    const handleUpdateSetting = async (id: number, price: number, description: string) => {
+    const handleUpdateSetting = async (id: number, price: number, description: string, maxOrdonnances: number | null, maxRappels: number | null) => {
         const res = await fetch(`/api/admin/settings/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ price, description })
+            body: JSON.stringify({ price, description, maxOrdonnances, maxRappels })
         });
         if (res.ok) { toast.success("Paramètres mis à jour"); refreshData(); }
         else toast.error("Erreur de sauvegarde");
@@ -391,6 +406,7 @@ export default function AdminDashboard() {
                     {[
                         { value: "users", label: "Clients" },
                         { value: "meds", label: "Catalogue" },
+                        { value: "pharmacies", label: "Pharmacies" },
                         { value: "settings", label: "Abonnements" },
                         { value: "analytics", label: "Analytique" },
                     ].map(tab => (
@@ -442,8 +458,15 @@ export default function AdminDashboard() {
                                                 <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`h-10 w-10 flex items-center justify-center rounded-xl text-white font-bold text-lg border-2 border-white shadow-sm ${["bg-emerald-500", "bg-teal-500", "bg-cyan-500", "bg-violet-500", "bg-orange-500", "bg-rose-500", "bg-blue-500"][u.id % 7]}`}>
-                                                                {displayName.charAt(0).toUpperCase()}
+                                                            <div
+                                                                className="h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-white shadow-sm border-2 border-white"
+                                                                style={{
+                                                                    background: u.type === 'Standard' ? '#3b82f6' :
+                                                                        u.type === 'Professionnel' ? '#10b981' :
+                                                                            u.type === 'Pharmacien' ? '#f59e0b' : '#8b5cf6'
+                                                                }}
+                                                            >
+                                                                {displayName.substring(0, 1).toUpperCase()}
                                                             </div>
                                                             <div>
                                                                 <p className="font-extrabold text-slate-900 text-sm">{displayName}</p>
@@ -621,6 +644,61 @@ export default function AdminDashboard() {
                     </div>
                 </TabsContent>
 
+                {/* PHARMACIES TAB */}
+                <TabsContent value="pharmacies" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-white rounded-3xl border shadow-sm overflow-hidden" style={{ borderColor: "#e2e8f0" }}>
+                        <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: "#f1f5f9" }}>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800">Pharmacies Enregistrées</h3>
+                                <p className="text-xs text-slate-500 font-bold mt-1">Gérez le réseau des officines</p>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Officine</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Gérant</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Contact & Adresse</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest text-right">Stock (Médicaments)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
+                                    {pharmacies.map((p) => (
+                                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm" style={{ background: "linear-gradient(135deg, #e0f0fa, #d0ede0)" }}>
+                                                        <Briefcase size={16} style={{ color: TEAL }} />
+                                                    </div>
+                                                    <span className="font-bold text-slate-800 text-sm">{p.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="font-bold text-slate-700 text-sm">{p.ownerName || "—"}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <p className="text-sm text-slate-700 font-bold">{p.phone}</p>
+                                                <p className="text-xs text-slate-500">{p.address}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-slate-700 font-bold text-right">
+                                                {p.stockCount} article(s)
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {pharmacies.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-8 text-center text-slate-500 font-bold text-sm">
+                                                Aucune pharmacie enregistrée.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </TabsContent>
+
                 {/* SETTINGS TAB */}
                 <TabsContent value="settings">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -693,11 +771,13 @@ function EditableSettingCard({
     onSave,
 }: {
     setting: AccountTypeSetting;
-    onSave: (id: number, price: number, desc: string) => void;
+    onSave: (id: number, price: number, desc: string, maxOrdonnances: number | null, maxRappels: number | null) => void;
 }) {
     const [isEditing, setIsEditing] = useState(false);
-    const [price, setPrice] = useState(setting.price);
-    const [desc, setDesc] = useState(setting.description);
+    const [price, setPrice] = useState(setting.price || 0);
+    const [desc, setDesc] = useState(setting.description || "");
+    const [maxOrdo, setMaxOrdo] = useState<number | string>(setting.maxOrdonnances === -1 || setting.maxOrdonnances === null ? '' : setting.maxOrdonnances);
+    const [maxRappels, setMaxRappels] = useState<number | string>(setting.maxRappels === -1 || setting.maxRappels === null ? '' : setting.maxRappels);
 
     const icons = [<Users size={22} />, <Briefcase size={22} />, <Pill size={22} />, <Shield size={22} />];
     const icon = icons[(setting.id - 1) % icons.length];
@@ -723,11 +803,22 @@ function EditableSettingCard({
                 ) : (
                     <div className="flex gap-1">
                         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-emerald-50 text-emerald-600"
-                            onClick={() => { onSave(setting.id, price, desc); setIsEditing(false); }}>
+                            onClick={() => {
+                                const pMaxOrdo = maxOrdo === '' ? null : Number(maxOrdo);
+                                const pMaxRappels = maxRappels === '' ? null : Number(maxRappels);
+                                onSave(setting.id, price, desc, pMaxOrdo, pMaxRappels);
+                                setIsEditing(false);
+                            }}>
                             <Check size={15} />
                         </Button>
                         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-red-50 text-red-500"
-                            onClick={() => { setPrice(setting.price); setDesc(setting.description); setIsEditing(false); }}>
+                            onClick={() => {
+                                setPrice(setting.price || 0);
+                                setDesc(setting.description || "");
+                                setMaxOrdo(setting.maxOrdonnances === -1 || setting.maxOrdonnances === null ? '' : setting.maxOrdonnances);
+                                setMaxRappels(setting.maxRappels === -1 || setting.maxRappels === null ? '' : setting.maxRappels);
+                                setIsEditing(false);
+                            }}>
                             <X size={15} />
                         </Button>
                     </div>
@@ -755,16 +846,50 @@ function EditableSettingCard({
                             className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm"
                         />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1" title="Laissez vide pour illimité">Ordonnances Max</label>
+                            <Input
+                                type="number"
+                                placeholder="Illimité"
+                                value={maxOrdo}
+                                onChange={e => setMaxOrdo(e.target.value)}
+                                className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm placeholder:text-teal-500 placeholder:italic"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1" title="Laissez vide pour illimité">Rappels Max</label>
+                            <Input
+                                type="number"
+                                placeholder="Illimité"
+                                value={maxRappels}
+                                onChange={e => setMaxRappels(e.target.value)}
+                                className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm placeholder:text-teal-500 placeholder:italic"
+                            />
+                        </div>
+                    </div>
                 </div>
             ) : (
                 <>
-                    <p className="text-sm text-slate-500 leading-relaxed">{setting.description || "Aucune description"}</p>
-                    <div className="mt-5 pt-4 border-t flex items-end justify-between" style={{ borderColor: "#f1f5f9" }}>
+                    <p className="text-sm text-slate-500 leading-relaxed mb-4">{setting.description || "Aucune description"}</p>
+
+                    <div className="flex gap-2 mb-4">
+                        <span className="flex-1 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl text-xs flex flex-col items-center justify-center">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Ordonnances</span>
+                            <span className="font-extrabold text-slate-700">{setting.maxOrdonnances === -1 || setting.maxOrdonnances === null ? '∞ Illimité' : setting.maxOrdonnances}</span>
+                        </span>
+                        <span className="flex-1 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl text-xs flex flex-col items-center justify-center">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Rappels</span>
+                            <span className="font-extrabold text-slate-700">{setting.maxRappels === -1 || setting.maxRappels === null ? '∞ Illimité' : setting.maxRappels}</span>
+                        </span>
+                    </div>
+
+                    <div className="pt-4 border-t flex items-end justify-between" style={{ borderColor: "#f1f5f9" }}>
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tarification</p>
                             <p className="text-2xl font-black tracking-tighter" style={{ color: accent }}>
                                 {(setting.price || 0).toLocaleString()}
-                                <span className="text-xs font-bold text-slate-400 ml-1">FCFA</span>
+                                <span className="text-xs font-bold text-slate-400 ml-1">FCFA /mois</span>
                             </p>
                         </div>
                         <div className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase" style={{ background: `${accent}15`, color: accent }}>
