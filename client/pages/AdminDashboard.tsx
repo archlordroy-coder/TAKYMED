@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,16 +33,13 @@ import {
 const TEAL = "#006093";
 const EMERALD = "#00A859";
 
-// African avatar pool (Unsplash, African people)
+// Local African avatars from public folder
 const AFRICAN_AVATARS = [
-    "https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&q=80&w=200&h=200",
-    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=200&h=200",
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200&h=200",
-    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200&h=200",
-    "https://images.unsplash.com/photo-1619895862022-09114b41f16f?auto=format&fit=crop&q=80&w=200&h=200",
-    "https://images.unsplash.com/photo-1508341591423-4347099e1f19?auto=format&fit=crop&q=80&w=200&h=200",
-    "https://images.unsplash.com/photo-1500522144261-ea64433bbe27?auto=format&fit=crop&q=80&w=200&h=200",
-    "https://images.unsplash.com/photo-1566753323558-f4e0952af115?auto=format&fit=crop&q=80&w=200&h=200",
+    "/avatars/patient1.png",
+    "/avatars/patient2.png",
+    "/avatars/doctor.png",
+    "/avatars/pharmacist.png",
+    "/avatars/default.png",
 ];
 
 function getAvatar(id: number) {
@@ -80,6 +78,25 @@ interface AccountTypeSetting {
 
 export default function AdminDashboard() {
     const { user } = useAuth();
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // Determine active tab from URL path
+    const getActiveTab = () => {
+        const path = location.pathname;
+        if (path.includes("clients")) return "users";
+        if (path.includes("catalogue")) return "meds";
+        if (path.includes("abonnements") || path.includes("settings")) return "settings";
+        return "analytics"; // Default for /admin
+    };
+
+    const handleTabChange = (value: string) => {
+        if (value === "users") navigate("/admin/clients");
+        else if (value === "meds") navigate("/admin/catalogue");
+        else if (value === "settings") navigate("/admin/abonnements");
+        else if (value === "analytics") navigate("/admin");
+    };
+
     const [stats, setStats] = useState<AdminStats | null>(null);
     const [users, setUsers] = useState<UserRecord[]>([]);
     const [medications, setMedications] = useState<AdminMedication[]>([]);
@@ -250,7 +267,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Tabs */}
-            <Tabs defaultValue="users" className="space-y-6">
+            <Tabs value={getActiveTab()} onValueChange={handleTabChange} className="space-y-6">
                 <TabsList className="bg-white p-1 rounded-2xl border inline-flex h-auto shadow-sm" style={{ borderColor: "#e2e8f0" }}>
                     {[
                         { value: "users", label: "Clients" },

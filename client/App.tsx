@@ -46,8 +46,12 @@ const App = () => (
                 <ProtectedRoute>
                   <AdminLayout>
                     <Routes>
-                      <Route index element={<AdminDashboard />} />
-                      <Route path="*" element={<NotFound />} />
+                      <Route path="" element={<AdminDashboard />} />
+                      <Route path="clients" element={<AdminDashboard />} />
+                      <Route path="catalogue" element={<AdminDashboard />} />
+                      <Route path="pharmacies" element={<AdminDashboard />} />
+                      <Route path="abonnements" element={<AdminDashboard />} />
+                      <Route path="settings" element={<AdminDashboard />} />
                     </Routes>
                   </AdminLayout>
                 </ProtectedRoute>
