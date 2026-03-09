@@ -17,6 +17,7 @@ import {
    Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 interface NewMed {
    id: number;
@@ -29,6 +30,7 @@ interface NewMed {
 }
 
 export default function Ads() {
+   const { user } = useAuth();
    const [newMedications, setNewMedications] = useState<NewMed[]>([]);
    const [loading, setLoading] = useState(true);
 
@@ -67,7 +69,7 @@ export default function Ads() {
                   <div key={med.id} className="group relative bg-white rounded-[40px] border shadow-sm hover:shadow-2xl transition-all duration-500 overflow-hidden flex flex-col">
                      <div className="h-64 overflow-hidden relative">
                         <img
-                           src={med.photoUrl || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=400&h=300"}
+                           src={med.photoUrl || "https://images.unsplash.com/photo-1576089172869-4f5f6f315620?auto=format&fit=crop&q=80&w=400&h=300"}
                            alt={med.name}
                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         />
@@ -110,43 +112,50 @@ export default function Ads() {
                )}
             </div>
 
-            {/* Health Promotion Banner */}
-            <div className="relative rounded-[50px] bg-primary overflow-hidden p-12 lg:p-20 text-white shadow-2xl shadow-primary/20">
-               <div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
-                  <Stethoscope className="w-full h-full rotate-12" />
-               </div>
-               <div className="relative z-10 max-w-2xl space-y-8 text-center lg:text-left">
-                  <div className="flex items-center gap-3 justify-center lg:justify-start">
-                     <div className="p-2 bg-white/20 rounded-2xl backdrop-blur-md">
-                        <Star className="w-6 h-6 fill-white" />
-                     </div>
-                     <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
-                        Optimisez votre traitement avec TAKYMED Pro
-                     </h2>
+            {/* Health Promotion Banner - Only for standard users */}
+            {user?.type === "standard" && (
+               <div className="relative rounded-[50px] bg-primary overflow-hidden p-12 lg:p-20 text-white shadow-2xl shadow-primary/20">
+                  <div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
+                     <Stethoscope className="w-full h-full rotate-12" />
                   </div>
-                  <p className="text-xl text-primary-foreground leading-relaxed opacity-90">
-                     Accédez à des rapports détaillés, une assistance prioritaire et des notifications illimitées par SMS et WhatsApp.
-                  </p>
-                  <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-4">
-                     <Link to="/register">
-                        <Button size="lg" className="h-16 px-8 rounded-2xl bg-white text-primary hover:bg-slate-100 font-extrabold text-lg shadow-xl shadow-black/20 group">
-                           Passer au compte Pro
-                           <ArrowUpRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
-                        </Button>
-                     </Link>
-                     <div className="flex -space-x-3">
-                        {[1, 2, 3, 4].map(i => (
-                           <div key={i} className="w-10 h-10 rounded-full border-2 border-primary bg-slate-200 overflow-hidden shadow-lg">
-                              <img src={`https://i.pravatar.cc/100?u=${i}`} alt="user" />
+                  <div className="relative z-10 max-w-2xl space-y-8 text-center lg:text-left">
+                     <div className="flex items-center gap-3 justify-center lg:justify-start">
+                        <div className="p-2 bg-white/20 rounded-2xl backdrop-blur-md">
+                           <Star className="w-6 h-6 fill-white" />
+                        </div>
+                        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
+                           Optimisez votre traitement avec TAKYMED Pro
+                        </h2>
+                     </div>
+                     <p className="text-xl text-primary-foreground leading-relaxed opacity-90">
+                        Accédez à des rapports détaillés, une assistance prioritaire et des notifications illimitées par SMS et WhatsApp.
+                     </p>
+                     <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-4">
+                        <Link to="/register">
+                           <Button size="lg" className="h-16 px-8 rounded-2xl bg-white text-primary hover:bg-slate-100 font-extrabold text-lg shadow-xl shadow-black/20 group">
+                              Passer au compte Pro
+                              <ArrowUpRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                           </Button>
+                        </Link>
+                        <div className="flex -space-x-3">
+                           {[
+                              "https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&q=80&w=100&h=100",
+                              "https://images.unsplash.com/photo-1506863530036-1efed7e685c8?auto=format&fit=crop&q=80&w=100&h=100",
+                              "https://images.unsplash.com/photo-1548142813-c348350df52b?auto=format&fit=crop&q=80&w=100&h=100",
+                              "https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&q=80&w=100&h=100"
+                           ].map((url, i) => (
+                              <div key={i} className="w-10 h-10 rounded-full border-2 border-primary bg-slate-200 overflow-hidden shadow-lg">
+                                 <img src={url} alt="utilisateur" className="w-full h-full object-cover" />
+                              </div>
+                           ))}
+                           <div className="w-10 h-10 rounded-full border-2 border-primary bg-white/20 backdrop-blur-md flex items-center justify-center text-[10px] font-bold">
+                              +500
                            </div>
-                        ))}
-                        <div className="w-10 h-10 rounded-full border-2 border-primary bg-white/20 backdrop-blur-md flex items-center justify-center text-[10px] font-bold">
-                           +500
                         </div>
                      </div>
                   </div>
                </div>
-            </div>
+            )}
 
             {/* Month Summary */}
             <div className="mt-20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">

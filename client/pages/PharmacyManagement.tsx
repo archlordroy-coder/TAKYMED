@@ -229,30 +229,39 @@ export default function PharmacyManagement() {
 
   if (user?.type !== "pharmacist") {
     return (
-      <div className="container mx-auto px-4 py-20 text-center">
-        <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-        <h1 className="text-2xl font-bold mb-2">Accès restreint</h1>
-        <p className="text-muted-foreground">Seuls les pharmaciens peuvent accéder à cette page.</p>
+      <div className="container mx-auto px-4 py-24 text-center animate-in fade-in duration-700">
+        <div className="bg-white p-12 rounded-[40px] shadow-2xl border max-w-lg mx-auto space-y-6">
+          <div className="w-20 h-20 bg-destructive/10 rounded-3xl flex items-center justify-center text-destructive mx-auto">
+            <AlertCircle className="w-10 h-10" />
+          </div>
+          <h1 className="text-3xl font-black tracking-tight">Accès réservé</h1>
+          <p className="text-muted-foreground font-medium leading-relaxed">
+            Seuls les pharmaciens partenaires de TAKYMED peuvent accéder à cet espace de gestion d'officine.
+          </p>
+          <Button onClick={() => window.history.back()} variant="outline" className="rounded-2xl h-12 px-8 font-bold border-2">
+            Retourner
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-64px)] pb-20">
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
+      <div className="container mx-auto px-4 py-12 max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight">Gestion des Pharmacies</h1>
-            <p className="text-muted-foreground mt-2">Gérez vos officines, adresses et stocks de médicaments.</p>
+            <h1 className="text-5xl font-black tracking-tighter">Gestion Officine</h1>
+            <p className="text-muted-foreground mt-2 font-medium">Gérez vos pharmacies, adresses et stocks en temps réel.</p>
           </div>
-          <div className="flex flex-col md:flex-row gap-4">
-            <Button onClick={() => setIsRegisteringMed(true)} variant="outline" className="rounded-2xl h-12 px-6 font-bold border-primary text-primary hover:bg-primary/5 transition-all">
+          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+            <Button onClick={() => setIsRegisteringMed(true)} variant="outline" className="rounded-2xl h-14 px-8 font-black border-2 border-primary text-primary hover:bg-primary/5 transition-all">
               <Plus className="w-5 h-5 mr-2" />
-              Enregistrer un médicament
+              Nouveau Médicament
             </Button>
-            <Button onClick={() => setIsAdding(true)} className="rounded-2xl h-12 px-6 font-bold shadow-lg shadow-primary/20">
+            <Button onClick={() => setIsAdding(true)} className="rounded-2xl h-14 px-8 font-black shadow-2xl shadow-primary/30 hover:scale-[1.02] transition-all">
               <Plus className="w-5 h-5 mr-2" />
-              Ajouter une pharmacie
+              Ajouter Pharmacie
             </Button>
           </div>
         </div>
@@ -327,6 +336,7 @@ export default function PharmacyManagement() {
                         className="hidden"
                         accept="image/*"
                         onChange={handlePhotoUpload}
+                        title="Charger une photo du médicament"
                       />
                       <Button
                         type="button"
@@ -474,63 +484,61 @@ export default function PharmacyManagement() {
           </div>
         )}
 
-        {/* Assuming 'loading' state exists, if not, this block will cause an error. */}
-        {/* For the purpose of this edit, I'm assuming 'loading' is a defined state variable. */}
-        {/* If 'loading' is not defined, please define it (e.g., const [loading, setLoading] = useState(true);) */}
-        {false ? ( // Replaced 'loading' with 'false' to avoid undeclared variable error if it doesn't exist.
+        {loading ? (
           <div className="flex justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {pharmacies.map(p => (
-              <div key={p.id} className="bg-white rounded-[40px] border shadow-sm p-8 space-y-8 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-primary/10 p-4 rounded-3xl text-primary">
-                      <Store className="w-8 h-8" />
+              <div key={p.id} className="bg-white rounded-[40px] border border-slate-100 shadow-sm p-8 space-y-8 hover:shadow-2xl hover:shadow-primary/5 transition-all group overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                <div className="flex justify-between items-start relative z-10">
+                  <div className="flex items-center gap-5">
+                    <div className="bg-primary/10 p-5 rounded-[2rem] text-primary group-hover:scale-110 transition-transform bg-primary/5">
+                      <Store className="w-8 h-8 font-black" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-bold">{p.name}</h3>
-                      <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                        <MapPin className="w-3 h-3" />
+                      <h3 className="text-2xl font-black tracking-tight">{p.name}</h3>
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium mt-1">
+                        <MapPin className="w-3.5 h-3.5 text-primary" />
                         {p.address}
                       </div>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 text-muted-foreground"><Edit3 className="w-5 h-5" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => deletePharmacy(p.id)} className="rounded-xl h-10 w-10 text-destructive"><Trash2 className="w-5 h-5" /></Button>
+                    <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 text-muted-foreground hover:bg-slate-100"><Edit3 className="w-5 h-5" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => deletePharmacy(p.id)} className="rounded-xl h-10 w-10 text-destructive hover:bg-destructive/10"><Trash2 className="w-5 h-5" /></Button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                <div className="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 relative z-10">
                   <div className="space-y-1">
-                    <div className="text-[10px] uppercase font-bold text-muted-foreground">Téléphone</div>
-                    <div className="text-sm font-semibold flex items-center gap-2">
-                      <Phone className="w-3 h-3 text-primary" />
+                    <div className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Téléphone</div>
+                    <div className="text-sm font-bold flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-primary" />
                       {p.phone}
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-[10px] uppercase font-bold text-muted-foreground">Horaires</div>
-                    <div className="text-sm font-semibold flex items-center gap-2">
-                      <Clock className="w-3 h-3 text-primary" />
+                    <div className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Horaires</div>
+                    <div className="text-sm font-bold flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-primary" />
                       {p.openTime} - {p.closeTime}
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-6 relative z-10">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold flex items-center gap-2">
-                      <Pill className="w-4 h-4 text-primary" />
-                      Stocks Disponibles
+                    <h4 className="font-black text-lg flex items-center gap-2 tracking-tight">
+                      <Pill className="w-5 h-5 text-primary" />
+                      Stocks Réels
                     </h4>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="rounded-xl h-8 text-xs"
+                      className="rounded-xl h-9 px-4 text-xs font-bold border-2 hover:bg-slate-50 transition-all"
                       onClick={() => setSelectedPharmacyForStock(p.id)}
                     >
                       Mettre à jour
@@ -538,63 +546,69 @@ export default function PharmacyManagement() {
                   </div>
 
                   {selectedPharmacyForStock === p.id && (
-                    <form onSubmit={handleUpdateStock} className="bg-slate-50 p-4 rounded-3xl border border-primary/20 space-y-4 animate-in slide-in-from-top-2">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold">Médicament</Label>
+                    <form onSubmit={handleUpdateStock} className="bg-slate-50 p-6 rounded-[2.5rem] border-2 border-primary/20 space-y-5 animate-in slide-in-from-top-4 duration-300">
+                      <div className="grid grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Médicament</Label>
                           <select
                             title="Sélectionner le médicament"
-                            className="w-full bg-white border rounded-xl h-10 px-3 text-sm outline-none"
+                            className="w-full bg-white border rounded-xl h-11 px-3 text-sm outline-none font-bold focus:ring-2 ring-primary/20"
                             value={stockUpdate.medicationId}
                             onChange={e => setStockUpdate({ ...stockUpdate, medicationId: e.target.value })}
                             required
                           >
-                            <option value="">Sélectionner...</option>
+                            <option value="">Choisir...</option>
                             {dbMedications.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                           </select>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px] uppercase font-bold">Quantité</Label>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Quantité</Label>
                           <Input
                             type="number"
-                            className="rounded-xl h-10"
+                            className="rounded-xl h-11 font-bold"
                             value={stockUpdate.quantity}
                             onChange={e => setStockUpdate({ ...stockUpdate, quantity: parseInt(e.target.value) })}
                             required
                           />
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button type="button" variant="ghost" className="flex-1 h-9 rounded-xl text-xs" onClick={() => setSelectedPharmacyForStock(null)}>Annuler</Button>
-                        <Button type="submit" className="flex-1 h-9 rounded-xl text-xs">Valider</Button>
+                      <div className="flex gap-3">
+                        <Button type="button" variant="ghost" className="flex-1 h-11 rounded-xl font-bold" onClick={() => setSelectedPharmacyForStock(null)}>Annuler</Button>
+                        <Button type="submit" className="flex-1 h-11 rounded-xl font-black shadow-lg shadow-primary/20">Enregistrer</Button>
                       </div>
                     </form>
                   )}
-                  <div className="space-y-2">
+
+                  <div className="space-y-3">
                     {p.stocks.map(s => (
-                      <div key={s.medId} className="flex justify-between items-center text-sm p-3 bg-white border rounded-2xl">
-                        <span className="font-medium">{s.medName}</span>
-                        <span className={cn(
-                          "px-3 py-1 rounded-full font-bold",
-                          s.quantity > 10 ? "bg-green-50 text-green-600" : "bg-amber-50 text-amber-600"
+                      <div key={s.medId} className="flex justify-between items-center text-sm p-4 bg-white border border-slate-100 rounded-2xl group/item hover:border-primary/30 transition-all">
+                        <span className="font-black text-slate-700 tracking-tight">{s.medName}</span>
+                        <div className={cn(
+                          "px-4 py-1.5 rounded-full font-black text-[10px] uppercase tracking-tighter shadow-sm",
+                          s.quantity > 10 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
                         )}>
                           {s.quantity} unités
-                        </span>
+                        </div>
                       </div>
                     ))}
                     {p.stocks.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4 bg-slate-50 rounded-2xl border border-dashed">
-                        Aucun médicament en stock.
-                      </p>
+                      <div className="text-center py-8 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                        <Pill className="w-8 h-8 text-slate-300 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs text-muted-foreground font-bold">Aucun stock répertorié</p>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
             ))}
             {pharmacies.length === 0 && (
-              <div className="col-span-full py-20 text-center bg-white rounded-[40px] border border-dashed">
-                <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-                <p className="text-muted-foreground">Vous n'avez pas encore enregistré de pharmacie.</p>
+              <div className="col-span-full py-32 text-center bg-white rounded-[40px] border-2 border-dashed border-slate-200">
+                <Store className="w-20 h-20 text-muted-foreground mx-auto mb-6 opacity-20" />
+                <h3 className="text-xl font-black text-slate-800">Aucune pharmacie enregistrée</h3>
+                <p className="text-muted-foreground font-medium mt-2 mb-8">Commencez par ajouter votre première officine pour gérer vos stocks.</p>
+                <Button onClick={() => setIsAdding(true)} className="rounded-2xl h-14 px-10 font-black shadow-2xl shadow-primary/30">
+                  Ajouter ma première pharmacie
+                </Button>
               </div>
             )}
           </div>

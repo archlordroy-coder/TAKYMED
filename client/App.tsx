@@ -17,6 +17,9 @@ import SearchMedications from "./pages/SearchMedications";
 import PharmacyManagement from "./pages/PharmacyManagement";
 import InteractionsManagement from "./pages/InteractionsManagement";
 import Ads from "./pages/Ads";
+import AdminDashboard from "./pages/AdminDashboard";
+
+import { AdminLayout } from "@/components/AdminLayout";
 
 const queryClient = new QueryClient();
 
@@ -35,23 +38,45 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Auth mode="login" />} />
-              <Route path="/register" element={<Auth mode="register" />} />
+          <Routes>
+            {/* Admin Routes with Sidebar Layout */}
+            <Route
+              path="/admin/*"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <Routes>
+                      <Route index element={<AdminDashboard />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
 
-              <Route path="/prescription" element={<ProtectedRoute><Prescription /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/search" element={<ProtectedRoute><SearchMedications /></ProtectedRoute>} />
-              <Route path="/pharmacy-mgmt" element={<ProtectedRoute><PharmacyManagement /></ProtectedRoute>} />
-              <Route path="/interactions-mgmt" element={<ProtectedRoute><InteractionsManagement /></ProtectedRoute>} />
-              <Route path="/ads" element={<ProtectedRoute><Ads /></ProtectedRoute>} />
+            {/* Standard Routes with Header Layout */}
+            <Route
+              path="*"
+              element={
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/login" element={<Auth mode="login" />} />
+                    <Route path="/register" element={<Auth mode="register" />} />
 
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Layout>
+                    <Route path="/prescription" element={<ProtectedRoute><Prescription /></ProtectedRoute>} />
+                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/search" element={<ProtectedRoute><SearchMedications /></ProtectedRoute>} />
+                    <Route path="/pharmacy-mgmt" element={<ProtectedRoute><PharmacyManagement /></ProtectedRoute>} />
+                    <Route path="/interactions-mgmt" element={<ProtectedRoute><InteractionsManagement /></ProtectedRoute>} />
+                    <Route path="/ads" element={<ProtectedRoute><Ads /></ProtectedRoute>} />
+
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Layout>
+              }
+            />
+          </Routes>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>

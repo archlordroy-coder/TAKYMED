@@ -1,17 +1,20 @@
-import { Link, useNavigate } from "react-router-dom";
-import { Logo } from "./Logo";
-import { Button } from "@/components/ui/button";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import Logo from "./Logo";
+import { Button } from "./ui/button";
 import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
 import {
-  LogOut,
-  User as UserIcon,
+  Menu,
+  X,
   LayoutDashboard,
-  Search,
   PlusCircle,
   Bell,
   Stethoscope,
   ShieldAlert,
-  Menu
+  Shield,
+  Search,
+  User as UserIcon,
+  LogOut
 } from "lucide-react";
 import {
   Sheet,
@@ -36,6 +39,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -45,43 +49,55 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       <header className="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-xl transition-all duration-500 hover:bg-background/95">
-        <div className="container mx-auto px-4 h-20 md:h-32 flex items-center justify-between transition-all duration-500">
-          <Link to="/" className="group flex items-center gap-3 md:gap-6 active:scale-95 transition-transform">
-            <div className="relative p-2 md:p-4 rounded-2xl md:rounded-[2rem] bg-white/60 backdrop-blur-md border border-white/40 shadow-xl group-hover:shadow-primary/20 transition-all duration-700 hover:rotate-3">
-              <Logo className="h-10 md:h-24" />
+        <div className="container mx-auto px-4 h-16 md:h-20 flex items-center justify-between transition-all duration-500">
+          <Link to="/" className="group flex items-center gap-3 md:gap-4 active:scale-95 transition-transform shrink-0">
+            <div className="relative p-1.5 md:p-2 rounded-xl md:rounded-2xl bg-white/60 backdrop-blur-md border border-white/40 shadow-lg group-hover:shadow-primary/20 transition-all duration-700 hover:rotate-2">
+              <Logo className="h-8 md:h-12" />
             </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+          <nav className="hidden md:flex items-center gap-4 lg:gap-6 text-[13px] lg:text-sm font-semibold">
             {user ? (
               <>
-                <Link to="/dashboard" className="flex items-center gap-2 hover:text-primary transition-colors">
+                <Link to="/dashboard" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <LayoutDashboard className="w-4 h-4" />
                   Tableau de bord
                 </Link>
-                <Link to="/prescription" className="flex items-center gap-2 hover:text-primary transition-colors">
+                <Link to="/prescription" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <PlusCircle className="w-4 h-4" />
                   Ordonnance
                 </Link>
-                <Link to="/search" className="flex items-center gap-2 hover:text-primary transition-colors">
+                <Link to="/search" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <Search className="w-4 h-4" />
-                  Médicaments & Stocks
+                  Stocks
                 </Link>
                 {user.type === "pharmacist" && (
                   <>
-                    <Link to="/pharmacy-mgmt" className="flex items-center gap-2 hover:text-primary transition-colors">
+                    <Link to="/pharmacy-mgmt" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                       <Stethoscope className="w-4 h-4" />
-                      Mes Pharmacies
+                      Pharmacies
                     </Link>
-                    <Link to="/interactions-mgmt" className="flex items-center gap-2 hover:text-primary transition-colors">
+                    <Link to="/interactions-mgmt" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                       <ShieldAlert className="w-4 h-4" />
                       Incompatibilités
                     </Link>
                   </>
                 )}
-                <Link to="/ads" className="flex items-center gap-2 hover:text-primary transition-colors">
+                {user?.type === "admin" && (
+                  <Link
+                    to="/admin"
+                    className={cn(
+                      "flex items-center gap-2 text-primary font-bold hover:opacity-80 transition-all whitespace-nowrap",
+                      location.pathname === "/admin" ? "text-primary" : "" // Adjusted styling to fit existing pattern
+                    )}
+                  >
+                    <Shield className="w-4 h-4" />
+                    Admin
+                  </Link>
+                )}
+                <Link to="/ads" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <Bell className="w-4 h-4" />
-                  Nouveautés
+                  Actu
                 </Link>
               </>
             ) : null}
@@ -160,6 +176,20 @@ export function Layout({ children }: LayoutProps) {
                             </Link>
                           </>
                         )}
+                        {user?.type === "admin" && (
+                          <Link
+                            to="/admin"
+                            className={cn(
+                              "flex items-center gap-2 group p-2",
+                              location.pathname === "/admin" ? "text-primary" : "text-muted-foreground"
+                            )}
+                          >
+                            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <Shield className="w-5 h-5 text-primary" />
+                            </div>
+                            <span className="font-bold">Administration</span>
+                          </Link>
+                        )}
                         <Link to="/ads" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
                           <Bell className="w-6 h-6" />
                           Nouveautés
@@ -179,7 +209,7 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </header>
-      <main className="pt-20 md:pt-32 min-h-[calc(100vh-80px-300px)] md:min-h-[calc(100vh-128px-300px)]">{children}</main>
+      <main className="pt-16 md:pt-20 min-h-[calc(100vh-64px-300px)] md:min-h-[calc(100vh-80px-300px)]">{children}</main>
       <footer className="bg-muted py-12 border-t">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2 space-y-6">

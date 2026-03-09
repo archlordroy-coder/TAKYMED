@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Logo } from "@/components/Logo";
+import Logo from "@/components/Logo";
 import {
   Mail,
   Lock,
@@ -25,19 +25,18 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [step, setStep] = useState<"form" | "payment" | "pin">("form");
-  const [accountType, setAccountType] = useState<"standard" | "professional" | "pharmacist">("standard");
+  const [accountType, setAccountType] = useState<"standard" | "professional" | "pharmacist" | "admin">("standard");
   const [phone, setPhone] = useState("");
+  const [pin, setPin] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (accountType === "standard" || accountType === "pharmacist") {
-      const success = await login(email || `${accountType}@test.com`, accountType);
-      if (success) {
-        toast.success(mode === "login" ? "Connexion réussie !" : "Compte créé !");
-        navigate("/dashboard");
-      }
+    if (accountType === "standard") {
+      setStep("pin");
+    } else if (accountType === "pharmacist" || accountType === "admin") {
+      setStep("pin");
     } else {
       if (mode === "register") {
         setStep("payment");
@@ -54,23 +53,27 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
 
   const handlePin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await login(phone || "professional@test.com", "professional", phone);
+    const success = await login(phone, accountType, pin);
     if (success) {
       toast.success("Authentification réussie !");
-      navigate("/dashboard");
+      navigate(accountType === "admin" ? "/admin" : "/dashboard");
     }
   };
 
-  const setTestUser = (type: "standard" | "professional" | "pharmacist") => {
+  const setTestUser = (type: "standard" | "professional" | "pharmacist" | "admin") => {
     setAccountType(type);
     if (type === "standard") {
-      setEmail("test@standard.com");
-      setPassword("password123");
+      setPhone("+237 600000001");
+      setPin("1234");
     } else if (type === "professional") {
       setPhone("+237 612345678");
+      setPin("1234");
     } else if (type === "pharmacist") {
-      setEmail("dr.sarah@pharmacien.com");
-      setPassword("admin123");
+      setPhone("+237 699999999");
+      setPin("1234");
+    } else if (type === "admin") {
+      setPhone("admin");
+      setPin("admin");
     }
     toast.info(`Identifiants de test "${type}" remplis !`);
   };
@@ -105,47 +108,36 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                 className="w-full mb-8"
                 onValueChange={(val) => setAccountType(val as any)}
               >
-                <TabsList className="grid w-full grid-cols-3 rounded-2xl p-1 bg-slate-100 h-12">
+                <TabsList className="grid w-full grid-cols-4 rounded-2xl p-1 bg-slate-100 h-12">
                   <TabsTrigger value="standard" className="rounded-xl py-2">Standard</TabsTrigger>
                   <TabsTrigger value="professional" className="rounded-xl py-2">Pro</TabsTrigger>
                   <TabsTrigger value="pharmacist" className="rounded-xl py-2">Pharma</TabsTrigger>
+                  <TabsTrigger value="admin" className="rounded-xl py-2">Admin</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="standard" className="mt-6">
                   <form className="space-y-6" onSubmit={handleAuth}>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Adresse Email</Label>
+                      <Label htmlFor="standard-phone">Numéro de téléphone</Label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
-                          id="email"
-                          type="email"
-                          placeholder="votre@email.com"
+                          id="standard-phone"
+                          type="tel"
+                          placeholder="+237 ..."
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
                           className="pl-10 h-11 rounded-xl"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
                           required
                         />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Mot de passe</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="password"
-                          type="password"
-                          className="pl-10 h-11 rounded-xl"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                        />
-                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Utilisé pour vous envoyer votre code PIN de connexion (Gratuit).
+                      </p>
                     </div>
 
                     <Button className="w-full h-11 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]">
-                      {mode === "login" ? "Se connecter" : "Créer mon compte"}
+                      {mode === "login" ? "Recevoir mon PIN" : "Créer mon compte (Gratuit)"}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </form>
@@ -182,38 +174,47 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                 <TabsContent value="pharmacist" className="mt-6">
                   <form className="space-y-6" onSubmit={handleAuth}>
                     <div className="space-y-2">
-                      <Label htmlFor="pharma-email">Email Pharmacie</Label>
+                      <Label htmlFor="pharma-phone">Numéro de téléphone Pro</Label>
                       <div className="relative">
-                        <Stethoscope className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
-                          id="pharma-email"
-                          type="email"
-                          placeholder="pharmacie@santé.com"
+                          id="pharma-phone"
+                          type="tel"
+                          placeholder="+237 ..."
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
                           className="pl-10 h-11 rounded-xl"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="pharma-password">Mot de passe Admin</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="pharma-password"
-                          type="password"
-                          className="pl-10 h-11 rounded-xl"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
                           required
                         />
                       </div>
                     </div>
 
                     <Button className="w-full h-11 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] bg-slate-900">
-                      Connexion Pharmacie
+                      {mode === "login" ? "Accéder à l'espace Pharma" : "S'inscrire (Pharmacien)"}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </form>
+                </TabsContent>
+                <TabsContent value="admin" className="mt-6">
+                  <form className="space-y-6" onSubmit={handleAuth}>
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-phone">Identifiant Admin</Label>
+                      <div className="relative">
+                        <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="admin-phone"
+                          type="text"
+                          placeholder="admin"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="pl-10 h-11 rounded-xl"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <Button className="w-full h-11 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] bg-primary">
+                      Se connecter au Panel
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </form>
@@ -244,6 +245,12 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                     className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg hover:border-primary transition-colors font-medium"
                   >
                     Pharmacien
+                  </button>
+                  <button
+                    onClick={() => setTestUser("admin")}
+                    className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg hover:border-primary transition-colors font-medium border-primary/30 text-primary"
+                  >
+                    Admin (admin/admin)
                   </button>
                 </div>
               </div>
@@ -315,10 +322,15 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                   <Label htmlFor="pin">Code PIN reçu</Label>
                   <Input
                     id="pin"
-                    type="text"
-                    placeholder="XXXX"
-                    className="h-14 text-center text-3xl font-mono tracking-[1em] rounded-xl"
-                    maxLength={4}
+                    type={accountType === 'admin' ? 'password' : 'text'}
+                    placeholder={accountType === 'admin' ? '••••' : 'XXXX'}
+                    className={cn(
+                      "h-14 text-center rounded-xl",
+                      accountType === 'admin' ? "text-xl px-4" : "text-3xl font-mono tracking-[1em]"
+                    )}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    maxLength={accountType === 'admin' ? 20 : 4}
                     required
                   />
                 </div>

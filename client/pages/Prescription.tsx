@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { MedicationEntry, DoseSchedule } from "@shared/api";
+import { MedicationEntry, DoseSchedule, FrequencyType } from "@shared/api";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -38,7 +38,7 @@ export default function Prescription() {
   const [patient, setPatient] = useState({
     title: "",
     name: user?.name || "",
-    age: 0,
+    categorieAge: "adulte" as "bébé" | "enfant" | "adulte",
     weight: 0
   });
 
@@ -46,10 +46,8 @@ export default function Prescription() {
     {
       id: "1",
       name: "",
-      morning: false,
-      midday: false,
-      evening: false,
-      intervalHours: 8,
+      frequencyType: "1x",
+      times: ["08:00"],
       durationDays: 1,
       doseValue: 1,
       unit: "comprimé"
@@ -84,10 +82,8 @@ export default function Prescription() {
       {
         id: Math.random().toString(36).substr(2, 9),
         name: "",
-        morning: false,
-        midday: false,
-        evening: false,
-        intervalHours: 8,
+        frequencyType: "1x",
+        times: ["08:00"],
         durationDays: 1,
         doseValue: 1,
         unit: "comprimé"
@@ -106,27 +102,39 @@ export default function Prescription() {
   const schedule: DoseSchedule[] = useMemo(() => {
     const result: DoseSchedule[] = [];
     medications.forEach(m => {
-      if (!m.name) return;
-      const times: ('matin' | 'midi' | 'soir')[] = [];
-      if (m.morning) times.push('matin');
-      if (m.midday) times.push('midi');
-      if (m.evening) times.push('soir');
+      if (!m.name || m.frequencyType === 'prn') return;
 
       for (let day = 1; day <= m.durationDays; day++) {
-        times.forEach(t => {
-          let timeStr = t === 'matin' ? '08:00' : t === 'midi' ? '12:00' : '18:00';
-          result.push({
-            medicationId: m.id,
-            medicationName: m.name,
-            dose: m.doseValue,
-            unit: m.unit,
-            time: timeStr,
-            day,
-            type: t,
-            statusReminderSent: false,
-            statusTaken: false
+        if (m.frequencyType === 'interval' && m.intervalHours) {
+          // Simplified interval logic for demo
+          let hour = 8;
+          while (hour < 24) {
+            result.push({
+              medicationId: m.id,
+              medicationName: m.name,
+              dose: m.doseValue,
+              unit: m.unit,
+              time: `${hour.toString().padStart(2, '0')}:00`,
+              day,
+              statusReminderSent: false,
+              statusTaken: false
+            });
+            hour += m.intervalHours;
+          }
+        } else {
+          m.times.forEach(timeStr => {
+            result.push({
+              medicationId: m.id,
+              medicationName: m.name,
+              dose: m.doseValue,
+              unit: m.unit,
+              time: timeStr,
+              day,
+              statusReminderSent: false,
+              statusTaken: false
+            });
           });
-        });
+        }
       }
     });
     return result;
@@ -192,23 +200,30 @@ export default function Prescription() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Poids (kg)</Label>
-                  <Input
-                    type="number"
-                    value={patient.weight}
-                    onChange={(e) => setPatient({ ...patient, weight: parseInt(e.target.value) })}
-                    className="rounded-xl h-12"
-                  />
+                  <Label>Catégorie d'âge</Label>
+                  <select
+                    title="Sélectionner la catégorie d'âge"
+                    className="w-full h-12 rounded-xl border bg-slate-50 px-3 text-sm focus-visible:ring-2 ring-primary/20 outline-none"
+                    value={patient.categorieAge}
+                    onChange={(e) => setPatient({ ...patient, categorieAge: e.target.value as any })}
+                  >
+                    <option value="adulte">Adulte</option>
+                    <option value="enfant">Enfant</option>
+                    <option value="bébé">Bébé</option>
+                  </select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Age</Label>
-                  <Input
-                    type="number"
-                    value={patient.age}
-                    onChange={(e) => setPatient({ ...patient, age: parseInt(e.target.value) })}
-                    className="rounded-xl h-12"
-                  />
-                </div>
+                {(patient.categorieAge === "bébé" || patient.categorieAge === "enfant") && (
+                  <div className="space-y-2 animate-in slide-in-from-left duration-300">
+                    <Label>Poids (kg)</Label>
+                    <Input
+                      type="number"
+                      value={patient.weight}
+                      onChange={(e) => setPatient({ ...patient, weight: parseInt(e.target.value) || 0 })}
+                      className="rounded-xl h-12"
+                      placeholder="Indispensable pour bébé/enfant"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -248,45 +263,73 @@ export default function Prescription() {
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-3">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Moment de prise</Label>
-                      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                        <label className={cn(
-                          "flex flex-col items-center p-2 md:p-3 rounded-2xl border cursor-pointer transition-all",
-                          m.morning ? "bg-primary/5 border-primary text-primary" : "hover:bg-slate-50"
-                        )}>
-                          <Checkbox
-                            checked={m.morning}
-                            onCheckedChange={(val) => updateMedication(m.id, { morning: !!val })}
-                            className="sr-only"
-                          />
-                          <Clock className="w-4 h-4 md:w-5 h-5 mb-1" />
-                          <span className="text-[10px] md:text-xs font-semibold">Matin</span>
-                        </label>
-                        <label className={cn(
-                          "flex flex-col items-center p-2 md:p-3 rounded-2xl border cursor-pointer transition-all",
-                          m.midday ? "bg-primary/5 border-primary text-primary" : "hover:bg-slate-50"
-                        )}>
-                          <Checkbox
-                            checked={m.midday}
-                            onCheckedChange={(val) => updateMedication(m.id, { midday: !!val })}
-                            className="sr-only"
-                          />
-                          <Clock className="w-4 h-4 md:w-5 h-5 mb-1" />
-                          <span className="text-[10px] md:text-xs font-semibold">Midi</span>
-                        </label>
-                        <label className={cn(
-                          "flex flex-col items-center p-2 md:p-3 rounded-2xl border cursor-pointer transition-all",
-                          m.evening ? "bg-primary/5 border-primary text-primary" : "hover:bg-slate-50"
-                        )}>
-                          <Checkbox
-                            checked={m.evening}
-                            onCheckedChange={(val) => updateMedication(m.id, { evening: !!val })}
-                            className="sr-only"
-                          />
-                          <Clock className="w-4 h-4 md:w-5 h-5 mb-1" />
-                          <span className="text-[10px] md:text-xs font-semibold">Soir</span>
-                        </label>
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Fréquence des prises</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {['1x', '2x', '3x', '6,8,12', 'prb'].map((freq) => {
+                          const fMap: Record<string, FrequencyType> = {
+                            '1x': '1x', '2x': '2x', '3x': '3x', '6,8,12': 'interval', 'prb': 'prn'
+                          };
+                          const currentFreq = fMap[freq];
+                          return (
+                            <button
+                              key={freq}
+                              onClick={() => {
+                                const newTimes = currentFreq === '1x' ? ['08:00']
+                                  : currentFreq === '2x' ? ['08:00', '20:00']
+                                    : currentFreq === '3x' ? ['08:00', '14:00', '20:00'] : [];
+                                updateMedication(m.id, {
+                                  frequencyType: currentFreq,
+                                  times: newTimes,
+                                  intervalHours: currentFreq === 'interval' ? 8 : undefined
+                                });
+                              }}
+                              className={cn(
+                                "flex-1 min-w-[50px] py-2 rounded-xl border text-[10px] md:text-xs font-bold transition-all",
+                                m.frequencyType === currentFreq ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-slate-50 hover:bg-slate-100"
+                              )}
+                            >
+                              {freq === 'prb' ? 'Au besoin' : freq}
+                            </button>
+                          );
+                        })}
                       </div>
+
+                      {/* Custom Time Selection for 1x, 2x, 3x */}
+                      {(m.frequencyType === '1x' || m.frequencyType === '2x' || m.frequencyType === '3x') && (
+                        <div className="grid grid-cols-1 gap-2 mt-4">
+                          {m.times.map((t, tIdx) => (
+                            <div key={tIdx} className="flex items-center gap-2">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
+                              <Input
+                                type="time"
+                                value={t}
+                                onChange={(e) => {
+                                  const newTimes = [...m.times];
+                                  newTimes[tIdx] = e.target.value;
+                                  updateMedication(m.id, { times: newTimes });
+                                }}
+                                className="h-8 text-xs rounded-lg"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {m.frequencyType === 'interval' && (
+                        <div className="space-y-2 mt-4">
+                          <Label className="text-[10px] text-muted-foreground uppercase">Intervalle (heures)</Label>
+                          <select
+                            title="Choisir l'intervalle de temps"
+                            className="w-full h-10 rounded-xl border bg-slate-50 px-3 text-xs outline-none"
+                            value={m.intervalHours}
+                            onChange={(e) => updateMedication(m.id, { intervalHours: parseInt(e.target.value) })}
+                          >
+                            <option value={6}>Toutes les 6 heures</option>
+                            <option value={8}>Toutes les 8 heures</option>
+                            <option value={12}>Toutes les 12 heures</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-4">
@@ -321,15 +364,6 @@ export default function Prescription() {
 
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase">Intervalle (h)</Label>
-                          <Input
-                            type="number"
-                            value={m.intervalHours}
-                            onChange={(e) => updateMedication(m.id, { intervalHours: parseInt(e.target.value) || 0 })}
-                            className="rounded-xl h-10"
-                          />
-                        </div>
                         <div className="space-y-2">
                           <Label className="text-xs uppercase">Durée (jours)</Label>
                           <Input
@@ -477,24 +511,28 @@ export default function Prescription() {
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'sms' })}
                       icon={<Smartphone className="w-5 h-5" />}
                       label="SMS"
+                      imageUrl="https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&q=80&w=100&h=100"
                     />
                     <NotificationOption
                       selected={notifConfig.type === 'whatsapp'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'whatsapp' })}
                       icon={<MessageSquare className="w-5 h-5" />}
                       label="WhatsApp"
+                      imageUrl="https://images.unsplash.com/photo-1548142813-c348350df52b?auto=format&fit=crop&q=80&w=100&h=100"
                     />
                     <NotificationOption
                       selected={notifConfig.type === 'call'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'call' })}
                       icon={<PhoneCall className="w-5 h-5" />}
                       label="Appel"
+                      imageUrl="https://images.unsplash.com/photo-1506863530036-1efed7e685c8?auto=format&fit=crop&q=80&w=100&h=100"
                     />
                     <NotificationOption
                       selected={notifConfig.type === 'push'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'push' })}
                       icon={<Bell className="w-5 h-5" />}
                       label="Push App"
+                      imageUrl="https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&q=80&w=100&h=100"
                     />
                   </div>
                 </div>
@@ -538,10 +576,10 @@ export default function Prescription() {
                           userId: user.id,
                           title: patient.title,
                           weight: patient.weight,
-                          age: patient.age,
+                          categorieAge: patient.categorieAge,
                           medications: medications.map(m => ({
                             ...m,
-                            name: m.name // Ensure we send the name
+                            name: m.name
                           })),
                           notifConfig
                         })
@@ -597,17 +635,23 @@ export default function Prescription() {
   );
 }
 
-function NotificationOption({ selected, onClick, icon, label }: { selected: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
+function NotificationOption({ selected, onClick, icon, label, imageUrl }: { selected: boolean, onClick: () => void, icon: React.ReactNode, label: string, imageUrl: string }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
-        selected ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-white border-slate-100 hover:border-slate-300"
+        "flex flex-col items-center justify-center p-6 rounded-[2rem] border-2 transition-all gap-3 relative overflow-hidden group",
+        selected ? "bg-primary text-white border-primary shadow-2xl shadow-primary/30 scale-105" : "bg-white border-slate-100 hover:border-primary/30"
       )}
     >
-      {icon}
-      <span className="text-xs font-bold">{label}</span>
+      <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 mb-1 z-10">
+        <img src={imageUrl} alt={label} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+      </div>
+      <div className="z-10 bg-white/10 p-2 rounded-xl backdrop-blur-sm">
+        {icon}
+      </div>
+      <span className="text-[10px] font-black uppercase tracking-widest z-10">{label}</span>
+      {selected && <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-700 opacity-90 z-0" />}
     </button>
   );
 }

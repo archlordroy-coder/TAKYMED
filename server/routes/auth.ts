@@ -5,50 +5,41 @@ const router = Router();
 
 // Login route
 router.post("/login", (req, res) => {
-    const { email, phone, type, password } = req.body;
+    const { phone, type, pin } = req.body;
 
     try {
         // Map English frontend types to French DB types
         const typeMap: Record<string, string> = {
             standard: "Standard",
             professional: "Professionnel",
-            pharmacist: "Pharmacien"
+            pharmacist: "Pharmacien",
+            admin: "Administrateur"
         };
         const dbType = typeMap[type] || "Standard";
 
-        // In a real app we'd verify password hash. For now, we mock auth but *fetch real DB user data*
-        // First, find the account type ID
+        // Find the account type ID
         const typeRecord = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = ?").get(dbType) as { id_type_compte: number } | undefined;
 
         if (!typeRecord) {
             return res.status(400).json({ error: "Invalid account type" });
         }
 
-        let user;
-        if (type === "professional") {
-            user = db.prepare(`
-        SELECT u.*, p.nom_complet 
-        FROM Utilisateurs u 
-        LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur 
-        WHERE u.numero_telephone = ? AND u.id_type_compte = ?
-      `).get(phone, typeRecord.id_type_compte);
-        } else {
-            user = db.prepare(`
-        SELECT u.*, p.nom_complet 
-        FROM Utilisateurs u 
-        LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur 
-        WHERE u.email = ? AND u.id_type_compte = ?
-      `).get(email, typeRecord.id_type_compte);
-        }
+        // Fetch user by phone and account type
+        let user = db.prepare(`
+            SELECT u.*, p.nom_complet 
+            FROM Utilisateurs u 
+            LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur 
+            WHERE u.numero_telephone = ? AND u.id_type_compte = ?
+        `).get(phone, typeRecord.id_type_compte) as any;
 
-        if (!user) {
-            // Auto-register for demo purposes if user not found
+        // Special case: admin user doesn't auto-register
+        if (!user && type !== 'admin') {
+            // Auto-register for demo purposes (non-admin)
             const stmt = db.prepare(`
-        INSERT INTO Utilisateurs (email, numero_telephone, id_type_compte, est_pharmacien)
-        VALUES (?, ?, ?, ?)
-      `);
+                INSERT INTO Utilisateurs (numero_telephone, id_type_compte, est_pharmacien)
+                VALUES (?, ?, ?)
+            `);
             const info = stmt.run(
-                email || null,
                 phone || null,
                 typeRecord.id_type_compte,
                 type === "pharmacist" ? 1 : 0
@@ -57,21 +48,30 @@ router.post("/login", (req, res) => {
             // Auto-create profile
             db.prepare(`INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)`).run(
                 info.lastInsertRowid,
-                email ? email.split('@')[0] : "Nouvel Utilisateur"
+                phone ? `User ${phone.slice(-4)}` : "Nouvel Utilisateur"
             );
 
-            // Fetch the newly created user
             user = db.prepare(`
-        SELECT u.*, p.nom_complet 
-        FROM Utilisateurs u 
-        LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur 
-        WHERE u.id_utilisateur = ?
-      `).get(info.lastInsertRowid);
+                SELECT u.*, p.nom_complet 
+                FROM Utilisateurs u 
+                LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur 
+                WHERE u.id_utilisateur = ?
+            `).get(info.lastInsertRowid);
         }
 
+        if (!user) {
+            return res.status(401).json({ error: "Utilisateur non trouvé" });
+        }
+
+        // Phase 9: PIN Verification
+        if (user.pin_hash && pin !== user.pin_hash) {
+            return res.status(401).json({ error: "PIN incorrect" });
+        }
+
+        // Return user data
         res.json({
             id: user.id_utilisateur,
-            email: user.email,
+            email: user.email || `${type}@takymed.com`,
             phone: user.numero_telephone,
             type: type,
             name: user.nom_complet || "Utilisateur"

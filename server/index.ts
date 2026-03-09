@@ -6,6 +6,7 @@ import { authRouter } from "./routes/auth";
 import { prescriptionRouter } from "./routes/prescriptions";
 import { medicationRouter } from "./routes/medications";
 import { pharmacyRouter } from "./routes/pharmacies";
+import { adminRouter } from "./routes/admin";
 import { db, initializeDatabase } from "./db";
 
 // Initialize the SQLite database on server startup
@@ -38,6 +39,7 @@ export function createServer() {
   app.use("/api/prescriptions", prescriptionRouter);
   app.use("/api/medications", medicationRouter);
   app.use("/api/pharmacies", pharmacyRouter);
+  app.use("/api/admin", adminRouter);
   app.get("/api/demo", handleDemo);
 
   return app;

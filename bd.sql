@@ -108,6 +108,25 @@ CREATE TABLE Medicaments (
 
 
 -- ===============================
+-- POSOLOGIE PAR DEFAUT PAR AGE
+-- ===============================
+CREATE TABLE PosologieDefautMedicaments (
+    id_posologie INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_medicament INT NOT NULL,
+    categorie_age TEXT CHECK(categorie_age IN ('bébé','enfant','adulte')),
+    dose_recommandee DECIMAL(10,2),
+    id_unite INT,
+
+    FOREIGN KEY (id_medicament)
+        REFERENCES Medicaments(id_medicament)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (id_unite)
+        REFERENCES Unites(id_unite)
+);
+
+
+-- ===============================
 -- INTERACTIONS MEDICAMENTEUSES
 -- ===============================
 CREATE TABLE InteractionsMedicaments (
@@ -153,7 +172,7 @@ CREATE TABLE Ordonnances (
     id_utilisateur INT NOT NULL,
     titre VARCHAR(255),
     nom_patient VARCHAR(255),
-    age_patient INT,
+    categorie_age TEXT CHECK(categorie_age IN ('bébé','enfant','adulte')) DEFAULT 'adulte',
     poids_patient DECIMAL(5,2),
     date_ordonnance DATE DEFAULT CURRENT_DATE,
     est_active BOOLEAN DEFAULT TRUE,

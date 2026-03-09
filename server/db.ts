@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 const projectRoot = __dirname.includes('dist') ? path.join(__dirname, "../../") : path.join(__dirname, "../");
 
 // Path to our SQLite database file
-const dbPath = path.join(projectRoot, "bd.sqlite");
+const dbPath = process.env.DB_PATH || path.join(projectRoot, "bd.sqlite");
 const sqlScriptPath = path.join(projectRoot, "bd.sql");
 
 // Create or open the database
@@ -69,6 +69,48 @@ export function initializeDatabase() {
             if (!hasLng) {
                 console.log("Adding longitude column to Pharmacies...");
                 db.exec("ALTER TABLE Pharmacies ADD COLUMN longitude REAL");
+            }
+
+            // New Migrations for Phase 8
+            const ordonnanceColumns = db.prepare("PRAGMA table_info(Ordonnances)").all() as { name: string }[];
+            const hasCategorieAge = ordonnanceColumns.some(c => c.name === 'categorie_age');
+            if (!hasCategorieAge) {
+                console.log("Adding categorie_age column to Ordonnances...");
+                db.exec("ALTER TABLE Ordonnances ADD COLUMN categorie_age TEXT CHECK(categorie_age IN ('bébé', 'enfant', 'adulte')) DEFAULT 'adulte'");
+            }
+
+            // Create PosologieDefautMedicaments table if not exists
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS PosologieDefautMedicaments (
+                    id_posologie INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_medicament INT NOT NULL,
+                    categorie_age TEXT CHECK(categorie_age IN ('bébé', 'enfant', 'adulte')),
+                    dose_recommandee DECIMAL(10,2),
+                    id_unite INT,
+                    FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE,
+                    FOREIGN KEY (id_unite) REFERENCES Unites(id_unite)
+                )
+            `);
+
+            // Phase 9: Admin Account Initialization
+            const adminType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get();
+            if (!adminType) {
+                console.log("Adding 'Administrateur' account type...");
+                db.prepare("INSERT INTO TypesComptes (nom_type, description, max_ordonnances_actives, limite_notifications, necessite_paiement, max_pharmacies) VALUES (?, ?, ?, ?, ?, ?)")
+                    .run('Administrateur', 'Accès complet au système', null, null, 0, null);
+            }
+
+            const getAdminTypeId = () => db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get() as { id_type_compte: number };
+            const adminUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = 'admin'").get();
+
+            if (!adminUser) {
+                console.log("Creating default admin user (admin/admin)...");
+                const adminTypeId = getAdminTypeId().id_type_compte;
+                const info = db.prepare("INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien) VALUES (?, ?, ?, 1)")
+                    .run('admin', 'admin', adminTypeId); // Using literal 'admin' for demo as per request
+
+                db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
+                    .run(info.lastInsertRowid, 'Administrateur Système');
             }
         }
     } catch (error) {

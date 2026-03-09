@@ -58,20 +58,20 @@ router.get("/", (req, res) => {
 
 // Create a new prescription
 router.post("/", (req, res) => {
-    const { userId, title, weight, age, medications, notifConfig } = req.body;
+    const { userId, title, weight, categorieAge, medications, notifConfig } = req.body;
     if (!userId) return res.status(400).json({ error: "User ID required" });
 
     try {
         const insertTransaction = db.transaction(() => {
             // 1. Create Ordonnance
             const ordStmt = db.prepare(`
-        INSERT INTO Ordonnances (id_utilisateur, titre, poids_patient, age_patient, date_ordonnance) 
-        VALUES (?, ?, ?, ?, CURRENT_DATE)
-      `);
-            const ordInfo = ordStmt.run(userId, title, weight, age);
+                INSERT INTO Ordonnances (id_utilisateur, titre, poids_patient, categorie_age, date_ordonnance) 
+                VALUES (?, ?, ?, ?, CURRENT_DATE)
+            `);
+            const ordInfo = ordStmt.run(userId, title, weight || 0, categorieAge || 'adulte');
             const idOrdonnance = ordInfo.lastInsertRowid;
 
-            // 2. Save Notification Preferences if provided
+            // 2. Save Notification Preferences
             if (notifConfig && notifConfig.phone) {
                 let canalId = 1; // SMS default
                 if (notifConfig.type === 'whatsapp') canalId = 2;
@@ -79,14 +79,13 @@ router.post("/", (req, res) => {
                 if (notifConfig.type === 'push') canalId = 4;
 
                 db.prepare(`
-          INSERT OR REPLACE INTO PreferencesNotificationUtilisateurs (id_utilisateur, id_canal, valeur_contact, est_active)
-          VALUES (?, ?, ?, 1)
-        `).run(userId, canalId, notifConfig.phone);
+                    INSERT OR REPLACE INTO PreferencesNotificationUtilisateurs (id_utilisateur, id_canal, valeur_contact, est_active)
+                    VALUES (?, ?, ?, 1)
+                `).run(userId, canalId, notifConfig.phone);
             }
 
             // 3. Iterate each Medication
             for (const m of medications) {
-                // Find or create medicament
                 let medRecord = db.prepare("SELECT id_medicament FROM Medicaments WHERE LOWER(nom) = LOWER(?)").get(m.name) as { id_medicament: number } | undefined;
 
                 let idMedicament;
@@ -100,37 +99,41 @@ router.post("/", (req, res) => {
 
                 // Insert ElementsOrdonnance
                 const eoStmt = db.prepare(`
-          INSERT INTO ElementsOrdonnance (id_ordonnance, id_medicament, type_frequence, duree_jours, dose_personnalisee)
-          VALUES (?, ?, ?, ?, ?)
-        `);
-                // Basic mapping for frequency
-                const freq = m.intervalHours ? 'personnalise' : (m.morning ? 'matin' : (m.midday ? 'midi' : 'soir'));
-                const eoInfo = eoStmt.run(idOrdonnance, idMedicament, freq, m.durationDays, m.doseValue);
+                    INSERT INTO ElementsOrdonnance (id_ordonnance, id_medicament, type_frequence, duree_jours, dose_personnalisee)
+                    VALUES (?, ?, ?, ?, ?)
+                `);
+
+                const eoInfo = eoStmt.run(idOrdonnance, idMedicament, m.frequencyType, m.durationDays, m.doseValue);
                 const idElement = eoInfo.lastInsertRowid;
 
-                // Generate CalendrierPrises Schedule
-                const pStmt = db.prepare(`
-          INSERT INTO CalendrierPrises (id_element_ordonnance, heure_prevue, dose, statut_prise)
-          VALUES (?, ?, ?, 0)
-        `);
+                // 4. Generate CalendrierPrises Schedule
+                if (m.frequencyType !== 'prn') {
+                    const pStmt = db.prepare(`
+                        INSERT INTO CalendrierPrises (id_element_ordonnance, heure_prevue, dose, statut_prise)
+                        VALUES (?, ?, ?, 0)
+                    `);
 
-                // Helper to add days to current date
-                const startDate = new Date();
-                for (let day = 0; day < m.durationDays; day++) {
-                    const currentDate = new Date(startDate);
-                    currentDate.setDate(startDate.getDate() + day);
+                    const startDate = new Date();
+                    for (let day = 0; day < m.durationDays; day++) {
+                        const currentDate = new Date(startDate);
+                        currentDate.setDate(startDate.getDate() + day);
 
-                    if (m.morning) {
-                        const d = new Date(currentDate); d.setHours(8, 0, 0, 0);
-                        pStmt.run(idElement, d.toISOString(), m.doseValue);
-                    }
-                    if (m.midday) {
-                        const d = new Date(currentDate); d.setHours(12, 0, 0, 0);
-                        pStmt.run(idElement, d.toISOString(), m.doseValue);
-                    }
-                    if (m.evening) {
-                        const d = new Date(currentDate); d.setHours(18, 0, 0, 0);
-                        pStmt.run(idElement, d.toISOString(), m.doseValue);
+                        if (m.frequencyType === 'interval' && m.intervalHours) {
+                            let currHour = 8; // Start at 8 AM
+                            while (currHour < 24) {
+                                const d = new Date(currentDate);
+                                d.setHours(currHour, 0, 0, 0);
+                                pStmt.run(idElement, d.toISOString(), m.doseValue);
+                                currHour += m.intervalHours;
+                            }
+                        } else if (m.times && m.times.length > 0) {
+                            for (const timeStr of m.times) {
+                                const [h, min] = timeStr.split(':').map(Number);
+                                const d = new Date(currentDate);
+                                d.setHours(h, min, 0, 0);
+                                pStmt.run(idElement, d.toISOString(), m.doseValue);
+                            }
+                        }
                     }
                 }
             }

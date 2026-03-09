@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Logo } from "@/components/Logo";
+import Logo from "@/components/Logo";
 import { Link } from "react-router-dom";
 import {
    Bell,
@@ -58,11 +58,11 @@ export default function Dashboard() {
                <div className="flex items-center gap-8 relative z-10">
                   <div className="flex-1">
                      <h1 className="text-4xl font-black tracking-tighter mb-1">
-                        Bonjour, <span className="text-primary">{user.email.split('@')[0]}</span>
+                        Bonjour, <span className="text-primary">{user.name || user.phone || user.email?.split('@')[0]}</span>
                      </h1>
-                     <p className="text-muted-foreground flex items-center gap-2">
+                     <p className="text-muted-foreground flex items-center gap-2 font-medium">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        Connecté en tant que <span className="text-primary font-bold capitalize">{user.type}</span>
+                        Espace <span className="text-primary font-bold capitalize">{user.type === 'professional' ? 'Pro' : user.type}</span> activé
                      </p>
                   </div>
                </div>
@@ -262,15 +262,17 @@ export default function Dashboard() {
 function DashboardActionCard({ title, description, icon, link, color }: { title: string, description: string, icon: React.ReactNode, link: string, color: string }) {
    return (
       <Link to={link} className="group">
-         <div className="p-6 bg-white border rounded-[30px] shadow-sm hover:shadow-md transition-all flex items-center gap-5 hover:border-primary/50">
-            <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-black/5", color)}>
+         <div className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm hover:shadow-2xl hover:shadow-primary/10 transition-all flex items-center gap-5 hover:border-primary/20">
+            <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-black/5 transition-transform group-hover:scale-110", color)}>
                {icon}
             </div>
             <div className="flex-1 min-w-0">
-               <h4 className="font-bold text-lg group-hover:text-primary transition-colors">{title}</h4>
-               <p className="text-xs text-muted-foreground truncate">{description}</p>
+               <h4 className="font-black text-lg group-hover:text-primary transition-colors tracking-tight">{title}</h4>
+               <p className="text-xs font-medium text-muted-foreground truncate">{description}</p>
             </div>
-            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
+            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+               <ChevronRight className="w-4 h-4" />
+            </div>
          </div>
       </Link>
    );

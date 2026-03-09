@@ -11,32 +11,34 @@ export interface DemoResponse {
   message: string;
 }
 
+export type CategorieAge = 'bébé' | 'enfant' | 'adulte';
+export type FrequencyType = '1x' | '2x' | '3x' | 'interval' | 'prn';
+
 export interface MedicationEntry {
-  id: number;
+  id: string; // Changed to string for frontend compatibility (Math.random IDs)
   name: string;
-  morning: boolean;
-  midday: boolean;
-  evening: boolean;
-  intervalHours: number;
+  frequencyType: FrequencyType;
+  times: string[]; // e.g., ["08:00", "20:00"]
+  intervalHours?: number;
   durationDays: number;
   doseValue: number;
   unit: string;
 }
 
 export interface DoseSchedule {
-  id: number;
-  medicationId: number;
+  id?: number;
+  medicationId: string;
   medicationName: string;
   dose: number;
   unit: string;
   time: string;
   day: number;
-  type: 'matin' | 'midi' | 'soir';
+  type?: string;
   statusReminderSent: boolean;
   statusTaken: boolean;
 }
 
-export type AccountType = "standard" | "professional" | "pharmacist";
+export type AccountType = "standard" | "professional" | "pharmacist" | "admin";
 
 export interface UserDTO {
   id: number;
