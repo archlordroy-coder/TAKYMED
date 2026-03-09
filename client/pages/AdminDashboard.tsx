@@ -48,9 +48,7 @@ const AFRICAN_AVATARS = [
     "/avatars/default.png",
 ];
 
-function getAvatar(id: number) {
-    return AFRICAN_AVATARS[id % AFRICAN_AVATARS.length];
-}
+// Removed AFRICAN_AVATARS logic
 
 interface AdminStats {
     users: number;
@@ -444,11 +442,9 @@ export default function AdminDashboard() {
                                                 <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
-                                                            <img
-                                                                src={getAvatar(u.id)}
-                                                                alt={displayName}
-                                                                className="h-10 w-10 rounded-xl object-cover border-2 border-white shadow-sm"
-                                                            />
+                                                            <div className={`h-10 w-10 flex items-center justify-center rounded-xl text-white font-bold text-lg border-2 border-white shadow-sm ${["bg-emerald-500", "bg-teal-500", "bg-cyan-500", "bg-violet-500", "bg-orange-500", "bg-rose-500", "bg-blue-500"][u.id % 7]}`}>
+                                                                {displayName.charAt(0).toUpperCase()}
+                                                            </div>
                                                             <div>
                                                                 <p className="font-bold text-slate-800 text-sm">{displayName}</p>
                                                                 <p className="text-[10px] text-slate-400 font-semibold">ID #{u.id}</p>

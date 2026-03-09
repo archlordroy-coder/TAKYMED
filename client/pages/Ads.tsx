@@ -68,11 +68,17 @@ export default function Ads() {
                {newMedications.map((med) => (
                   <div key={med.id} className="group relative bg-white rounded-[40px] border shadow-sm hover:shadow-2xl transition-all duration-500 overflow-hidden flex flex-col">
                      <div className="h-64 overflow-hidden relative">
-                        <img
-                           src={med.photoUrl || "https://images.unsplash.com/photo-1576089172869-4f5f6f315620?auto=format&fit=crop&q=80&w=400&h=300"}
-                           alt={med.name}
-                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        />
+                        {med.photoUrl ? (
+                           <img
+                              src={med.photoUrl}
+                              alt={med.name}
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 bg-white"
+                           />
+                        ) : (
+                           <div className="w-full h-full bg-gradient-to-br from-[#006093] to-[#00A859] flex flex-col items-center justify-center transition-transform duration-700 group-hover:scale-110 text-white">
+                              <Pill className="w-20 h-20 mb-2 opacity-80" strokeWidth={1.5} />
+                           </div>
+                        )}
                         <div className="absolute top-4 left-4">
                            <span className="bg-primary text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
                               Nouveau
@@ -139,13 +145,13 @@ export default function Ads() {
                         </Link>
                         <div className="flex -space-x-3">
                            {[
-                              "https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&q=80&w=100&h=100",
-                              "https://images.unsplash.com/photo-1506863530036-1efed7e685c8?auto=format&fit=crop&q=80&w=100&h=100",
-                              "https://images.unsplash.com/photo-1548142813-c348350df52b?auto=format&fit=crop&q=80&w=100&h=100",
-                              "https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&q=80&w=100&h=100"
-                           ].map((url, i) => (
-                              <div key={i} className="w-10 h-10 rounded-full border-2 border-primary bg-slate-200 overflow-hidden shadow-lg">
-                                 <img src={url} alt="utilisateur" className="w-full h-full object-cover" />
+                              { init: "M", bg: "bg-orange-500" },
+                              { init: "K", bg: "bg-blue-500" },
+                              { init: "A", bg: "bg-emerald-500" },
+                              { init: "F", bg: "bg-violet-500" }
+                           ].map((item, i) => (
+                              <div key={i} className={`w-10 h-10 flex items-center justify-center font-bold text-white rounded-full border-2 border-primary overflow-hidden shadow-lg ${item.bg}`}>
+                                 {item.init}
                               </div>
                            ))}
                            <div className="w-10 h-10 rounded-full border-2 border-primary bg-white/20 backdrop-blur-md flex items-center justify-center text-[10px] font-bold">

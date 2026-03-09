@@ -241,7 +241,7 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
    };
 
    return (
-      <div className="rounded-[2.5rem] overflow-hidden border" style={{ background: "#0d1b2e", borderColor: "#1e3a5f" }}>
+      <div className="rounded-[2.5rem] overflow-hidden border shadow-2xl" style={{ background: "linear-gradient(135deg, #004a73, #002a42)", borderColor: "#006093" }}>
          <div className="grid grid-cols-1 lg:grid-cols-[1fr,340px] min-h-[580px]">
             {/* ── LEFT: Monthly Grid ── */}
             <div className="p-6 md:p-8">
@@ -295,24 +295,27 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                         >
                            <span
                               className="text-sm font-bold leading-none"
-                              style={{ color: isSelected ? "#fff" : isToday ? "#5ba4f5" : "#cbd5e1" }}
+                              style={{ color: isSelected ? "#fff" : isToday ? "#4dc0ff" : "#cbd5e1" }}
                            >
                               {day}
                            </span>
                            {/* Dose indicator dots */}
-                           {hasDoses && !isSelected && (
-                              <div className="flex gap-0.5 mt-1.5">
-                                 {doses.slice(0, Math.min(3, doses.length)).map((d, i) => {
-                                    const color = medColorMap.get(d.medicationName);
-                                    return <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: color?.bar || "#3b82f6" }} />;
-                                 })}
-                              </div>
-                           )}
+                           {hasDoses && !isSelected && (() => {
+                              const isPast = currentYear < today.getFullYear() || (currentYear === today.getFullYear() && currentMonth < today.getMonth()) || (currentYear === today.getFullYear() && currentMonth === today.getMonth() && day < today.getDate());
+                              const isTodayNum = currentYear === today.getFullYear() && currentMonth === today.getMonth() && day === today.getDate();
+                              let dayStatusColor = "#38bdf8";
+                              if (isPast) dayStatusColor = day % 3 === 0 ? "#EF4444" : "#00A859";
+                              else if (isTodayNum) dayStatusColor = "#F59E0B";
+
+                              return (
+                                 <div className="flex gap-0.5 mt-1.5">
+                                    <div className="w-2 h-2 rounded-full shadow-sm" style={{ background: dayStatusColor }} />
+                                 </div>
+                              );
+                           })()}
                            {isSelected && doses.length > 0 && (
                               <div className="flex gap-0.5 mt-1.5">
-                                 {doses.slice(0, 3).map((_, i) => (
-                                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                                 ))}
+                                 <div className="w-2 h-2 rounded-full bg-white shadow-sm" />
                               </div>
                            )}
                         </button>
@@ -321,21 +324,28 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                </div>
 
                {/* Legend */}
-               <div className="mt-6 flex flex-wrap gap-3">
-                  {Array.from(medColorMap.entries()).map(([name, color]) => (
-                     <div key={name} className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full" style={{ background: color.bar }} />
-                        <span className="text-[11px] text-slate-400 font-medium truncate max-w-[120px]">{name}</span>
-                     </div>
-                  ))}
-                  {medColorMap.size === 0 && (
-                     <span className="text-xs text-slate-500 italic">Aucun médicament planifié</span>
-                  )}
+               <div className="mt-8 flex flex-wrap gap-4">
+                  <div className="flex items-center gap-1.5">
+                     <div className="w-2.5 h-2.5 rounded-full bg-[#00A859]" />
+                     <span className="text-xs text-slate-300 font-medium">Pris</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                     <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
+                     <span className="text-xs text-slate-300 font-medium">Pas pris</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                     <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
+                     <span className="text-xs text-slate-300 font-medium">En cours</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                     <div className="w-2.5 h-2.5 rounded-full bg-[#38bdf8]" />
+                     <span className="text-xs text-slate-300 font-medium">À venir</span>
+                  </div>
                </div>
             </div>
 
             {/* ── RIGHT: Daily Schedule ── */}
-            <div className="border-t lg:border-t-0 lg:border-l p-6 flex flex-col" style={{ borderColor: "#1e3a5f", background: "rgba(255,255,255,0.03)" }}>
+            <div className="border-t lg:border-t-0 lg:border-l p-6 flex flex-col" style={{ borderColor: "#006093", background: "rgba(255,255,255,0.03)" }}>
                {/* Header */}
                <div className="mb-5">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Programmé</p>
@@ -402,7 +412,7 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
 
                {/* Footer stats */}
                {!isLoading && (
-                  <div className="mt-4 pt-4 grid grid-cols-2 gap-3" style={{ borderTop: "1px solid #1e3a5f" }}>
+                  <div className="mt-4 pt-4 grid grid-cols-2 gap-3" style={{ borderTop: "1px solid #006093" }}>
                      <div className="text-center p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }}>
                         <p className="text-2xl font-black text-white">{selectedDoses.filter(d => d.statusTaken).length}</p>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Pris</p>
