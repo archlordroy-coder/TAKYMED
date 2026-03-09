@@ -45,8 +45,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     const navItems = [
         { icon: LayoutDashboard, label: "Dashboard", path: "/admin", group: "PRINCIPAL" },
         { icon: BarChart3, label: "Analyse", path: "/admin/analytics", group: "PRINCIPAL" },
-        { icon: Users, label: "Clients", path: "/admin/users", group: "GESTION" },
-        { icon: Pill, label: "Médicaments", path: "/admin/medications", group: "GESTION" },
+        { icon: Users, label: "Clients", path: "/admin/clients", group: "GESTION" },
+        { icon: Pill, label: "Médicaments", path: "/admin/catalogue", group: "GESTION" },
         { icon: Globe, label: "Pharmacies", path: "/admin/pharmacies", group: "GESTION" },
         { icon: Settings, label: "Paramètres", path: "/admin/settings", group: "SYSTÈME" },
     ];

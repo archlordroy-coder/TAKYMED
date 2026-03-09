@@ -87,13 +87,15 @@ export default function AdminDashboard() {
         if (path.includes("clients")) return "users";
         if (path.includes("catalogue")) return "meds";
         if (path.includes("abonnements") || path.includes("settings")) return "settings";
+        if (path.includes("analytics")) return "analytics";
+        if (path.includes("pharmacies")) return "analytics"; // Fallback to analytics for pharmacies since there's no tab yet
         return "analytics"; // Default for /admin
     };
 
     const handleTabChange = (value: string) => {
         if (value === "users") navigate("/admin/clients");
         else if (value === "meds") navigate("/admin/catalogue");
-        else if (value === "settings") navigate("/admin/abonnements");
+        else if (value === "settings") navigate("/admin/settings");
         else if (value === "analytics") navigate("/admin");
     };
 

@@ -4,7 +4,7 @@ FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
 # Installer les dépendances (y compris les devDependencies pour le build)
-RUN npm ci
+RUN npm install
 
 COPY . .
 # Construire le client (Vite) et le serveur
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 
 COPY package*.json ./
 # N'installer que les dépendances de production
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copier le build depuis l'étape précédente
 COPY --from=builder /app/dist ./dist
