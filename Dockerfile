@@ -24,6 +24,8 @@ RUN npm install --omit=dev
 
 # Copier le build depuis l'étape précédente
 COPY --from=builder /app/dist ./dist
+# Copier le script SQL d'initialisation manuel utile pour le backend
+COPY bd.sql ./
 
 # Créer le répertoire pour les données persistantes (SQLite)
 RUN mkdir -p /app/data && chown -R node:node /app/data

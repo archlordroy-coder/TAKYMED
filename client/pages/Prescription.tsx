@@ -20,7 +20,8 @@ import {
   MessageSquare,
   Smartphone,
   PhoneCall,
-  Send
+  Send,
+  Check
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -511,28 +512,28 @@ export default function Prescription() {
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'sms' })}
                       icon={<Smartphone className="w-5 h-5" />}
                       label="SMS"
-                      imageUrl="https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?auto=format&fit=crop&q=80&w=100&h=100"
+                      color="#3b82f6"
                     />
                     <NotificationOption
                       selected={notifConfig.type === 'whatsapp'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'whatsapp' })}
                       icon={<MessageSquare className="w-5 h-5" />}
                       label="WhatsApp"
-                      imageUrl="https://images.unsplash.com/photo-1548142813-c348350df52b?auto=format&fit=crop&q=80&w=100&h=100"
+                      color="#22c55e"
                     />
                     <NotificationOption
                       selected={notifConfig.type === 'call'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'call' })}
                       icon={<PhoneCall className="w-5 h-5" />}
                       label="Appel"
-                      imageUrl="https://images.unsplash.com/photo-1506863530036-1efed7e685c8?auto=format&fit=crop&q=80&w=100&h=100"
+                      color="#f97316"
                     />
                     <NotificationOption
                       selected={notifConfig.type === 'push'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'push' })}
                       icon={<Bell className="w-5 h-5" />}
                       label="Push App"
-                      imageUrl="https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&q=80&w=100&h=100"
+                      color="#8b5cf6"
                     />
                   </div>
                 </div>
@@ -635,23 +636,28 @@ export default function Prescription() {
   );
 }
 
-function NotificationOption({ selected, onClick, icon, label, imageUrl }: { selected: boolean, onClick: () => void, icon: React.ReactNode, label: string, imageUrl: string }) {
+function NotificationOption({ selected, onClick, icon, label, color }: { selected: boolean, onClick: () => void, icon: React.ReactNode, label: string, color: string }) {
   return (
     <button
       onClick={onClick}
       className={cn(
         "flex flex-col items-center justify-center p-6 rounded-[2rem] border-2 transition-all gap-3 relative overflow-hidden group",
-        selected ? "bg-primary text-white border-primary shadow-2xl shadow-primary/30 scale-105" : "bg-white border-slate-100 hover:border-primary/30"
+        selected ? "text-white border-transparent shadow-2xl scale-105" : "bg-white border-slate-100 hover:border-primary/30"
       )}
+      style={selected ? { background: `linear-gradient(135deg, ${color}, ${color}dd)` } : {}}
     >
-      <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/50 mb-1 z-10">
-        <img src={imageUrl} alt={label} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-      </div>
-      <div className="z-10 bg-white/10 p-2 rounded-xl backdrop-blur-sm">
+      <div
+        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1 z-10 transition-transform group-hover:scale-110"
+        style={{ background: selected ? 'rgba(255,255,255,0.2)' : `${color}15`, color: selected ? '#fff' : color }}
+      >
         {icon}
       </div>
       <span className="text-[10px] font-black uppercase tracking-widest z-10">{label}</span>
-      {selected && <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-700 opacity-90 z-0" />}
+      {selected && (
+        <div className="absolute top-2 right-2 bg-white/20 rounded-full p-1 z-10">
+          <Check className="w-3 h-3" />
+        </div>
+      )}
     </button>
   );
 }

@@ -97,13 +97,24 @@ router.post("/", (req, res) => {
                     idMedicament = medRecord.id_medicament;
                 }
 
+                // Map the frequency type to match the CHECK constraint in the DB ('matin','midi','soir','personnalise')
+                const allowedFrequencies = ['matin', 'midi', 'soir'];
+                const dbFrequence = allowedFrequencies.includes(m.frequencyType) ? m.frequencyType : 'personnalise';
+
                 // Insert ElementsOrdonnance
                 const eoStmt = db.prepare(`
-                    INSERT INTO ElementsOrdonnance (id_ordonnance, id_medicament, type_frequence, duree_jours, dose_personnalisee)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO ElementsOrdonnance (id_ordonnance, id_medicament, type_frequence, intervalle_heures, duree_jours, dose_personnalisee)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 `);
 
-                const eoInfo = eoStmt.run(idOrdonnance, idMedicament, m.frequencyType, m.durationDays, m.doseValue);
+                const eoInfo = eoStmt.run(
+                    idOrdonnance,
+                    idMedicament,
+                    dbFrequence,
+                    m.intervalHours || null,
+                    m.durationDays,
+                    m.doseValue
+                );
                 const idElement = eoInfo.lastInsertRowid;
 
                 // 4. Generate CalendrierPrises Schedule

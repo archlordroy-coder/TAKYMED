@@ -16,11 +16,17 @@ import {
     Trash2,
     Check,
     X,
+    Upload,
+    Download,
+    FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AdminHeroCard, AdminStatCard, DistributionChart, ActivityChart } from "@/components/AdminComponents";
 import { motion } from "framer-motion";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import logoImg from "@/components/images/takymed.png";
 import {
     Dialog,
     DialogContent,
@@ -184,6 +190,119 @@ export default function AdminDashboard() {
         });
         if (res.ok) { toast.success("Paramètres mis à jour"); refreshData(); }
         else toast.error("Erreur de sauvegarde");
+    };
+
+    // ============== CSV EXPORT ==============
+    const handleExportCSV = () => {
+        if (medications.length === 0) { toast.error("Aucun médicament à exporter"); return; }
+        const header = "ID,Nom,Forme,Dose Défaut";
+        const rows = medications.map(m => {
+            const forme = m.unitId === 1 ? "Comprimé" : m.unitId === 2 ? "Gélule" : "Sirop";
+            return `${m.id},"${m.name}","${forme}",${m.defaultDose}`;
+        });
+        const csv = [header, ...rows].join("\n");
+        const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `takymed_medicaments_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Export CSV téléchargé !");
+    };
+
+    // ============== CSV IMPORT ==============
+    const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            const text = ev.target?.result as string;
+            const lines = text.split('\n').filter(l => l.trim());
+            let imported = 0;
+            // Skip header if present
+            const startIdx = lines[0]?.toLowerCase().includes('nom') ? 1 : 0;
+            for (let i = startIdx; i < lines.length; i++) {
+                const parts = lines[i].split(',').map(s => s.replace(/"/g, '').trim());
+                const name = parts[1] || parts[0]; // Support "ID,Nom,..." or just "Nom,..."
+                if (!name) continue;
+                const unitId = parts[2]?.toLowerCase().includes('gélule') ? 2 : parts[2]?.toLowerCase().includes('sirop') ? 3 : 1;
+                const dose = parseFloat(parts[3] || parts[2]) || 1;
+                try {
+                    const res = await fetch("/api/admin/medications", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, unitId, defaultDose: dose })
+                    });
+                    if (res.ok) imported++;
+                } catch { /* skip failed entries */ }
+            }
+            toast.success(`${imported} médicament(s) importé(s) avec succès !`);
+            refreshData();
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // Reset file input
+    };
+
+    // ============== PDF EXPORT ==============
+    const handleExportPDF = () => {
+        if (medications.length === 0) { toast.error("Aucun médicament à exporter"); return; }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // Add logo
+        try {
+            doc.addImage(logoImg, 'PNG', 14, 10, 30, 30);
+        } catch { /* logo load failed, continue without */ }
+
+        // Header text
+        doc.setFontSize(20);
+        doc.setTextColor(0, 96, 147); // TEAL
+        doc.text('TAKYMED', 50, 25);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text('Catalogue des Médicaments', 50, 32);
+        doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 50, 38);
+
+        // Separator
+        doc.setDrawColor(0, 168, 89); // EMERALD
+        doc.setLineWidth(0.8);
+        doc.line(14, 45, pageWidth - 14, 45);
+
+        // Table
+        autoTable(doc, {
+            startY: 50,
+            head: [['#', 'Désignation', 'Forme', 'Dose Défaut']],
+            body: medications.map((m, i) => [
+                (i + 1).toString(),
+                m.name,
+                m.unitId === 1 ? 'Comprimé' : m.unitId === 2 ? 'Gélule' : 'Sirop',
+                `${m.defaultDose} unité(s)`
+            ]),
+            theme: 'grid',
+            headStyles: {
+                fillColor: [0, 96, 147],
+                textColor: 255,
+                fontStyle: 'bold',
+                fontSize: 9,
+            },
+            alternateRowStyles: { fillColor: [245, 248, 250] },
+            styles: { fontSize: 9, cellPadding: 4 },
+            margin: { left: 14, right: 14 },
+        });
+
+        // Footer
+        const pageCount = doc.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(150);
+            doc.text(`TAKYMED - Page ${i}/${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+        }
+
+        doc.save(`takymed_catalogue_${new Date().toISOString().slice(0, 10)}.pdf`);
+        toast.success("Export PDF téléchargé !");
     };
 
     if (loading) {
@@ -372,60 +491,94 @@ export default function AdminDashboard() {
                 {/* MEDS TAB */}
                 <TabsContent value="meds">
                     <div className="bg-white rounded-[2rem] border shadow-sm overflow-hidden" style={{ borderColor: "#e2e8f0" }}>
-                        <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: "#f1f5f9" }}>
+                        <div className="p-6 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: "#f1f5f9" }}>
                             <div>
                                 <h3 className="text-lg font-bold text-slate-800">Catalogue Médicaments</h3>
                                 <p className="text-xs text-slate-400 font-medium mt-0.5">{medications.length} produits référencés</p>
                             </div>
-                            <Dialog open={isAddMedOpen} onOpenChange={setIsAddMedOpen}>
-                                <DialogTrigger asChild>
-                                    <Button
-                                        className="text-white rounded-xl px-5 h-10 font-bold shadow-md"
-                                        style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
-                                    >
-                                        <Plus className="w-4 h-4 mr-2" /> Nouveau
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
-                                    <DialogHeader>
-                                        <DialogTitle className="text-slate-800">Ajouter au Catalogue</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="space-y-4 py-4">
-                                        <div className="space-y-2">
-                                            <label className={labelClass}>Nom du Produit</label>
-                                            <Input className={inputClass} value={newMed.name} onChange={e => setNewMed({ ...newMed, name: e.target.value })} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className={labelClass}>Unité</label>
-                                                <select
-                                                    title="Sélectionner l'unité"
-                                                    className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400"
-                                                    value={newMed.unitId}
-                                                    onChange={e => setNewMed({ ...newMed, unitId: parseInt(e.target.value) })}
-                                                >
-                                                    <option value={1}>Comprimé</option>
-                                                    <option value={2}>Gélule</option>
-                                                    <option value={3}>Sirop (ml)</option>
-                                                </select>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className={labelClass}>Dose Défaut</label>
-                                                <Input type="number" className={inputClass} value={newMed.defaultDose} onChange={e => setNewMed({ ...newMed, defaultDose: parseFloat(e.target.value) })} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <DialogFooter>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {/* CSV Import */}
+                                <input
+                                    type="file"
+                                    id="csv-import-input"
+                                    className="hidden"
+                                    accept=".csv"
+                                    onChange={handleImportCSV}
+                                />
+                                <Button
+                                    variant="outline"
+                                    className="rounded-xl h-10 px-4 text-xs font-bold border-slate-200 hover:bg-slate-50"
+                                    onClick={() => document.getElementById('csv-import-input')?.click()}
+                                >
+                                    <Upload className="w-3.5 h-3.5 mr-1.5" /> Importer CSV
+                                </Button>
+                                {/* CSV Export */}
+                                <Button
+                                    variant="outline"
+                                    className="rounded-xl h-10 px-4 text-xs font-bold border-slate-200 hover:bg-slate-50"
+                                    onClick={handleExportCSV}
+                                >
+                                    <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+                                </Button>
+                                {/* PDF Export */}
+                                <Button
+                                    variant="outline"
+                                    className="rounded-xl h-10 px-4 text-xs font-bold border-red-100 text-red-600 hover:bg-red-50"
+                                    onClick={handleExportPDF}
+                                >
+                                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
+                                </Button>
+                                {/* Add New */}
+                                <Dialog open={isAddMedOpen} onOpenChange={setIsAddMedOpen}>
+                                    <DialogTrigger asChild>
                                         <Button
-                                            className="w-full h-11 rounded-xl font-bold text-white"
+                                            className="text-white rounded-xl px-5 h-10 font-bold shadow-md"
                                             style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
-                                            onClick={handleAddMed}
                                         >
-                                            Ajouter au Catalogue
+                                            <Plus className="w-4 h-4 mr-2" /> Nouveau
                                         </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                                    </DialogTrigger>
+                                    <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
+                                        <DialogHeader>
+                                            <DialogTitle className="text-slate-800">Ajouter au Catalogue</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-4">
+                                            <div className="space-y-2">
+                                                <label className={labelClass}>Nom du Produit</label>
+                                                <Input className={inputClass} value={newMed.name} onChange={e => setNewMed({ ...newMed, name: e.target.value })} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Unité</label>
+                                                    <select
+                                                        title="Sélectionner l'unité"
+                                                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400"
+                                                        value={newMed.unitId}
+                                                        onChange={e => setNewMed({ ...newMed, unitId: parseInt(e.target.value) })}
+                                                    >
+                                                        <option value={1}>Comprimé</option>
+                                                        <option value={2}>Gélule</option>
+                                                        <option value={3}>Sirop (ml)</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Dose Défaut</label>
+                                                    <Input type="number" className={inputClass} value={newMed.defaultDose} onChange={e => setNewMed({ ...newMed, defaultDose: parseFloat(e.target.value) })} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button
+                                                className="w-full h-11 rounded-xl font-bold text-white"
+                                                style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
+                                                onClick={handleAddMed}
+                                            >
+                                                Ajouter au Catalogue
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
@@ -534,7 +687,7 @@ export default function AdminDashboard() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }
 

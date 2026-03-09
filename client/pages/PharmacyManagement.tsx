@@ -255,10 +255,6 @@ export default function PharmacyManagement() {
             <p className="text-muted-foreground mt-2 font-medium">Gérez vos pharmacies, adresses et stocks en temps réel.</p>
           </div>
           <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-            <Button onClick={() => setIsRegisteringMed(true)} variant="outline" className="rounded-2xl h-14 px-8 font-black border-2 border-primary text-primary hover:bg-primary/5 transition-all">
-              <Plus className="w-5 h-5 mr-2" />
-              Nouveau Médicament
-            </Button>
             <Button onClick={() => setIsAdding(true)} className="rounded-2xl h-14 px-8 font-black shadow-2xl shadow-primary/30 hover:scale-[1.02] transition-all">
               <Plus className="w-5 h-5 mr-2" />
               Ajouter Pharmacie
@@ -266,107 +262,7 @@ export default function PharmacyManagement() {
           </div>
         </div>
 
-        {isRegisteringMed && (
-          <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-[40px] p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
-              <h2 className="text-2xl font-bold mb-6">Nouveau Médicament</h2>
-              <form onSubmit={handleRegisterMed} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nom du médicament</Label>
-                  <Input
-                    required
-                    value={newMed.name}
-                    onChange={e => setNewMed({ ...newMed, name: e.target.value })}
-                    placeholder="Ex: Panadol 500mg"
-                    className="rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Input
-                    value={newMed.description}
-                    onChange={e => setNewMed({ ...newMed, description: e.target.value })}
-                    placeholder="Brève description..."
-                    className="rounded-xl"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="initial-stock">Médicaments en Stock (séparés par des virgules)</Label>
-                    <Input
-                      id="initial-stock"
-                      value={newMed.price} // This value should be handled differently if it's for initial stock
-                      onChange={(e) => setNewMed({ ...newMed, price: e.target.value })} // This onChange should be for initial stock
-                      placeholder="Doliprane, Amoxicilline, ..."
-                      className="rounded-xl"
-                    />
-                    <p className="text-[10px] text-muted-foreground">Une quantité par défaut de 10 sera ajoutée pour chaque médicament trouvé.</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Forme</Label>
-                    <select
-                      title="Forme du médicament"
-                      className="w-full bg-white border rounded-xl h-10 px-3 text-sm outline-none"
-                      value={newMed.typeUtilisation}
-                      onChange={e => setNewMed({ ...newMed, typeUtilisation: e.target.value })}
-                    >
-                      <option value="comprime">Comprimé</option>
-                      <option value="gelule">Gélule</option>
-                      <option value="sirop">Sirop</option>
-                      <option value="pommade">Pommade</option>
-                      <option value="injection">Injection</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Photo du médicament</Label>
-                  <div className="flex gap-4 items-center">
-                    <div className="flex-1">
-                      <Input
-                        value={newMed.photoUrl.startsWith('data:') ? 'Fichier chargé' : newMed.photoUrl}
-                        onChange={e => setNewMed({ ...newMed, photoUrl: e.target.value })}
-                        placeholder="URL de l'image..."
-                        className="rounded-xl"
-                      />
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="file"
-                        id="med-photo-upload"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handlePhotoUpload}
-                        title="Charger une photo du médicament"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="rounded-xl h-10 w-10 p-0"
-                        onClick={() => document.getElementById('med-photo-upload')?.click()}
-                      >
-                        <Upload className="w-5 h-5" />
-                      </Button>
-                    </div>
-                  </div>
-                  {newMed.photoUrl && (
-                    <div className="mt-2 text-center">
-                      <img
-                        src={newMed.photoUrl}
-                        alt="Preview"
-                        className="h-20 mx-auto rounded-lg border object-cover"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-4 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsRegisteringMed(false)} className="flex-1 rounded-xl">Annuler</Button>
-                  <Button type="submit" className="flex-1 rounded-xl">Enregistrer</Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+
 
         {isAdding && (
           <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
