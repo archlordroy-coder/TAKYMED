@@ -26,6 +26,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "indent-string": "^5.0.0",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "papaparse": "^5.5.3",

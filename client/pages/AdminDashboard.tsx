@@ -426,11 +426,11 @@ export default function AdminDashboard() {
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead>
-                                    <tr className="border-b" style={{ borderColor: "#f1f5f9", background: "#fafbfc" }}>
-                                        <th className="px-6 py-4 text-[10px] font-bold uppercase text-slate-400 tracking-widest">Utilisateur</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold uppercase text-slate-400 tracking-widest">Type</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold uppercase text-slate-400 tracking-widest">Contact</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold uppercase text-slate-400 tracking-widest text-right">Actions</th>
+                                    <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Utilisateur</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Type</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Contact</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
@@ -446,8 +446,8 @@ export default function AdminDashboard() {
                                                                 {displayName.charAt(0).toUpperCase()}
                                                             </div>
                                                             <div>
-                                                                <p className="font-bold text-slate-800 text-sm">{displayName}</p>
-                                                                <p className="text-[10px] text-slate-400 font-semibold">ID #{u.id}</p>
+                                                                <p className="font-extrabold text-slate-900 text-sm">{displayName}</p>
+                                                                <p className="text-xs text-slate-500 font-bold">ID #{u.id}</p>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -462,7 +462,7 @@ export default function AdminDashboard() {
                                                             {u.type}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm text-slate-500 font-medium">
+                                                    <td className="px-6 py-4 text-sm text-slate-700 font-bold">
                                                         {u.email || u.phone || "—"}
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
@@ -579,11 +579,11 @@ export default function AdminDashboard() {
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead>
-                                    <tr className="border-b" style={{ borderColor: "#f1f5f9", background: "#fafbfc" }}>
-                                        <th className="px-6 py-4 text-[10px] font-bold uppercase text-slate-400 tracking-widest">Désignation</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold uppercase text-slate-400 tracking-widest">Forme</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold uppercase text-slate-400 tracking-widest">Dose Standard</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold uppercase text-slate-400 tracking-widest text-right">Actions</th>
+                                    <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Désignation</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Forme</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Dose Standard</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
@@ -602,7 +602,7 @@ export default function AdminDashboard() {
                                                     {m.unitId === 1 ? "Comprimé" : m.unitId === 2 ? "Gélule" : "Sirop"}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-slate-500 font-medium">
+                                            <td className="px-6 py-4 text-sm text-slate-700 font-bold">
                                                 {m.defaultDose} unité(s)
                                             </td>
                                             <td className="px-6 py-4 text-right space-x-1">
