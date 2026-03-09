@@ -105,8 +105,8 @@ export default function Dashboard() {
                               color="bg-primary"
                            />
                            <DashboardActionCard
-                              title="Stocks Pharmacies"
-                              description="Cherchez un médicament autour de vous"
+                              title="Recherche"
+                              description="Trouvez une pharmacie ayant le médicament voulu"
                               icon={<Search className="w-6 h-6" />}
                               link="/search"
                               color="bg-secondary"
@@ -181,82 +181,243 @@ export default function Dashboard() {
                </TabsContent>
 
                <TabsContent value="calendar" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="bg-white rounded-[40px] border shadow-xl p-8 lg:p-12 overflow-hidden relative">
-                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[100px] -mr-32 -mt-32" />
-                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 relative z-10">
-                        <div className="space-y-6">
-                           <h2 className="text-3xl font-black tracking-tighter">Votre Calendrier de Santé</h2>
-                           <p className="text-muted-foreground leading-relaxed">
-                              Visualisez vos prises quotidiennes et planifiez votre semaine de traitement en toute sérénité.
-                           </p>
-
-                           <div className="p-6 bg-slate-50 rounded-[30px] border shadow-inner w-fit mx-auto lg:mx-0">
-                              <CalendarUI
-                                 mode="single"
-                                 className="rounded-2xl bg-white border shadow-sm"
-                              />
-                           </div>
-
-                           <div className="pt-4 flex flex-col gap-3">
-                              <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                                 <div className="w-3 h-3 rounded-full bg-primary" />
-                                 <span className="text-sm font-semibold">Jours avec prises programmées</span>
-                              </div>
-                           </div>
-                        </div>
-
-                        <div className="space-y-6">
-                           <h3 className="text-xl font-bold flex items-center gap-2">
-                              <Clock className="w-5 h-5 text-primary" />
-                              Prises Programmées
-                           </h3>
-
-                           <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                              {isLoading ? (
-                                 <div className="flex justify-center py-8">
-                                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                                 </div>
-                              ) : doses.length === 0 ? (
-                                 <div className="text-center p-8 bg-slate-50 rounded-2xl border border-dashed text-muted-foreground">
-                                    Aucune prise programmée.
-                                 </div>
-                              ) : (
-                                 doses.map((dose, idx) => (
-                                    <div key={dose.id || idx} className="group p-4 bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-4 hover:border-primary/30">
-                                       <div className="w-12 h-12 rounded-xl bg-slate-50 flex flex-col items-center justify-center border group-hover:bg-primary/5 transition-colors">
-                                          <span className="text-[10px] font-bold text-muted-foreground uppercase">Jour</span>
-                                          <span className="text-lg font-black text-primary leading-none">{dose.day}</span>
-                                       </div>
-                                       <div className="flex-1 min-w-0">
-                                          <h4 className="font-bold text-slate-800 truncate">{dose.medicationName}</h4>
-                                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                                             <span className="flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                {dose.time}
-                                             </span>
-                                             <span className="px-2 py-0.5 bg-slate-100 rounded-md font-medium">
-                                                {dose.dose} {dose.unit}
-                                             </span>
-                                          </div>
-                                       </div>
-                                       <div className={cn(
-                                          "w-10 h-10 rounded-full flex items-center justify-center border transition-colors",
-                                          dose.statusTaken ? "bg-green-500 border-green-500 text-white" : "bg-slate-50 text-slate-300"
-                                       )}>
-                                          <CheckCircle2 className="w-5 h-5" />
-                                       </div>
-                                    </div>
-                                 ))
-                              )}
-                           </div>
-                        </div>
-                     </div>
-                  </div>
+                  <CalendarView doses={doses} isLoading={isLoading} />
                </TabsContent>
             </Tabs>
          </div>
       </div>
    );
+}
+
+// ─── Color palette for medication doses ───────────────────────────────────────
+const DOSE_COLORS = [
+   { bar: "#ef4444", bg: "rgba(239,68,68,0.12)", text: "#ef4444" },   // red
+   { bar: "#3b82f6", bg: "rgba(59,130,246,0.12)", text: "#3b82f6" },  // blue
+   { bar: "#22c55e", bg: "rgba(34,197,94,0.12)", text: "#22c55e" },   // green
+   { bar: "#f59e0b", bg: "rgba(245,158,11,0.12)", text: "#f59e0b" },  // amber
+   { bar: "#a855f7", bg: "rgba(168,85,247,0.12)", text: "#a855f7" },  // purple
+   { bar: "#06b6d4", bg: "rgba(6,182,212,0.12)", text: "#06b6d4" },   // cyan
+];
+
+// ─── Calendar View Component ───────────────────────────────────────────────────
+function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: boolean }) {
+   const today = new Date();
+   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+   const [currentYear, setCurrentYear] = useState(today.getFullYear());
+   const [selectedDate, setSelectedDate] = useState(today.getDate());
+
+   const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+   const DAY_NAMES = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+
+   // Days in the current month
+   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+
+   // Build calendar grid
+   const calendarCells: (number | null)[] = [];
+   for (let i = 0; i < firstDayOfMonth; i++) calendarCells.push(null);
+   for (let d = 1; d <= daysInMonth; d++) calendarCells.push(d);
+
+   // Color map per medication name (consistent colors)
+   const medColorMap = new Map<string, typeof DOSE_COLORS[0]>();
+   doses.forEach(d => {
+      if (!medColorMap.has(d.medicationName)) {
+         medColorMap.set(d.medicationName, DOSE_COLORS[medColorMap.size % DOSE_COLORS.length]);
+      }
+   });
+
+   const selectedDoses = doses.filter((_, i) => {
+      // Since our mock data doesn't have exact dates, show all doses for any selected day
+      return true;
+   });
+
+   const prevMonth = () => {
+      if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); }
+      else setCurrentMonth(m => m - 1);
+   };
+   const nextMonth = () => {
+      if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); }
+      else setCurrentMonth(m => m + 1);
+   };
+
+   return (
+      <div className="rounded-[2.5rem] overflow-hidden border" style={{ background: "#0d1b2e", borderColor: "#1e3a5f" }}>
+         <div className="grid grid-cols-1 lg:grid-cols-[1fr,340px] min-h-[580px]">
+            {/* ── LEFT: Monthly Grid ── */}
+            <div className="p-6 md:p-8">
+               {/* Month header */}
+               <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                     <h2 className="text-xl font-bold text-white">{MONTH_NAMES[currentMonth]}</h2>
+                     <span className="text-slate-400 font-medium">{currentYear}</span>
+                  </div>
+                  <div className="flex gap-2">
+                     <button
+                        onClick={prevMonth}
+                        title="Mois précédent"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                        style={{ background: "rgba(255,255,255,0.07)" }}
+                     >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m15 18-6-6 6-6" /></svg>
+                     </button>
+                     <button
+                        onClick={nextMonth}
+                        title="Mois suivant"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                        style={{ background: "rgba(255,255,255,0.07)" }}
+                     >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m9 18 6-6-6-6" /></svg>
+                     </button>
+                  </div>
+               </div>
+
+               {/* Day names */}
+               <div className="grid grid-cols-7 mb-2">
+                  {DAY_NAMES.map(d => (
+                     <div key={d} className="text-center text-[11px] font-bold text-slate-500 py-2 uppercase tracking-wider">{d}</div>
+                  ))}
+               </div>
+
+               {/* Calendar grid */}
+               <div className="grid grid-cols-7 gap-y-1">
+                  {calendarCells.map((day, idx) => {
+                     if (day === null) return <div key={`empty-${idx}`} />;
+                     const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+                     const isSelected = day === selectedDate;
+                     const hasDoses = doses.length > 0; // In real app: check if this day has doses
+
+                     return (
+                        <button
+                           key={day}
+                           onClick={() => setSelectedDate(day)}
+                           className="flex flex-col items-center justify-start pt-1.5 pb-2 rounded-xl transition-all relative min-h-[52px] group"
+                           style={isSelected ? { background: "#1a6eb5" } : isToday ? { background: "rgba(26,110,181,0.2)" } : {}}
+                        >
+                           <span
+                              className="text-sm font-bold leading-none"
+                              style={{ color: isSelected ? "#fff" : isToday ? "#5ba4f5" : "#cbd5e1" }}
+                           >
+                              {day}
+                           </span>
+                           {/* Dose indicator dots */}
+                           {hasDoses && !isSelected && (
+                              <div className="flex gap-0.5 mt-1.5">
+                                 {doses.slice(0, Math.min(3, doses.length)).map((d, i) => {
+                                    const color = medColorMap.get(d.medicationName);
+                                    return <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: color?.bar || "#3b82f6" }} />;
+                                 })}
+                              </div>
+                           )}
+                           {isSelected && doses.length > 0 && (
+                              <div className="flex gap-0.5 mt-1.5">
+                                 {doses.slice(0, 3).map((_, i) => (
+                                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                                 ))}
+                              </div>
+                           )}
+                        </button>
+                     );
+                  })}
+               </div>
+
+               {/* Legend */}
+               <div className="mt-6 flex flex-wrap gap-3">
+                  {Array.from(medColorMap.entries()).map(([name, color]) => (
+                     <div key={name} className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full" style={{ background: color.bar }} />
+                        <span className="text-[11px] text-slate-400 font-medium truncate max-w-[120px]">{name}</span>
+                     </div>
+                  ))}
+                  {medColorMap.size === 0 && (
+                     <span className="text-xs text-slate-500 italic">Aucun médicament planifié</span>
+                  )}
+               </div>
+            </div>
+
+            {/* ── RIGHT: Daily Schedule ── */}
+            <div className="border-t lg:border-t-0 lg:border-l p-6 flex flex-col" style={{ borderColor: "#1e3a5f", background: "rgba(255,255,255,0.03)" }}>
+               {/* Header */}
+               <div className="mb-5">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Programmé</p>
+                  <h3 className="text-lg font-bold text-white mt-0.5">
+                     {selectedDate} {MONTH_NAMES[currentMonth]}, {currentYear}
+                  </h3>
+               </div>
+
+               {/* Scheduled doses */}
+               <div className="flex-1 space-y-3 overflow-y-auto max-h-[460px] pr-1">
+                  {isLoading ? (
+                     <div className="flex justify-center py-10">
+                        <Loader2 className="w-7 h-7 animate-spin text-blue-400" />
+                     </div>
+                  ) : selectedDoses.length === 0 ? (
+                     <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="w-14 h-14 rounded-2xl mb-4 flex items-center justify-center" style={{ background: "rgba(255,255,255,0.06)" }}>
+                           <CalendarUIIcon className="w-7 h-7 text-slate-500" />
+                        </div>
+                        <p className="text-slate-500 text-sm font-medium">Aucune prise<br />programmée</p>
+                     </div>
+                  ) : (
+                     selectedDoses.map((dose, idx) => {
+                        const color = medColorMap.get(dose.medicationName) || DOSE_COLORS[0];
+                        return (
+                           <div
+                              key={dose.id || idx}
+                              className="rounded-2xl p-4 flex gap-3 items-start relative overflow-hidden"
+                              style={{ background: color.bg, border: `1px solid ${color.bar}30` }}
+                           >
+                              {/* Color bar */}
+                              <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full" style={{ background: color.bar }} />
+                              <div className="ml-2 flex-1 min-w-0">
+                                 <div className="flex items-start justify-between gap-2">
+                                    <h4 className="font-bold text-white text-sm leading-tight truncate">{dose.medicationName}</h4>
+                                    <span
+                                       className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                                       style={{ color: color.text, background: `${color.bar}25` }}
+                                    >
+                                       {dose.dose} {dose.unit}
+                                    </span>
+                                 </div>
+                                 <div className="flex items-center gap-3 mt-2">
+                                    <span className="flex items-center gap-1 text-slate-400 text-xs">
+                                       <Clock className="w-3 h-3" /> {dose.time}
+                                    </span>
+                                    <span
+                                       className={cn(
+                                          "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                                          dose.statusTaken
+                                             ? "bg-green-500/20 text-green-400"
+                                             : "bg-orange-500/10 text-orange-400"
+                                       )}
+                                    >
+                                       {dose.statusTaken ? "✓ Pris" : "À prendre"}
+                                    </span>
+                                 </div>
+                              </div>
+                           </div>
+                        );
+                     })
+                  )}
+               </div>
+
+               {/* Footer stats */}
+               {!isLoading && (
+                  <div className="mt-4 pt-4 grid grid-cols-2 gap-3" style={{ borderTop: "1px solid #1e3a5f" }}>
+                     <div className="text-center p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }}>
+                        <p className="text-2xl font-black text-white">{selectedDoses.filter(d => d.statusTaken).length}</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Pris</p>
+                     </div>
+                     <div className="text-center p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }}>
+                        <p className="text-2xl font-black text-white">{selectedDoses.filter(d => !d.statusTaken).length}</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">À venir</p>
+                     </div>
+                  </div>
+               )}
+            </div>
+         </div>
+      </div>
+   );
+
 }
 
 function DashboardActionCard({ title, description, icon, link, color }: { title: string, description: string, icon: React.ReactNode, link: string, color: string }) {
