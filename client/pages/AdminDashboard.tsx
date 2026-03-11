@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,7 @@ interface AdminMedication {
         doseRecommandee: number;
         unitId?: number;
     };
+    isManualUpload?: boolean;
 }
 
 interface AccountTypeSetting {
@@ -148,8 +149,12 @@ export default function AdminDashboard() {
             doseRecommandee: 1,
             unitId: 1,
         },
+        isManualUpload: false,
     });
     const [editingMed, setEditingMed] = useState<AdminMedication | null>(null);
+
+    const newMedFileInputRef = useRef<HTMLInputElement>(null);
+    const editMedFileInputRef = useRef<HTMLInputElement>(null);
 
     const handleImageUpload = (
         file: File | undefined,
@@ -299,7 +304,9 @@ export default function AdminDashboard() {
                 typeUtilisation: "comprime",
                 precautionAlimentaire: "aucune",
                 posology: { categorieAge: "adulte", doseRecommandee: 1, unitId: 1 },
+                isManualUpload: false,
             });
+            if (newMedFileInputRef.current) newMedFileInputRef.current.value = "";
             refreshData();
         } else {
             const errorData = await res.json().catch(() => null);
@@ -342,6 +349,7 @@ export default function AdminDashboard() {
         if (res.ok) {
             toast.success("Mis à jour");
             setEditingMed(null);
+            if (editMedFileInputRef.current) editMedFileInputRef.current.value = "";
             refreshData();
         } else {
             const errorData = await res.json().catch(() => null);
@@ -895,16 +903,25 @@ export default function AdminDashboard() {
                                                 </div>
                                                 <div className="space-y-2">
                                                     <label className={labelClass}>Photo URL</label>
-                                                    <Input className={inputClass} value={newMed.photoUrl || ""} onChange={e => setNewMed({ ...newMed, photoUrl: e.target.value })} />
+                                                    <Input
+                                                        className={inputClass}
+                                                        value={newMed.isManualUpload ? "" : (newMed.photoUrl || "")}
+                                                        placeholder={newMed.isManualUpload ? "Image locale sélectionnée" : "https://example.com/image.jpg"}
+                                                        onChange={e => {
+                                                            setNewMed({ ...newMed, photoUrl: e.target.value, isManualUpload: false });
+                                                            if (newMedFileInputRef.current) newMedFileInputRef.current.value = "";
+                                                        }}
+                                                    />
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
                                                 <label className={labelClass}>Ou charger une image locale</label>
                                                 <Input
+                                                    ref={newMedFileInputRef}
                                                     type="file"
                                                     accept="image/*"
                                                     className={inputClass}
-                                                    onChange={(e) => handleImageUpload(e.target.files?.[0], (dataUrl) => setNewMed({ ...newMed, photoUrl: dataUrl }))}
+                                                    onChange={(e) => handleImageUpload(e.target.files?.[0], (dataUrl) => setNewMed({ ...newMed, photoUrl: dataUrl, isManualUpload: true }))}
                                                 />
                                                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">PNG/JPG/WebP - max 2MB</p>
                                             </div>
@@ -994,7 +1011,10 @@ export default function AdminDashboard() {
                                                 {m.defaultDose} unité(s)
                                             </td>
                                             <td className="px-6 py-4 text-right space-x-1">
-                                                <Button variant="ghost" size="icon" className="hover:bg-teal-50 hover:text-teal-600 rounded-xl" onClick={() => setEditingMed(m)}>
+                                                <Button variant="ghost" size="icon" className="hover:bg-teal-50 hover:text-teal-600 rounded-xl" onClick={() => {
+                                                    const isManual = m.photoUrl?.startsWith("/uploads/") || m.photoUrl?.startsWith("data:");
+                                                    setEditingMed({ ...m, isManualUpload: isManual });
+                                                }}>
                                                     <Edit2 size={15} />
                                                 </Button>
                                                 <Button variant="ghost" size="icon" className="hover:bg-red-50 hover:text-red-500 rounded-xl" onClick={() => handleDeleteMed(m.id)}>
@@ -1206,16 +1226,25 @@ export default function AdminDashboard() {
                                 </div>
                                 <div className="space-y-2">
                                     <label className={labelClass}>Photo URL</label>
-                                    <Input className={inputClass} value={editingMed.photoUrl || ""} onChange={e => setEditingMed({ ...editingMed, photoUrl: e.target.value })} />
+                                    <Input
+                                        className={inputClass}
+                                        value={editingMed.isManualUpload ? "" : (editingMed.photoUrl || "")}
+                                        placeholder={editingMed.isManualUpload ? "Image locale sélectionnée" : ""}
+                                        onChange={e => {
+                                            setEditingMed({ ...editingMed, photoUrl: e.target.value, isManualUpload: false });
+                                            if (editMedFileInputRef.current) editMedFileInputRef.current.value = "";
+                                        }}
+                                    />
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <label className={labelClass}>Ou charger une image locale</label>
                                 <Input
+                                    ref={editMedFileInputRef}
                                     type="file"
                                     accept="image/*"
                                     className={inputClass}
-                                    onChange={(e) => handleImageUpload(e.target.files?.[0], (dataUrl) => setEditingMed({ ...editingMed, photoUrl: dataUrl }))}
+                                    onChange={(e) => handleImageUpload(e.target.files?.[0], (dataUrl) => setEditingMed({ ...editingMed, photoUrl: dataUrl, isManualUpload: true }))}
                                 />
                                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">PNG/JPG/WebP - max 2MB</p>
                             </div>
