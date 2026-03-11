@@ -131,13 +131,15 @@ export function initializeDatabase() {
             }
 
             const getAdminTypeId = () => db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get() as { id_type_compte: number };
-            const adminUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = 'admin'").get();
+            const adminPhone = process.env.ADMIN_PHONE || 'admin';
+            const adminPin = process.env.ADMIN_PIN || 'admin';
+            const adminUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = ?").get(adminPhone);
 
             if (!adminUser) {
                 console.log("Creating default admin user (admin/admin)...");
                 const adminTypeId = getAdminTypeId().id_type_compte;
                 const info = db.prepare("INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien) VALUES (?, ?, ?, 1)")
-                    .run('admin', 'admin', adminTypeId); // Using literal 'admin' for demo as per request
+                    .run(adminPhone, adminPin, adminTypeId);
 
                 db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
                     .run(info.lastInsertRowid, 'Administrateur Système');
