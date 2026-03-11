@@ -8,6 +8,7 @@ interface NewMed {
   name: string;
   description?: string;
   price?: string;
+  photoUrl?: string;
 }
 
 export function GlobalAdRails() {
@@ -61,21 +62,41 @@ function AdRail({ ad, side }: { ad?: NewMed; side: "left" | "right" }) {
       className={`hidden 2xl:flex fixed ${side}-0 top-20 bottom-0 z-30 w-[176px] bg-gradient-to-b ${railBg} group`}
       aria-label={`Voir la publicité pour ${ad.name}`}
     >
-      <div className="w-full h-full p-4 flex flex-col text-white">
-        <div className="text-[10px] uppercase tracking-wider font-bold opacity-90 flex items-center gap-1.5">
-          <Megaphone className="w-3 h-3" />
-          Publicité
-        </div>
-
-        <div className="mt-6 flex-1 flex flex-col items-center justify-center text-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <Pill className="w-7 h-7" />
+      <div className="w-full h-full flex flex-col text-white">
+        <div className="p-4">
+          <div className="text-[10px] uppercase tracking-wider font-bold opacity-90 flex items-center gap-1.5">
+            <Megaphone className="w-3 h-3" />
+            Publicité
           </div>
-          <p className="font-black text-base leading-tight">{ad.name}</p>
-          <p className="text-xs leading-relaxed line-clamp-6 opacity-95">{ad.description || "Nouveau ce mois-ci"}</p>
         </div>
 
-        <div className="mt-auto pt-4 border-t border-white/30">
+        <div className="flex-1 flex flex-col">
+          {/* Upper half - Product Image */}
+          <div className="h-1/2 relative overflow-hidden">
+            {ad.photoUrl ? (
+              <img 
+                src={ad.photoUrl} 
+                alt={ad.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="w-full h-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Pill className="w-16 h-16" />
+              </div>
+            )}
+          </div>
+          
+          {/* Lower half - Text Info */}
+          <div className="h-1/2 flex flex-col justify-center text-center gap-3 p-4">
+            <p className="font-black text-base leading-tight">{ad.name}</p>
+            <p className="text-xs leading-relaxed line-clamp-4 opacity-95">{ad.description || "Nouveau ce mois-ci"}</p>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-white/30">
           <p className="text-xs font-bold truncate">{ad.price || "Prix en pharmacie"}</p>
           <p className="text-[11px] font-semibold mt-1 group-hover:underline">Voir le produit</p>
         </div>
@@ -88,20 +109,34 @@ function AdCard({ ad }: { ad?: NewMed }) {
   if (!ad) return null;
 
   return (
-    <div className="bg-white/95 backdrop-blur border rounded-2xl shadow-xl w-full lg:w-[210px]">
+    <div className="bg-white/95 backdrop-blur border rounded-2xl shadow-xl w-full lg:w-[210px] overflow-hidden">
+      {/* Upper half - Product Image */}
+      <div className="h-24 relative overflow-hidden">
+        {ad.photoUrl ? (
+          <img 
+            src={ad.photoUrl} 
+            alt={ad.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-emerald-500/20 flex items-center justify-center">
+            <Pill className="w-10 h-10 text-primary" />
+          </div>
+        )}
+      </div>
+      
+      {/* Lower half - Info */}
       <div className="p-3 space-y-2">
         <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider text-primary">
           <Megaphone className="w-3 h-3" />
           Publicité
         </div>
-        <div className="flex items-start gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-            <Pill className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-black truncate">{ad.name}</p>
-            <p className="text-[11px] text-muted-foreground line-clamp-3">{ad.description || "Nouveau ce mois-ci"}</p>
-          </div>
+        <div className="min-w-0">
+          <p className="text-xs font-black truncate">{ad.name}</p>
+          <p className="text-[11px] text-muted-foreground line-clamp-2">{ad.description || "Nouveau ce mois-ci"}</p>
         </div>
         <div className="flex items-center justify-between gap-2 pt-1">
           <span className="text-[11px] font-bold text-primary truncate">{ad.price || "Prix en pharmacie"}</span>
@@ -112,7 +147,6 @@ function AdCard({ ad }: { ad?: NewMed }) {
           </Button>
         </Link>
       </div>
-      <div className="h-1 bg-gradient-to-r from-primary to-emerald-500 rounded-b-2xl" />
     </div>
   );
 }

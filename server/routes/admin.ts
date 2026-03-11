@@ -9,11 +9,9 @@ const medicationSchema = z.object({
     unitId: z.number().int().nullable().optional(),
     defaultDose: z.number().nonnegative().nullable().optional(),
     description: z.string().max(2000).optional().default(""),
-    photoUrl: z.string().max(5000).optional().default(""),
+    photoUrl: z.string().max(2000000).optional().default(""),
     price: z.string().max(50).optional().default(""),
     typeUtilisation: z.enum(["comprime", "sirop", "gelule", "pommade", "goutte", "spray", "injection"]).optional().default("comprime"),
-    modeAdministration: z.enum(["orale", "buvable", "injectable", "cutanee", "inhalation", "sublinguale", "oculaire", "nasale"]).optional().default("orale"),
-    momentRepas: z.enum(["avant_repas", "pendant_repas", "apres_repas", "a_jeun", "indifferent"]).optional().default("indifferent"),
     precautionAlimentaire: z.enum(["aucune", "eviter_alcool", "boire_beaucoup_eau", "eviter_produits_laitiers", "eviter_pamplemousse"]).optional().default("aucune"),
     posology: z.object({
         categorieAge: z.enum(["bébé", "enfant", "adulte"]),
@@ -123,7 +121,6 @@ router.get("/medications", (_req, res) => {
         const medications = db.prepare(`
             SELECT id_medicament as id, nom as name, id_unite_par_defaut as unitId, dose_par_defaut as defaultDose,
                    description, photo_url as photoUrl, prix as price, type_utilisation as typeUtilisation,
-                   mode_administration as modeAdministration, moment_repas as momentRepas,
                    precaution_alimentaire as precautionAlimentaire
             FROM Medicaments
             ORDER BY nom ASC
@@ -131,6 +128,28 @@ router.get("/medications", (_req, res) => {
         res.json({ medications });
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch medications" });
+    }
+});
+
+// Get single medication by ID
+router.get("/medications/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+        const medication = db.prepare(`
+            SELECT id_medicament as id, nom as name, id_unite_par_defaut as unitId, dose_par_defaut as defaultDose,
+                   description, photo_url as photoUrl, prix as price, type_utilisation as typeUtilisation,
+                   precaution_alimentaire as precautionAlimentaire
+            FROM Medicaments
+            WHERE id_medicament = ?
+        `).get(id);
+
+        if (!medication) {
+            return res.status(404).json({ error: "Medication not found" });
+        }
+
+        res.json({ medication });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch medication" });
     }
 });
 
@@ -153,15 +172,15 @@ router.post("/medications", (req, res) => {
         return res.status(400).json({ error: "Invalid medication payload" });
     }
 
-    const { name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, modeAdministration, momentRepas, precautionAlimentaire, posology } = parsed.data;
+    const { name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, precautionAlimentaire, posology } = parsed.data;
 
     try {
         const insertTx = db.transaction(() => {
             const result = db.prepare(`
                 INSERT INTO Medicaments
-                (nom, id_unite_par_defaut, dose_par_defaut, description, photo_url, prix, type_utilisation, mode_administration, moment_repas, precaution_alimentaire)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, modeAdministration, momentRepas, precautionAlimentaire);
+                (nom, id_unite_par_defaut, dose_par_defaut, description, photo_url, prix, type_utilisation, precaution_alimentaire)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, precautionAlimentaire);
 
             const medicationId = Number(result.lastInsertRowid);
 
@@ -202,15 +221,15 @@ router.put("/medications/:id", (req, res) => {
         return res.status(400).json({ error: "Invalid medication payload" });
     }
 
-    const { name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, modeAdministration, momentRepas, precautionAlimentaire, posology } = parsed.data;
+    const { name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, precautionAlimentaire, posology } = parsed.data;
     try {
         const updateTx = db.transaction(() => {
             db.prepare(`
                 UPDATE Medicaments
                 SET nom = ?, id_unite_par_defaut = ?, dose_par_defaut = ?, description = ?, photo_url = ?, prix = ?,
-                    type_utilisation = ?, mode_administration = ?, moment_repas = ?, precaution_alimentaire = ?
+                    type_utilisation = ?, precaution_alimentaire = ?
                 WHERE id_medicament = ?
-            `).run(name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, modeAdministration, momentRepas, precautionAlimentaire, id);
+            `).run(name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, precautionAlimentaire, id);
 
             if (posology) {
                 db.prepare("DELETE FROM PosologieDefautMedicaments WHERE id_medicament = ? AND categorie_age = ?")

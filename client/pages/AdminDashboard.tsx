@@ -84,8 +84,6 @@ interface AdminMedication {
     photoUrl?: string;
     price?: string;
     typeUtilisation?: string;
-    modeAdministration?: string;
-    momentRepas?: string;
     precautionAlimentaire?: string;
     posology?: {
         categorieAge: "bébé" | "enfant" | "adulte";
@@ -143,8 +141,6 @@ export default function AdminDashboard() {
         photoUrl: "",
         price: "",
         typeUtilisation: "comprime",
-        modeAdministration: "orale",
-        momentRepas: "indifferent",
         precautionAlimentaire: "aucune",
         posology: {
             categorieAge: "adulte",
@@ -214,11 +210,35 @@ export default function AdminDashboard() {
     };
 
     const handleAddMed = async () => {
+        // Clean up the payload to only include valid fields with proper defaults
+        const payload = {
+            name: newMed.name || "",
+            unitId: newMed.unitId ?? 1,
+            defaultDose: newMed.defaultDose ?? 1,
+            description: newMed.description || "",
+            photoUrl: newMed.photoUrl || "",
+            price: newMed.price || "",
+            typeUtilisation: newMed.typeUtilisation || "comprime",
+            precautionAlimentaire: newMed.precautionAlimentaire || "aucune",
+            posology: newMed.posology ? {
+                categorieAge: newMed.posology.categorieAge || "adulte",
+                doseRecommandee: newMed.posology.doseRecommandee ?? 1,
+                unitId: newMed.posology.unitId ?? (newMed.unitId || 1),
+            } : undefined,
+        };
+        
+        // Validate required fields
+        if (!payload.name || payload.name.trim().length < 2) {
+            toast.error("Le nom du médicament doit avoir au moins 2 caractères");
+            return;
+        }
+        
         const res = await fetch("/api/admin/medications", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newMed)
+            body: JSON.stringify(payload)
         });
+        
         if (res.ok) {
             toast.success("Médicament ajouté");
             setIsAddMedOpen(false);
@@ -230,24 +250,56 @@ export default function AdminDashboard() {
                 photoUrl: "",
                 price: "",
                 typeUtilisation: "comprime",
-                modeAdministration: "orale",
-                momentRepas: "indifferent",
                 precautionAlimentaire: "aucune",
                 posology: { categorieAge: "adulte", doseRecommandee: 1, unitId: 1 },
             });
             refreshData();
-        } else toast.error("Erreur d'ajout");
+        } else {
+            const errorData = await res.json().catch(() => null);
+            toast.error(errorData?.error || "Erreur d'ajout");
+        }
     };
 
     const handleUpdateMed = async () => {
         if (!editingMed) return;
+        
+        // Clean up the payload to only include valid fields with proper defaults
+        const payload = {
+            name: editingMed.name || "",
+            unitId: editingMed.unitId ?? 1,
+            defaultDose: editingMed.defaultDose ?? 1,
+            description: editingMed.description || "",
+            photoUrl: editingMed.photoUrl || "",
+            price: editingMed.price || "",
+            typeUtilisation: editingMed.typeUtilisation || "comprime",
+            precautionAlimentaire: editingMed.precautionAlimentaire || "aucune",
+            posology: editingMed.posology ? {
+                categorieAge: editingMed.posology.categorieAge || "adulte",
+                doseRecommandee: editingMed.posology.doseRecommandee ?? 1,
+                unitId: editingMed.posology.unitId ?? (editingMed.unitId || 1),
+            } : undefined,
+        };
+        
+        // Validate required fields
+        if (!payload.name || payload.name.trim().length < 2) {
+            toast.error("Le nom du médicament doit avoir au moins 2 caractères");
+            return;
+        }
+        
         const res = await fetch(`/api/admin/medications/${editingMed.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(editingMed)
+            body: JSON.stringify(payload)
         });
-        if (res.ok) { toast.success("Mis à jour"); setEditingMed(null); refreshData(); }
-        else toast.error("Erreur de mise à jour");
+        
+        if (res.ok) { 
+            toast.success("Mis à jour"); 
+            setEditingMed(null); 
+            refreshData(); 
+        } else {
+            const errorData = await res.json().catch(() => null);
+            toast.error(errorData?.error || "Erreur de mise à jour");
+        }
     };
 
     const handleDeleteMed = async (id: number) => {
@@ -644,12 +696,12 @@ export default function AdminDashboard() {
                                         </DialogHeader>
                                         <div className="space-y-4 py-4">
                                             <div className="space-y-2">
-                                                <label className={labelClass}>Nom du Produit</label>
+                                                <label className={labelClass}>Nom du Produit <span className="text-red-500">*</span></label>
                                                 <Input className={inputClass} value={newMed.name || ""} onChange={e => setNewMed({ ...newMed, name: e.target.value })} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
-                                                    <label className={labelClass}>Unité</label>
+                                                    <label className={labelClass}>Unité <span className="text-red-500">*</span></label>
                                                     <select
                                                         title="Sélectionner l'unité"
                                                         className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400"
@@ -664,7 +716,7 @@ export default function AdminDashboard() {
                                                     </select>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <label className={labelClass}>Dose Défaut</label>
+                                                    <label className={labelClass}>Dose Défaut <span className="text-red-500">*</span></label>
                                                     <Input type="number" className={inputClass} value={newMed.defaultDose ?? 1} onChange={e => setNewMed({ ...newMed, defaultDose: parseFloat(e.target.value) })} />
                                                 </div>
                                             </div>
@@ -703,31 +755,6 @@ export default function AdminDashboard() {
                                                         <option value="goutte">Goutte</option>
                                                         <option value="spray">Spray</option>
                                                         <option value="injection">Injection</option>
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className={labelClass}>Mode administration</label>
-                                                    <select title="Mode administration" className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400" value={newMed.modeAdministration || "orale"} onChange={e => setNewMed({ ...newMed, modeAdministration: e.target.value })}>
-                                                        <option value="orale">Orale</option>
-                                                        <option value="buvable">Buvable</option>
-                                                        <option value="injectable">Injectable</option>
-                                                        <option value="cutanee">Cutanée</option>
-                                                        <option value="inhalation">Inhalation</option>
-                                                        <option value="sublinguale">Sublinguale</option>
-                                                        <option value="oculaire">Oculaire</option>
-                                                        <option value="nasale">Nasale</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <label className={labelClass}>Moment repas</label>
-                                                    <select title="Moment repas" className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400" value={newMed.momentRepas || "indifferent"} onChange={e => setNewMed({ ...newMed, momentRepas: e.target.value })}>
-                                                        <option value="avant_repas">Avant repas</option>
-                                                        <option value="pendant_repas">Pendant repas</option>
-                                                        <option value="apres_repas">Après repas</option>
-                                                        <option value="a_jeun">À jeun</option>
-                                                        <option value="indifferent">Indifférent</option>
                                                     </select>
                                                 </div>
                                                 <div className="space-y-2">
@@ -900,16 +927,16 @@ export default function AdminDashboard() {
                     {editingMed && (
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <label className={labelClass}>Nom</label>
+                                <label className={labelClass}>Nom <span className="text-red-500">*</span></label>
                                 <Input className={inputClass} value={editingMed.name} onChange={e => setEditingMed({ ...editingMed, name: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className={labelClass}>Unité</label>
+                                    <label className={labelClass}>Unité <span className="text-red-500">*</span></label>
                                     <select
                                         title="Sélectionner l'unité"
                                         className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400"
-                                        value={editingMed.unitId}
+                                        value={editingMed.unitId?.toString() || "1"}
                                         onChange={e => setEditingMed({ ...editingMed, unitId: parseInt(e.target.value) })}
                                     >
                                         <option value={1}>mg</option>
@@ -920,7 +947,7 @@ export default function AdminDashboard() {
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={labelClass}>Dose Défaut</label>
+                                    <label className={labelClass}>Dose Défaut <span className="text-red-500">*</span></label>
                                     <Input type="number" className={inputClass} value={editingMed.defaultDose} onChange={e => setEditingMed({ ...editingMed, defaultDose: parseFloat(e.target.value) })} />
                                 </div>
                             </div>
