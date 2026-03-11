@@ -23,6 +23,7 @@ export default function Dashboard() {
    const { user } = useAuth();
    const [doses, setDoses] = useState<DoseSchedule[]>([]);
    const [stats, setStats] = useState<any>(null);
+   const [patients, setPatients] = useState<any[]>([]);
    const [isLoading, setIsLoading] = useState(true);
 
    useEffect(() => {
@@ -34,6 +35,7 @@ export default function Dashboard() {
             const data = await res.json();
             setDoses(data.doses);
             setStats(data.stats);
+            setPatients(data.patients || []);
          } catch (error) {
             console.error(error);
             toast.error("Erreur lors du chargement des ordonnances");
@@ -105,7 +107,7 @@ export default function Dashboard() {
                </TabsList>
 
                <TabsContent value="today" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className={cn("grid grid-cols-1 gap-8", user.type !== 'standard' ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
                      {/* Left Column: Quick Actions */}
                      <div className="lg:col-span-1 space-y-8">
                         <h2 className="text-xl font-bold flex items-center gap-2 px-2">
@@ -139,7 +141,7 @@ export default function Dashboard() {
                         </div>
                      </div>
 
-                     {/* Right Column: Status & Activity */}
+                     {/* Middle Column: Status & Activity */}
                      <div className="lg:col-span-2 space-y-8">
                         <h2 className="text-xl font-bold flex items-center gap-2 px-2">
                            <CalendarUIIcon className="w-5 h-5 text-primary" />
@@ -193,6 +195,38 @@ export default function Dashboard() {
                            </div>
                         </div>
                      </div>
+
+                     {/* Right Column: Client List (Pro/Admin/Pharmacist Only) */}
+                     {user.type !== 'standard' && (
+                        <div className="lg:col-span-1 space-y-8">
+                           <h2 className="text-xl font-bold flex items-center gap-2 px-2">
+                              <Store className="w-5 h-5 text-primary" />
+                              Liste Client
+                           </h2>
+                           <div className="bg-white rounded-[40px] border shadow-sm p-6 flex flex-col h-[500px]">
+                              {patients.length === 0 ? (
+                                 <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground opacity-60">
+                                    <Store className="w-12 h-12 mb-4" />
+                                    <p>Aucun client enregistré.</p>
+                                 </div>
+                              ) : (
+                                 <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                                    {patients.map(p => (
+                                       <div key={p.id} className="p-4 rounded-3xl border border-slate-100 hover:border-primary/30 hover:shadow-md transition-all bg-slate-50 group cursor-pointer flex justify-between items-center">
+                                          <div>
+                                             <h4 className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors line-clamp-1">{p.name || 'Client Inconnu'}</h4>
+                                             <p className="text-[10px] text-muted-foreground mt-1">Enregistré le {new Date(p.date).toLocaleDateString('fr-FR')}</p>
+                                          </div>
+                                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-all shadow-sm">
+                                             <ArrowRight className="w-3 h-3" />
+                                          </div>
+                                       </div>
+                                    ))}
+                                 </div>
+                              )}
+                           </div>
+                        </div>
+                     )}
                   </div>
                </TabsContent>
 

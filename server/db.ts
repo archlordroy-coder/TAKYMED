@@ -76,7 +76,7 @@ export function initializeDatabase() {
             const hasCategorieAge = ordonnanceColumns.some(c => c.name === 'categorie_age');
             if (!hasCategorieAge) {
                 console.log("Adding categorie_age column to Ordonnances...");
-                db.exec("ALTER TABLE Ordonnances ADD COLUMN categorie_age TEXT CHECK(categorie_age IN ('bébé', 'enfant', 'adulte')) DEFAULT 'adulte'");
+                db.exec("ALTER TABLE Ordonnances ADD COLUMN categorie_age TEXT DEFAULT 'adulte'");
             }
 
             // New Migrations for Phase 14
@@ -93,12 +93,28 @@ export function initializeDatabase() {
                 db.exec("ALTER TABLE TypesComptes ADD COLUMN max_rappels INT DEFAULT -1");
             }
 
-            // Create PosologieDefautMedicaments table if not exists
+            // Create CategoriesAge table
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS CategoriesAge (
+                    id_categorie INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nom_categorie TEXT NOT NULL UNIQUE,
+                    description TEXT
+                )
+            `);
+            const catAgeCount = db.prepare("SELECT COUNT(*) as count FROM CategoriesAge").get() as { count: number };
+            if (catAgeCount.count === 0) {
+                console.log("Adding default age categories...");
+                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description) VALUES (?, ?)").run('bébé', '0 à 2 ans');
+                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description) VALUES (?, ?)").run('enfant', '2 à 12 ans');
+                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description) VALUES (?, ?)").run('adulte', 'Plus de 12 ans');
+            }
+
+            // Create PosologieDefautMedicaments table if not exists (Updated for dynamic categories)
             db.exec(`
                 CREATE TABLE IF NOT EXISTS PosologieDefautMedicaments (
                     id_posologie INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_medicament INT NOT NULL,
-                    categorie_age TEXT CHECK(categorie_age IN ('bébé', 'enfant', 'adulte')),
+                    categorie_age TEXT,
                     dose_recommandee DECIMAL(10,2),
                     id_unite INT,
                     FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE,

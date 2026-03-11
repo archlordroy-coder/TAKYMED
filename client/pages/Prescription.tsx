@@ -39,9 +39,11 @@ export default function Prescription() {
   const [patient, setPatient] = useState({
     title: "",
     name: user?.name || "",
-    categorieAge: "adulte" as "bébé" | "enfant" | "adulte",
+    categorieAge: "",
     weight: 0
   });
+
+  const [categories, setCategories] = useState<{ id: number, name: string, description: string }[]>([]);
 
   const [medications, setMedications] = useState<MedicationEntry[]>([
     {
@@ -74,7 +76,25 @@ export default function Prescription() {
         console.error("Erreur lors du chargement des médicaments:", err);
       }
     }
+
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        if (res.ok) {
+          const data = await res.json();
+          setCategories(data.categories);
+          // Set default category to the first one available
+          if (data.categories.length > 0 && !patient.categorieAge) {
+            setPatient(p => ({ ...p, categorieAge: data.categories[0].name }));
+          }
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des catégories:", err);
+      }
+    }
+
     fetchMeds();
+    fetchCategories();
   }, []);
 
   const addMedication = () => {
@@ -193,7 +213,7 @@ export default function Prescription() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-2 space-y-2">
-                  <Label>Titre / Nom de l'ordonnance</Label>
+                  <Label>Nom du client</Label>
                   <Input
                     value={patient.title}
                     onChange={(e) => setPatient({ ...patient, title: e.target.value })}
@@ -201,16 +221,18 @@ export default function Prescription() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Catégorie d'âge</Label>
+                  <Label>Catégorie</Label>
                   <select
                     title="Sélectionner la catégorie d'âge"
                     className="w-full h-12 rounded-xl border bg-slate-50 px-3 text-sm focus-visible:ring-2 ring-primary/20 outline-none"
                     value={patient.categorieAge}
-                    onChange={(e) => setPatient({ ...patient, categorieAge: e.target.value as any })}
+                    onChange={(e) => setPatient({ ...patient, categorieAge: e.target.value })}
                   >
-                    <option value="adulte">Adulte</option>
-                    <option value="enfant">Enfant</option>
-                    <option value="bébé">Bébé</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name.charAt(0).toUpperCase() + cat.name.slice(1)} {cat.description ? `(${cat.description})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 {(patient.categorieAge === "bébé" || patient.categorieAge === "enfant") && (

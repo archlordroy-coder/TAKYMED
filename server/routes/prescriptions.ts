@@ -14,6 +14,7 @@ router.get("/", (req, res) => {
         cp.id_calendrier_prise as id,
         m.id_medicament as medicationId,
         m.nom as medicationName,
+        o.titre as clientName,
         eo.dose_personnalisee as dose,
         cp.heure_prevue as time,
         cp.rappel_envoye as statusReminderSent,
@@ -31,6 +32,7 @@ router.get("/", (req, res) => {
             id: d.id,
             medicationId: d.medicationId,
             medicationName: d.medicationName,
+            clientName: d.clientName || 'Patient',
             dose: d.dose,
             unit: "unité",
             scheduledAt: d.time,
@@ -40,10 +42,19 @@ router.get("/", (req, res) => {
             statusTaken: !!d.statusTaken
         }));
 
+        // Fetch unique patients/prescriptions for the user
+        const patientsDb = db.prepare(`
+           SELECT id_ordonnance as id, titre as name, date_ordonnance as date
+           FROM Ordonnances
+           WHERE id_utilisateur = ? AND est_active = 1
+           ORDER BY date_ordonnance DESC
+        `).all(userId);
+
         const pharmacyCount = db.prepare("SELECT COUNT(*) as count FROM Pharmacies").get() as { count: number };
 
         res.json({
             doses: mappedDoses,
+            patients: patientsDb,
             stats: {
                 observanceRate: mappedDoses.length > 0
                     ? Math.round((mappedDoses.filter(d => d.statusTaken).length / mappedDoses.length) * 100)

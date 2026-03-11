@@ -112,6 +112,7 @@ export default function AdminDashboard() {
         if (path.includes("catalogue")) return "meds";
         if (path.includes("abonnements") || path.includes("settings")) return "settings";
         if (path.includes("pharmacies")) return "pharmacies";
+        if (path.includes("categories")) return "categories";
         if (path.includes("analytics")) return "analytics";
         return "analytics"; // Default for /admin
     };
@@ -121,6 +122,7 @@ export default function AdminDashboard() {
         else if (value === "meds") navigate("/admin/catalogue");
         else if (value === "settings") navigate("/admin/settings");
         else if (value === "pharmacies") navigate("/admin/pharmacies");
+        else if (value === "categories") navigate("/admin/categories");
         else if (value === "analytics") navigate("/admin");
     };
 
@@ -129,8 +131,13 @@ export default function AdminDashboard() {
     const [pharmacies, setPharmacies] = useState<AdminPharmacy[]>([]);
     const [medications, setMedications] = useState<AdminMedication[]>([]);
     const [settings, setSettings] = useState<AccountTypeSetting[]>([]);
+    const [categories, setCategories] = useState<{ id: number, name: string, description: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+
+    const [isAddCatOpen, setIsAddCatOpen] = useState(false);
+    const [newCat, setNewCat] = useState({ name: "", description: "" });
+    const [editingCat, setEditingCat] = useState<{ id: number, name: string, description: string } | null>(null);
 
     const [isAddMedOpen, setIsAddMedOpen] = useState(false);
     const [newMed, setNewMed] = useState<Partial<AdminMedication>>({
@@ -174,14 +181,15 @@ export default function AdminDashboard() {
 
     const refreshData = async () => {
         try {
-            const [statsRes, usersRes, medsRes, settingsRes, pharmRes] = await Promise.all([
+            const [statsRes, usersRes, medsRes, settingsRes, pharmRes, catRes] = await Promise.all([
                 fetch("/api/admin/stats"),
                 fetch("/api/admin/users"),
                 fetch("/api/admin/medications"),
                 fetch("/api/admin/settings"),
-                fetch("/api/admin/pharmacies")
+                fetch("/api/admin/pharmacies"),
+                fetch("/api/categories")
             ]);
-            if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok) {
+            if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok && catRes.ok) {
                 setStats(await statsRes.json());
                 const uData = await usersRes.json();
                 setUsers(uData.users);
@@ -191,6 +199,8 @@ export default function AdminDashboard() {
                 setSettings(sData.types);
                 const pData = await pharmRes.json();
                 setPharmacies(pData.pharmacies);
+                const cData = await catRes.json();
+                setCategories(cData.categories);
             }
         } catch (err) {
             console.error(err);
@@ -226,19 +236,19 @@ export default function AdminDashboard() {
                 unitId: newMed.posology.unitId ?? (newMed.unitId || 1),
             } : undefined,
         };
-        
+
         // Validate required fields
         if (!payload.name || payload.name.trim().length < 2) {
             toast.error("Le nom du médicament doit avoir au moins 2 caractères");
             return;
         }
-        
+
         const res = await fetch("/api/admin/medications", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        
+
         if (res.ok) {
             toast.success("Médicament ajouté");
             setIsAddMedOpen(false);
@@ -262,7 +272,7 @@ export default function AdminDashboard() {
 
     const handleUpdateMed = async () => {
         if (!editingMed) return;
-        
+
         // Clean up the payload to only include valid fields with proper defaults
         const payload = {
             name: editingMed.name || "",
@@ -279,23 +289,23 @@ export default function AdminDashboard() {
                 unitId: editingMed.posology.unitId ?? (editingMed.unitId || 1),
             } : undefined,
         };
-        
+
         // Validate required fields
         if (!payload.name || payload.name.trim().length < 2) {
             toast.error("Le nom du médicament doit avoir au moins 2 caractères");
             return;
         }
-        
+
         const res = await fetch(`/api/admin/medications/${editingMed.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        
-        if (res.ok) { 
-            toast.success("Mis à jour"); 
-            setEditingMed(null); 
-            refreshData(); 
+
+        if (res.ok) {
+            toast.success("Mis à jour");
+            setEditingMed(null);
+            refreshData();
         } else {
             const errorData = await res.json().catch(() => null);
             toast.error(errorData?.error || "Erreur de mise à jour");
@@ -317,6 +327,52 @@ export default function AdminDashboard() {
         });
         if (res.ok) { toast.success("Paramètres mis à jour"); refreshData(); }
         else toast.error("Erreur de sauvegarde");
+    };
+
+    const handleAddCat = async () => {
+        if (!newCat.name.trim()) return toast.error("Le nom est requis");
+        const res = await fetch("/api/categories", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newCat)
+        });
+        if (res.ok) {
+            toast.success("Catégorie ajoutée");
+            setNewCat({ name: "", description: "" });
+            setIsAddCatOpen(false);
+            refreshData();
+        } else {
+            const data = await res.json().catch(() => null);
+            toast.error(data?.error || "Erreur lors de l'ajout");
+        }
+    };
+
+    const handleUpdateCat = async () => {
+        if (!editingCat || !editingCat.name.trim()) return;
+        const res = await fetch(`/api/categories/${editingCat.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(editingCat)
+        });
+        if (res.ok) {
+            toast.success("Catégorie modifiée");
+            setEditingCat(null);
+            refreshData();
+        } else {
+            const data = await res.json().catch(() => null);
+            toast.error(data?.error || "Erreur de modification");
+        }
+    };
+
+    const handleDeleteCat = async (id: number) => {
+        if (!confirm("Supprimer cette catégorie d'âge ?")) return;
+        const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            toast.success("Catégorie supprimée");
+            refreshData();
+        } else {
+            toast.error("Erreur, cette catégorie est peut-être utilisée.");
+        }
     };
 
     // ============== CSV EXPORT ==============
@@ -541,6 +597,7 @@ export default function AdminDashboard() {
                         { value: "meds", label: "Catalogue" },
                         { value: "pharmacies", label: "Pharmacies" },
                         { value: "settings", label: "Abonnements" },
+                        { value: "categories", label: "Catégories d'âge" },
                         { value: "analytics", label: "Analytique" },
                     ].map(tab => (
                         <TabsTrigger
@@ -771,10 +828,10 @@ export default function AdminDashboard() {
                                             <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 space-y-3">
                                                 <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Posologie recommandée (optionnelle)</p>
                                                 <div className="grid grid-cols-3 gap-2">
-                                                    <select title="Catégorie d'âge" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={newMed.posology?.categorieAge || "adulte"} onChange={e => setNewMed({ ...newMed, posology: { ...(newMed.posology || { doseRecommandee: 1, unitId: 1 }), categorieAge: e.target.value as "bébé" | "enfant" | "adulte" } })}>
-                                                        <option value="bébé">Bébé</option>
-                                                        <option value="enfant">Enfant</option>
-                                                        <option value="adulte">Adulte</option>
+                                                    <select title="Catégorie d'âge" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={newMed.posology?.categorieAge || categories[0]?.name || "adulte"} onChange={e => setNewMed({ ...newMed, posology: { ...(newMed.posology || { doseRecommandee: 1, unitId: 1 }), categorieAge: e.target.value as any } })}>
+                                                        {categories.map(cat => (
+                                                            <option key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</option>
+                                                        ))}
                                                     </select>
                                                     <Input type="number" className="h-10 rounded-xl text-xs" value={newMed.posology?.doseRecommandee ?? 1} onChange={e => setNewMed({ ...newMed, posology: { ...(newMed.posology || { categorieAge: "adulte", unitId: newMed.unitId || 1 }), doseRecommandee: parseFloat(e.target.value) || 0 } })} />
                                                     <select title="Unité posologie" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={newMed.posology?.unitId ?? newMed.unitId ?? 1} onChange={e => setNewMed({ ...newMed, posology: { ...(newMed.posology || { categorieAge: "adulte", doseRecommandee: 1 }), unitId: parseInt(e.target.value) } })}>
@@ -909,6 +966,86 @@ export default function AdminDashboard() {
                     </div>
                 </TabsContent>
 
+                {/* CATEGORIES TAB */}
+                <TabsContent value="categories" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-white rounded-[2rem] border shadow-sm overflow-hidden" style={{ borderColor: "#e2e8f0" }}>
+                        <div className="p-6 border-b flex items-center justify-between gap-4" style={{ borderColor: "#f1f5f9" }}>
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800">Catégories d'âge</h3>
+                                <p className="text-xs text-slate-400 font-medium mt-0.5">Pour personnaliser les posologies</p>
+                            </div>
+                            <Dialog open={isAddCatOpen} onOpenChange={setIsAddCatOpen}>
+                                <DialogTrigger asChild>
+                                    <Button
+                                        className="text-white rounded-xl px-5 h-10 font-bold shadow-md"
+                                        style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
+                                    >
+                                        <Plus className="w-4 h-4 mr-2" /> Nouvelle Catégorie
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-slate-800">Ajouter une Catégorie</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <label className={labelClass}>Nom de la Catégorie <span className="text-red-500">*</span></label>
+                                            <Input className={inputClass} placeholder="ex: adolescent" value={newCat.name} onChange={e => setNewCat({ ...newCat, name: e.target.value.toLowerCase() })} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className={labelClass}>Description</label>
+                                            <Input className={inputClass} placeholder="ex: 12 à 18 ans" value={newCat.description} onChange={e => setNewCat({ ...newCat, description: e.target.value })} />
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button
+                                            className="w-full h-11 rounded-xl font-bold text-white"
+                                            style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
+                                            onClick={handleAddCat}
+                                        >
+                                            Ajouter
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Catégorie</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Description</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
+                                    {categories.map((c) => (
+                                        <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-slate-800 text-sm capitalize">{c.name}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">{c.description || "—"}</td>
+                                            <td className="px-6 py-4 text-right space-x-1">
+                                                <Button variant="ghost" size="icon" className="hover:bg-teal-50 hover:text-teal-600 rounded-xl" onClick={() => setEditingCat(c)}>
+                                                    <Edit2 size={15} />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="hover:bg-red-50 hover:text-red-500 rounded-xl" onClick={() => handleDeleteCat(c.id)}>
+                                                    <Trash2 size={15} />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {categories.length === 0 && (
+                                        <tr>
+                                            <td colSpan={3} className="px-6 py-8 text-center text-slate-500 font-bold text-sm">
+                                                Aucune catégorie enregistrée.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </TabsContent>
+
                 {/* ANALYTICS TAB */}
                 <TabsContent value="analytics">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -978,10 +1115,10 @@ export default function AdminDashboard() {
                             <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 space-y-3">
                                 <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Posologie recommandée (optionnelle)</p>
                                 <div className="grid grid-cols-3 gap-2">
-                                    <select title="Catégorie d'âge" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={editingMed.posology?.categorieAge || "adulte"} onChange={e => setEditingMed({ ...editingMed, posology: { ...(editingMed.posology || { doseRecommandee: 1, unitId: editingMed.unitId || 1 }), categorieAge: e.target.value as "bébé" | "enfant" | "adulte" } })}>
-                                        <option value="bébé">Bébé</option>
-                                        <option value="enfant">Enfant</option>
-                                        <option value="adulte">Adulte</option>
+                                    <select title="Catégorie d'âge" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={editingMed.posology?.categorieAge || categories[0]?.name || "adulte"} onChange={e => setEditingMed({ ...editingMed, posology: { ...(editingMed.posology || { doseRecommandee: 1, unitId: editingMed.unitId || 1 }), categorieAge: e.target.value as any } })}>
+                                        {categories.map(cat => (
+                                            <option key={cat.id} value={cat.name}>{cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}</option>
+                                        ))}
                                     </select>
                                     <Input type="number" className="h-10 rounded-xl text-xs" value={editingMed.posology?.doseRecommandee ?? 1} onChange={e => setEditingMed({ ...editingMed, posology: { ...(editingMed.posology || { categorieAge: "adulte", unitId: editingMed.unitId || 1 }), doseRecommandee: parseFloat(e.target.value) || 0 } })} />
                                     <select title="Unité posologie" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={editingMed.posology?.unitId ?? editingMed.unitId ?? 1} onChange={e => setEditingMed({ ...editingMed, posology: { ...(editingMed.posology || { categorieAge: "adulte", doseRecommandee: 1 }), unitId: parseInt(e.target.value) } })}>
@@ -1000,6 +1137,36 @@ export default function AdminDashboard() {
                             className="w-full h-11 rounded-xl font-bold text-white"
                             style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
                             onClick={handleUpdateMed}
+                        >
+                            Sauvegarder
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Cat Dialog */}
+            <Dialog open={!!editingCat} onOpenChange={open => !open && setEditingCat(null)}>
+                <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-slate-800">Éditer la Catégorie</DialogTitle>
+                    </DialogHeader>
+                    {editingCat && (
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <label className={labelClass}>Nom de la Catégorie <span className="text-red-500">*</span></label>
+                                <Input className={inputClass} value={editingCat.name} onChange={e => setEditingCat({ ...editingCat, name: e.target.value.toLowerCase() })} />
+                            </div>
+                            <div className="space-y-2">
+                                <label className={labelClass}>Description</label>
+                                <Input className={inputClass} value={editingCat.description} onChange={e => setEditingCat({ ...editingCat, description: e.target.value })} />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button
+                            className="w-full h-11 rounded-xl font-bold text-white"
+                            style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
+                            onClick={handleUpdateCat}
                         >
                             Sauvegarder
                         </Button>
