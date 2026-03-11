@@ -122,10 +122,11 @@ router.post("/login", (req, res) => {
     let user: any;
     let frontendType: "standard" | "professional" | "pharmacist" | "admin" =
       "standard";
+    let typeRecord: { id_type_compte: number; nom_type: string } | undefined;
 
     if (type) {
       const dbType = typeMap[type] || "Standard";
-      const typeRecord = db
+      typeRecord = db
         .prepare(
           "SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = ?",
         )
@@ -169,24 +170,26 @@ router.post("/login", (req, res) => {
     }
 
     if (!user && normalizedPhone !== "admin") {
+      // Get the standard type as fallback
       const standardType = db
         .prepare(
           "SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = 'Standard'",
         )
         .get() as { id_type_compte: number; nom_type: string } | undefined;
 
-      if (!standardType) {
-        return res.status(500).json({ error: "Missing standard account type" });
+      const accountType = typeRecord || standardType;
+      if (!accountType) {
+        return res.status(500).json({ error: "Missing account type" });
       }
 
       const info = db
         .prepare(
           `
             INSERT INTO Utilisateurs (numero_telephone, id_type_compte, est_pharmacien)
-            VALUES (?, ?, 0)
+            VALUES (?, ?, ?)
           `,
         )
-        .run(normalizedPhone, standardType.id_type_compte);
+        .run(normalizedPhone, accountType.id_type_compte, accountType.nom_type === "Pharmacien" ? 1 : 0);
 
       db.prepare(
         `INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)`,
@@ -204,7 +207,7 @@ router.post("/login", (req, res) => {
         )
         .get(info.lastInsertRowid);
 
-      frontendType = "standard";
+      frontendType = reverseTypeMap[user.nom_type] || "standard";
     }
 
     if (!user) {

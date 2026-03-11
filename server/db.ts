@@ -126,6 +126,28 @@ export function initializeDatabase() {
                 db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
                     .run(info.lastInsertRowid, 'Administrateur Système');
             }
+
+            // Create test users for Professional and Pharmacist accounts
+            const proType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Professionnel'").get() as { id_type_compte: number };
+            const pharmType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Pharmacien'").get() as { id_type_compte: number };
+
+            const proUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = '+237 612345678'").get();
+            if (!proUser && proType) {
+                console.log("Creating test professional user (+237 612345678 / 1234)...");
+                const info = db.prepare("INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien) VALUES (?, ?, ?, 0)")
+                    .run('+237 612345678', '1234', proType.id_type_compte);
+                db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
+                    .run(info.lastInsertRowid, 'Utilisateur Professionnel');
+            }
+
+            const pharmUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = '+237 699999999'").get();
+            if (!pharmUser && pharmType) {
+                console.log("Creating test pharmacist user (+237 699999999 / 1234)...");
+                const info = db.prepare("INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien) VALUES (?, ?, ?, 1)")
+                    .run('+237 699999999', '1234', pharmType.id_type_compte);
+                db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
+                    .run(info.lastInsertRowid, 'Pharmacien Test');
+            }
         }
     } catch (error) {
         console.error("Failed to initialize database:", error);

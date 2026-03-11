@@ -12,7 +12,7 @@ router.get("/", (req, res) => {
         let sql = `
             SELECT id_medicament as id, nom as name, description, photo_url as photoUrl, 
                    prix as price, date_ajout as dateAdded, type_utilisation as type, 
-                   precaution_alimentaire as precautions, mode_administration as mode, moment_repas as moment
+                   precaution_alimentaire as precautions
             FROM Medicaments
         `;
         const params: any[] = [];

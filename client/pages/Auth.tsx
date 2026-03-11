@@ -105,9 +105,10 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
     }
   };
 
-  const setTestUser = (testPhone: string, testPin: string) => {
+  const setTestUser = (testPhone: string, testPin: string, testType?: AccountType) => {
     setPhone(testPhone);
     setPin(testPin);
+    if (testType) setSelectedType(testType);
     toast.info("Identifiants de test remplis !");
   };
 
@@ -272,21 +273,21 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
               </button>
               <button
                 type="button"
-                onClick={() => setTestUser("+237 612345678", "1234")}
+                onClick={() => setTestUser("+237 612345678", "1234", "professional")}
                 className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
               >
                 Pro
               </button>
               <button
                 type="button"
-                onClick={() => setTestUser("+237 699999999", "1234")}
+                onClick={() => setTestUser("+237 699999999", "1234", "pharmacist")}
                 className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
               >
                 Pharmacien
               </button>
               <button
                 type="button"
-                onClick={() => setTestUser("admin", "admin")}
+                onClick={() => setTestUser("admin", "admin", "admin")}
                 className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
               >
                 Admin
