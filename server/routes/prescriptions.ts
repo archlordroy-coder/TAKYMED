@@ -15,7 +15,8 @@ router.get("/", (req, res) => {
         cp.id_calendrier_prise as id,
         m.id_medicament as medicationId,
         m.nom as medicationName,
-        o.titre as clientName,
+        o.nom_patient as clientName,
+        o.id_ordonnance as patientId,
         eo.dose_personnalisee as dose,
         cp.heure_prevue as time,
         cp.rappel_envoye as statusReminderSent,
@@ -42,6 +43,7 @@ router.get("/", (req, res) => {
             medicationId: d.medicationId,
             medicationName: d.medicationName,
             clientName: d.clientName || 'Patient',
+            patientId: d.patientId,
             dose: d.dose,
             unit: "unité",
             scheduledAt: d.time,
@@ -89,10 +91,10 @@ router.post("/", (req, res) => {
         const insertTransaction = db.transaction(() => {
             // 1. Create Ordonnance
             const ordStmt = db.prepare(`
-                INSERT INTO Ordonnances (id_utilisateur, titre, poids_patient, categorie_age, date_ordonnance) 
-                VALUES (?, ?, ?, ?, CURRENT_DATE)
+                INSERT INTO Ordonnances (id_utilisateur, titre, nom_patient, poids_patient, categorie_age, date_ordonnance) 
+                VALUES (?, ?, ?, ?, ?, CURRENT_DATE)
             `);
-            const ordInfo = ordStmt.run(userId, title, weight || 0, categorieAge || 'adulte');
+            const ordInfo = ordStmt.run(userId, title, title, weight || 0, categorieAge || 'adulte');
             const idOrdonnance = ordInfo.lastInsertRowid;
 
             // 2. Save Notification Preferences

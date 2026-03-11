@@ -304,7 +304,7 @@ export default function Dashboard() {
                </TabsContent>
 
                <TabsContent value="calendar" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <CalendarView doses={doses} isLoading={isLoading} onTakeMed={handleTakeMedication} />
+                  <CalendarView doses={doses} isLoading={isLoading} onTakeMed={handleTakeMedication} user={user} patients={patients} />
                </TabsContent>
             </Tabs>
          </div>
@@ -323,11 +323,25 @@ const DOSE_COLORS = [
 ];
 
 // ─── Calendar View Component ───────────────────────────────────────────────────
-function CalendarView({ doses, isLoading, onTakeMed }: { doses: DoseSchedule[]; isLoading: boolean; onTakeMed: (id: number) => void }) {
+function CalendarView({ doses, isLoading, onTakeMed, user, patients }: {
+   doses: DoseSchedule[];
+   isLoading: boolean;
+   onTakeMed: (id: number) => void;
+   user: any;
+   patients: any[];
+}) {
    const today = new Date();
    const [currentMonth, setCurrentMonth] = useState(today.getMonth());
    const [currentYear, setCurrentYear] = useState(today.getFullYear());
    const [selectedDate, setSelectedDate] = useState(today.getDate());
+   const [calFilterPatient, setCalFilterPatient] = useState<number | null>(null);
+
+   const isNonStandard = user?.type !== 'standard';
+
+   // Filter doses by selected patient if applicable
+   const filteredDoses = calFilterPatient
+      ? doses.filter(d => d.patientId === calFilterPatient)
+      : doses;
 
    const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
    const DAY_NAMES = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
@@ -343,14 +357,14 @@ function CalendarView({ doses, isLoading, onTakeMed }: { doses: DoseSchedule[]; 
 
    // Color map per medication name (consistent colors)
    const medColorMap = new Map<string, typeof DOSE_COLORS[0]>();
-   doses.forEach(d => {
+   filteredDoses.forEach(d => {
       if (!medColorMap.has(d.medicationName)) {
          medColorMap.set(d.medicationName, DOSE_COLORS[medColorMap.size % DOSE_COLORS.length]);
       }
    });
 
    const dosesByDate = new Map<string, DoseSchedule[]>();
-   doses.forEach((dose) => {
+   filteredDoses.forEach((dose) => {
       if (!dose.scheduledAt) return;
       const dateKey = new Date(dose.scheduledAt).toISOString().slice(0, 10);
       const current = dosesByDate.get(dateKey) ?? [];
@@ -374,7 +388,42 @@ function CalendarView({ doses, isLoading, onTakeMed }: { doses: DoseSchedule[]; 
    };
 
    return (
-      <div className="rounded-[2.5rem] overflow-hidden border shadow-2xl" style={{ background: "linear-gradient(135deg, #004a73, #002a42)", borderColor: "#006093" }}>
+      <div className={cn("rounded-[2.5rem] overflow-hidden border shadow-2xl", isNonStandard ? "grid grid-cols-1 xl:grid-cols-[260px,1fr]" : "")} style={{ background: "linear-gradient(135deg, #004a73, #002a42)", borderColor: "#006093" }}>
+         {/* ── CLIENT FILTER (non-standard only) ── */}
+         {isNonStandard && (
+            <div className="p-5 border-b xl:border-b-0 xl:border-r flex flex-col gap-3" style={{ borderColor: "#006093", background: "rgba(0,0,0,0.15)" }}>
+               <div className="flex items-center justify-between">
+                  <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Clients</p>
+                  {calFilterPatient && (
+                     <button
+                        onClick={() => setCalFilterPatient(null)}
+                        className="text-[10px] font-bold text-sky-400 hover:text-sky-300 transition-colors"
+                     >Tous</button>
+                  )}
+               </div>
+               <div className="flex xl:flex-col gap-2 overflow-x-auto xl:overflow-y-auto xl:max-h-[520px] pb-1">
+                  {patients.length === 0 ? (
+                     <p className="text-slate-500 text-xs italic">Aucun client</p>
+                  ) : patients.map(p => (
+                     <button
+                        key={p.id}
+                        onClick={() => setCalFilterPatient(calFilterPatient === p.id ? null : p.id)}
+                        className={cn(
+                           "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all text-left",
+                           calFilterPatient === p.id
+                              ? "bg-sky-500/20 text-sky-300 border border-sky-500/40"
+                              : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
+                        )}
+                     >
+                        <span className="w-6 h-6 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 font-black text-[10px] shrink-0">
+                           {(p.name || '?')[0].toUpperCase()}
+                        </span>
+                        <span className="truncate max-w-[140px]">{p.name || 'Client inconnu'}</span>
+                     </button>
+                  ))}
+               </div>
+            </div>
+         )}
          <div className="grid grid-cols-1 lg:grid-cols-[1fr,340px] min-h-[580px]">
             {/* ── LEFT: Monthly Grid ── */}
             <div className="p-6 md:p-8">
@@ -537,7 +586,12 @@ function CalendarView({ doses, isLoading, onTakeMed }: { doses: DoseSchedule[]; 
                               <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full" style={{ background: color.bar }} />
                               <div className="ml-2 flex-1 min-w-0">
                                  <div className="flex items-start justify-between gap-2">
-                                    <h4 className="font-bold text-white text-sm leading-tight truncate">{dose.medicationName}</h4>
+                                    <div className="min-w-0">
+                                       <h4 className="font-bold text-white text-sm leading-tight truncate">{dose.medicationName}</h4>
+                                       {isNonStandard && dose.clientName && (
+                                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">👤 {dose.clientName}</p>
+                                       )}
+                                    </div>
                                     <span
                                        className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
                                        style={{ color: color.text, background: `${color.bar}25` }}

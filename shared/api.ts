@@ -29,6 +29,8 @@ export interface DoseSchedule {
   id?: number;
   medicationId: string;
   medicationName: string;
+  clientName: string;
+  patientId: number;
   dose: number;
   unit: string;
   time: string;

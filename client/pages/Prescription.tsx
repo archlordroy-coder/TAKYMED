@@ -133,6 +133,8 @@ export default function Prescription() {
             result.push({
               medicationId: m.id,
               medicationName: m.name,
+              clientName: patient.title,
+              patientId: 0,
               dose: m.doseValue,
               unit: m.unit,
               time: `${hour.toString().padStart(2, '0')}:00`,
@@ -147,6 +149,8 @@ export default function Prescription() {
             result.push({
               medicationId: m.id,
               medicationName: m.name,
+              clientName: patient.title,
+              patientId: 0,
               dose: m.doseValue,
               unit: m.unit,
               time: timeStr,
@@ -252,7 +256,7 @@ export default function Prescription() {
 
             {/* Medications List */}
             <div className="space-y-4">
-              
+
 
               {medications.map((m, idx) => (
                 <div key={m.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
@@ -316,9 +320,9 @@ export default function Prescription() {
                         })}
                       </div>
 
-                      {m.frequencyType === '1x' && <p className="text-xs text-primary mt-2">Une fois par jour le matin</p>}
-                      {m.frequencyType === '2x' && <p className="text-xs text-primary mt-2">Deux fois par jour le matin et le soir</p>}
-                      {m.frequencyType === '3x' && <p className="text-xs text-primary mt-2">Trois fois par jour le matin, le midi et le soir</p>}
+                      {m.frequencyType === '1x' && <p className="text-xs text-primary mt-2">Une fois par jour <span className="opacity-70">(matin)</span></p>}
+                      {m.frequencyType === '2x' && <p className="text-xs text-primary mt-2">Deux fois par jour <span className="opacity-70">(matin et soir)</span></p>}
+                      {m.frequencyType === '3x' && <p className="text-xs text-primary mt-2">Trois fois par jour <span className="opacity-70">(matin, midi et soir)</span></p>}
                       {m.frequencyType === 'interval' && <p className="text-xs text-primary mt-2">Prises à intervalles réguliers</p>}
                       {m.frequencyType === 'prn' && <p className="text-xs text-primary mt-2">En cas de besoin</p>}
 
@@ -406,12 +410,12 @@ export default function Prescription() {
                 </div>
               ))}
             </div>
-              <div className="flex items-center justify-between">
-                <Button onClick={addMedication} variant="outline" className="rounded-xl">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ajouter un médicament
-                </Button>
-              </div>
+            <div className="flex items-center justify-between">
+              <Button onClick={addMedication} variant="outline" className="rounded-xl">
+                <Plus className="w-4 h-4 mr-2" />
+                Ajouter un médicament
+              </Button>
+            </div>
             <div className="flex justify-end pt-8">
               <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNext}>
                 Valider les Médicaments
