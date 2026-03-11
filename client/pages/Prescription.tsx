@@ -252,13 +252,7 @@ export default function Prescription() {
 
             {/* Medications List */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold">Liste des médicaments</h3>
-                <Button onClick={addMedication} variant="outline" className="rounded-xl">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Ajouter un médicament
-                </Button>
-              </div>
+              
 
               {medications.map((m, idx) => (
                 <div key={m.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
@@ -412,7 +406,12 @@ export default function Prescription() {
                 </div>
               ))}
             </div>
-
+              <div className="flex items-center justify-between">
+                <Button onClick={addMedication} variant="outline" className="rounded-xl">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ajouter un médicament
+                </Button>
+              </div>
             <div className="flex justify-end pt-8">
               <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNext}>
                 Valider les Médicaments
