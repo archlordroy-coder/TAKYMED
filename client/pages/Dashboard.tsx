@@ -201,19 +201,20 @@ export default function Dashboard() {
                                  <h3 className="text-2xl font-bold">
                                     {stats?.nextDose ? (
                                        <>
-                                          Prochaine prise : <span className="text-primary">{stats.nextDose.medicationName}</span>
+                                          <span>Prochaine prise : </span>
+                                          <span className="text-primary">{stats.nextDose.medicationName}</span>
                                           <span className="text-sm text-slate-500 font-medium block mt-1">
-                                             Pour {stats.nextDose.clientName}
+                                             <span>Pour </span>{stats.nextDose.clientName}
                                           </span>
                                        </>
                                     ) : (
-                                       "Aucune prise à venir"
+                                       <span>Aucune prise à venir</span>
                                     )}
                                  </h3>
                                  <p className="text-muted-foreground">
                                     {stats?.nextDose
-                                       ? `${stats.nextDose.dose} ${stats.nextDose.unit} à prendre pendant le ${stats.nextDose.type}.`
-                                       : "Toutes vos prises sont terminées ou aucune n'est planifiée."}
+                                       ? <span>{stats.nextDose.dose} {stats.nextDose.unit} à prendre pendant le {stats.nextDose.type}.</span>
+                                       : <span>Toutes vos prises sont terminées ou aucune n&apos;est planifiée.</span>}
                                  </p>
                                  {stats?.nextDose && (
                                     <div className="flex gap-4 justify-center md:justify-start pt-2">
