@@ -56,7 +56,7 @@ export function Layout({ children }: LayoutProps) {
       <header className="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-xl transition-all duration-500 hover:bg-background/95">
         <div className="container mx-auto px-4 h-16 md:h-20 flex items-center justify-between transition-all duration-500">
           <Link to="/" className="group flex items-center gap-3 md:gap-4 active:scale-95 transition-transform shrink-0">
-            <div className="relative p-1.5 md:p-2 rounded-xl md:rounded-2xl bg-white/60 backdrop-blur-md border border-white/40 shadow-lg group-hover:shadow-primary/20 transition-all duration-700 hover:rotate-2">
+            <div className="relative p-1.5 md:p-2 transition-all duration-700 hover:rotate-2 translate-y-1">
               <Logo className="h-8 md:h-12" />
             </div>
           </Link>

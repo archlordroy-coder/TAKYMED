@@ -9,10 +9,6 @@
   max-width: 100%;
   height: auto;
   object-fit: contain;
-  /* Multi-layer filter to help remove white/light backgrounds from images that aren't perfectly transparent */
-  filter: drop-shadow(0 0 8px rgba(0, 96, 147, 0.2));
-  mix-blend-mode: multiply;
-  /* Helps blend out white backgrounds on dark themes */
 }
 
 .logo-small {
@@ -29,10 +25,4 @@
 
 .logo-xl {
   width: 1200px;
-}
-
-.dark .logo-image {
-  mix-blend-mode: screen;
-  /* Switch blend mode for dark backgrounds if needed */
-  filter: drop-shadow(0 0 12px rgba(0, 168, 89, 0.3));
 }
