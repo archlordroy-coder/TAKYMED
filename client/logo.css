@@ -16,19 +16,19 @@
 }
 
 .logo-small {
-    width: 40px;
+    width: 240px;
 }
 
 .logo-medium {
-    width: 120px;
+    width: 720px;
 }
 
 .logo-large {
-    width: 260px;
+    width: 1560px;
 }
 
 .logo-xl {
-    width: 400px;
+    width: 2400px;
 }
 
 .dark .logo-image {

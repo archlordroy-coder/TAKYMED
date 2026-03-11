@@ -31,6 +31,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { GlobalAdRails } from "@/components/GlobalAdRails";
+import { AccountAvatar } from "@/components/AccountAvatar";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -46,8 +48,11 @@ export function Layout({ children }: LayoutProps) {
     navigate("/");
   };
 
+  const shouldShowGlobalAds = !["/", "/login", "/register"].includes(location.pathname);
+
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
+      {shouldShowGlobalAds && <GlobalAdRails />}
       <header className="fixed top-0 left-0 right-0 z-50 border-b bg-background/80 backdrop-blur-xl transition-all duration-500 hover:bg-background/95">
         <div className="container mx-auto px-4 h-16 md:h-20 flex items-center justify-between transition-all duration-500">
           <Link to="/" className="group flex items-center gap-3 md:gap-4 active:scale-95 transition-transform shrink-0">
@@ -120,7 +125,7 @@ export function Layout({ children }: LayoutProps) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2 bg-slate-50 border rounded-full px-2 md:px-4 h-10">
-                      <UserIcon className="h-4 w-4" />
+                      <AccountAvatar name={user.name || user.email} type={user.type} className="w-6 h-6 rounded-md border" />
                       <span className="hidden sm:inline truncate max-w-[100px]">{user.email}</span>
                     </Button>
                   </DropdownMenuTrigger>
@@ -209,7 +214,14 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </header>
-      <main className="pt-16 md:pt-20 min-h-[calc(100vh-64px-300px)] md:min-h-[calc(100vh-80px-300px)]">{children}</main>
+      <main
+        className={cn(
+          "pt-16 md:pt-20 min-h-[calc(100vh-64px-300px)] md:min-h-[calc(100vh-80px-300px)]",
+          shouldShowGlobalAds ? "pb-24 2xl:pb-0" : "",
+        )}
+      >
+        {children}
+      </main>
       <footer className="bg-muted py-12 border-t">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2 space-y-6">

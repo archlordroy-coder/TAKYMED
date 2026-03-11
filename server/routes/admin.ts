@@ -1,7 +1,26 @@
 import { Router } from "express";
 import { db } from "../db";
+import { z } from "zod";
 
 const router = Router();
+
+const medicationSchema = z.object({
+    name: z.string().trim().min(2).max(255),
+    unitId: z.number().int().nullable().optional(),
+    defaultDose: z.number().nonnegative().nullable().optional(),
+    description: z.string().max(2000).optional().default(""),
+    photoUrl: z.string().max(5000).optional().default(""),
+    price: z.string().max(50).optional().default(""),
+    typeUtilisation: z.enum(["comprime", "sirop", "gelule", "pommade", "goutte", "spray", "injection"]).optional().default("comprime"),
+    modeAdministration: z.enum(["orale", "buvable", "injectable", "cutanee", "inhalation", "sublinguale", "oculaire", "nasale"]).optional().default("orale"),
+    momentRepas: z.enum(["avant_repas", "pendant_repas", "apres_repas", "a_jeun", "indifferent"]).optional().default("indifferent"),
+    precautionAlimentaire: z.enum(["aucune", "eviter_alcool", "boire_beaucoup_eau", "eviter_produits_laitiers", "eviter_pamplemousse"]).optional().default("aucune"),
+    posology: z.object({
+        categorieAge: z.enum(["bébé", "enfant", "adulte"]),
+        doseRecommandee: z.number().nonnegative(),
+        unitId: z.number().int().optional(),
+    }).optional(),
+});
 
 // Middleware to check if user is admin (simplified for demo)
 router.use((req, res, next) => {
@@ -18,16 +37,40 @@ router.get("/stats", (_req, res) => {
         const medicationCount = db.prepare("SELECT COUNT(*) as count FROM Medicaments").get() as { count: number };
         const pharmacyCount = db.prepare("SELECT COUNT(*) as count FROM Pharmacies").get() as { count: number };
 
+        const latestUsers = db.prepare(`
+            SELECT u.id_utilisateur as id, u.cree_le as createdAt, COALESCE(p.nom_complet, u.numero_telephone, 'Utilisateur') as label
+            FROM Utilisateurs u
+            LEFT JOIN ProfilsUtilisateurs p ON p.id_utilisateur = u.id_utilisateur
+            ORDER BY u.id_utilisateur DESC
+            LIMIT 2
+        `).all() as { id: number; createdAt?: string; label: string }[];
+
+        const latestPrescriptions = db.prepare(`
+            SELECT id_ordonnance as id, date_ordonnance as createdAt, COALESCE(titre, 'Ordonnance') as label
+            FROM Ordonnances
+            ORDER BY id_ordonnance DESC
+            LIMIT 2
+        `).all() as { id: number; createdAt?: string; label: string }[];
+
+        const latestPharmacies = db.prepare(`
+            SELECT id_pharmacie as id, nom_pharmacie as label, adresse as createdAt
+            FROM Pharmacies
+            ORDER BY id_pharmacie DESC
+            LIMIT 2
+        `).all() as { id: number; createdAt?: string; label: string }[];
+
+        const recentActivity = [
+            ...latestUsers.map((u) => ({ id: `u-${u.id}`, type: "user", message: `Nouveau compte: ${u.label}`, time: u.createdAt || "Récent" })),
+            ...latestPrescriptions.map((o) => ({ id: `o-${o.id}`, type: "prescription", message: `Ordonnance: ${o.label}`, time: o.createdAt || "Récent" })),
+            ...latestPharmacies.map((p) => ({ id: `p-${p.id}`, type: "pharmacy", message: `Pharmacie: ${p.label}`, time: p.createdAt || "Récent" })),
+        ].slice(0, 6);
+
         res.json({
             users: userCount.count,
             prescriptions: prescriptionCount.count,
             medications: medicationCount.count,
             pharmacies: pharmacyCount.count,
-            recentActivity: [
-                { id: 1, type: 'user', message: "Nouvel utilisateur inscrit", time: "2 min ago" },
-                { id: 2, type: 'prescription', message: "Nouvelle ordonnance créée", time: "15 min ago" },
-                { id: 3, type: 'pharmacy', message: "Pharmacie 'Santé+' mise à jour", time: "1h ago" }
-            ]
+            recentActivity
         });
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch admin stats" });
@@ -78,7 +121,10 @@ router.delete("/users/:id", (req, res) => {
 router.get("/medications", (_req, res) => {
     try {
         const medications = db.prepare(`
-            SELECT id_medicament as id, nom as name, id_unite_par_defaut as unitId, dose_par_defaut as defaultDose
+            SELECT id_medicament as id, nom as name, id_unite_par_defaut as unitId, dose_par_defaut as defaultDose,
+                   description, photo_url as photoUrl, prix as price, type_utilisation as typeUtilisation,
+                   mode_administration as modeAdministration, moment_repas as momentRepas,
+                   precaution_alimentaire as precautionAlimentaire
             FROM Medicaments
             ORDER BY nom ASC
         `).all();
@@ -90,11 +136,47 @@ router.get("/medications", (_req, res) => {
 
 // Add medication
 router.post("/medications", (req, res) => {
-    const { name, unitId, defaultDose } = req.body;
+    const parsed = medicationSchema.safeParse({
+        ...req.body,
+        unitId: req.body?.unitId !== undefined && req.body?.unitId !== null ? Number(req.body.unitId) : null,
+        defaultDose: req.body?.defaultDose !== undefined && req.body?.defaultDose !== null ? Number(req.body.defaultDose) : null,
+        posology: req.body?.posology
+            ? {
+                ...req.body.posology,
+                doseRecommandee: Number(req.body.posology.doseRecommandee),
+                unitId: req.body.posology.unitId !== undefined ? Number(req.body.posology.unitId) : undefined,
+            }
+            : undefined,
+    });
+
+    if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid medication payload" });
+    }
+
+    const { name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, modeAdministration, momentRepas, precautionAlimentaire, posology } = parsed.data;
+
     try {
-        const result = db.prepare("INSERT INTO Medicaments (nom, id_unite_par_defaut, dose_par_defaut) VALUES (?, ?, ?)")
-            .run(name, unitId, defaultDose);
-        res.status(201).json({ id: result.lastInsertRowid });
+        const insertTx = db.transaction(() => {
+            const result = db.prepare(`
+                INSERT INTO Medicaments
+                (nom, id_unite_par_defaut, dose_par_defaut, description, photo_url, prix, type_utilisation, mode_administration, moment_repas, precaution_alimentaire)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, modeAdministration, momentRepas, precautionAlimentaire);
+
+            const medicationId = Number(result.lastInsertRowid);
+
+            if (posology) {
+                db.prepare(`
+                    INSERT INTO PosologieDefautMedicaments (id_medicament, categorie_age, dose_recommandee, id_unite)
+                    VALUES (?, ?, ?, ?)
+                `).run(medicationId, posology.categorieAge, posology.doseRecommandee, posology.unitId ?? unitId ?? null);
+            }
+
+            return medicationId;
+        });
+
+        const id = insertTx();
+        res.status(201).json({ id });
     } catch (error) {
         res.status(500).json({ error: "Failed to create medication" });
     }
@@ -103,10 +185,44 @@ router.post("/medications", (req, res) => {
 // Update medication
 router.put("/medications/:id", (req, res) => {
     const { id } = req.params;
-    const { name, unitId, defaultDose } = req.body;
+    const parsed = medicationSchema.safeParse({
+        ...req.body,
+        unitId: req.body?.unitId !== undefined && req.body?.unitId !== null ? Number(req.body.unitId) : null,
+        defaultDose: req.body?.defaultDose !== undefined && req.body?.defaultDose !== null ? Number(req.body.defaultDose) : null,
+        posology: req.body?.posology
+            ? {
+                ...req.body.posology,
+                doseRecommandee: Number(req.body.posology.doseRecommandee),
+                unitId: req.body.posology.unitId !== undefined ? Number(req.body.posology.unitId) : undefined,
+            }
+            : undefined,
+    });
+
+    if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid medication payload" });
+    }
+
+    const { name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, modeAdministration, momentRepas, precautionAlimentaire, posology } = parsed.data;
     try {
-        db.prepare("UPDATE Medicaments SET nom = ?, id_unite_par_defaut = ?, dose_par_defaut = ? WHERE id_medicament = ?")
-            .run(name, unitId, defaultDose, id);
+        const updateTx = db.transaction(() => {
+            db.prepare(`
+                UPDATE Medicaments
+                SET nom = ?, id_unite_par_defaut = ?, dose_par_defaut = ?, description = ?, photo_url = ?, prix = ?,
+                    type_utilisation = ?, mode_administration = ?, moment_repas = ?, precaution_alimentaire = ?
+                WHERE id_medicament = ?
+            `).run(name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, modeAdministration, momentRepas, precautionAlimentaire, id);
+
+            if (posology) {
+                db.prepare("DELETE FROM PosologieDefautMedicaments WHERE id_medicament = ? AND categorie_age = ?")
+                    .run(id, posology.categorieAge);
+                db.prepare(`
+                    INSERT INTO PosologieDefautMedicaments (id_medicament, categorie_age, dose_recommandee, id_unite)
+                    VALUES (?, ?, ?, ?)
+                `).run(id, posology.categorieAge, posology.doseRecommandee, posology.unitId ?? unitId ?? null);
+            }
+        });
+
+        updateTx();
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: "Failed to update medication" });

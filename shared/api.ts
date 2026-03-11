@@ -32,6 +32,7 @@ export interface DoseSchedule {
   dose: number;
   unit: string;
   time: string;
+  scheduledAt?: string;
   day: number;
   type?: string;
   statusReminderSent: boolean;

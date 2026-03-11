@@ -245,17 +245,22 @@ export default function Prescription() {
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                         {idx + 1}
                       </div>
-                      <select
-                        title="Sélectionner un médicament"
-                        value={m.name}
-                        onChange={(e) => updateMedication(m.id, { name: e.target.value })}
-                        className="bg-slate-50 text-base md:text-lg font-bold rounded-xl h-12 w-full max-w-[300px] border-none focus-visible:ring-primary px-4 outline-none appearance-none cursor-pointer hover:bg-slate-100 transition-colors"
-                      >
-                        <option value="" disabled hidden>Sélectionner un médicament...</option>
-                        {dbMedications.map(dbM => (
-                          <option key={dbM.id} value={dbM.name}>{dbM.name}</option>
-                        ))}
-                      </select>
+                      <div className="w-full max-w-[320px] space-y-1">
+                        <Input
+                          list={`medication-options-${m.id}`}
+                          title="Saisir ou sélectionner un médicament"
+                          value={m.name}
+                          onChange={(e) => updateMedication(m.id, { name: e.target.value })}
+                          placeholder="Saisir ou sélectionner un médicament"
+                          className="bg-slate-50 text-base md:text-lg font-bold rounded-xl h-12 border-none focus-visible:ring-primary px-4 outline-none hover:bg-slate-100 transition-colors"
+                        />
+                        <datalist id={`medication-options-${m.id}`}>
+                          {dbMedications.map((dbM) => (
+                            <option key={dbM.id} value={dbM.name} />
+                          ))}
+                        </datalist>
+                        <p className="text-[10px] text-muted-foreground">Vous pouvez choisir un médicament existant ou saisir un nouveau nom.</p>
+                      </div>
                     </div>
                     <Button variant="ghost" size="icon" onClick={() => removeMedication(m.id)} className="text-muted-foreground hover:text-destructive">
                       <Trash2 className="w-5 h-5" />

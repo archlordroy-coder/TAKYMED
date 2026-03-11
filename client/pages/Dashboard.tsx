@@ -1,24 +1,21 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import Logo from "@/components/Logo";
 import { Link } from "react-router-dom";
 import {
    Bell,
    PlusCircle,
    Search,
-   User,
    Calendar as CalendarUIIcon,
    Clock,
    CheckCircle2,
    AlertCircle,
    Store,
    ArrowRight,
-   Loader2
+   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { DoseSchedule } from "@shared/api";
 import { toast } from "sonner";
 
@@ -73,6 +70,25 @@ export default function Dashboard() {
                         Nouvelle Ordonnance
                      </Button>
                   </Link>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+               <div className="bg-white rounded-3xl p-5 border shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Observance</p>
+                  <p className="text-2xl font-black">{stats ? `${stats.observanceRate}%` : "0%"}</p>
+               </div>
+               <div className="bg-white rounded-3xl p-5 border shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Prises planifiées</p>
+                  <p className="text-2xl font-black">{stats ? stats.plannedReminders : 0}</p>
+               </div>
+               <div className="bg-white rounded-3xl p-5 border shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">À prendre</p>
+                  <p className="text-2xl font-black">{stats ? stats.activeReminders : 0}</p>
+               </div>
+               <div className="bg-white rounded-3xl p-5 border shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Pharmacies proches</p>
+                  <p className="text-2xl font-black">{stats ? stats.nearbyPharmacies : 0}</p>
                </div>
             </div>
 
@@ -226,10 +242,20 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
       }
    });
 
-   const selectedDoses = doses.filter((_, i) => {
-      // Since our mock data doesn't have exact dates, show all doses for any selected day
-      return true;
+   const dosesByDate = new Map<string, DoseSchedule[]>();
+   doses.forEach((dose) => {
+      if (!dose.scheduledAt) return;
+      const dateKey = new Date(dose.scheduledAt).toISOString().slice(0, 10);
+      const current = dosesByDate.get(dateKey) ?? [];
+      current.push(dose);
+      dosesByDate.set(dateKey, current);
    });
+
+   const selectedKey = new Date(currentYear, currentMonth, selectedDate).toISOString().slice(0, 10);
+   const selectedDoses = dosesByDate.get(selectedKey) ?? [];
+   const takenCount = selectedDoses.filter((d) => d.statusTaken).length;
+   const pendingCount = selectedDoses.length - takenCount;
+   const adherence = selectedDoses.length > 0 ? Math.round((takenCount / selectedDoses.length) * 100) : 0;
 
    const prevMonth = () => {
       if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); }
@@ -284,7 +310,9 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                      if (day === null) return <div key={`empty-${idx}`} />;
                      const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
                      const isSelected = day === selectedDate;
-                     const hasDoses = doses.length > 0; // In real app: check if this day has doses
+                     const dayKey = new Date(currentYear, currentMonth, day).toISOString().slice(0, 10);
+                     const dayDoses = dosesByDate.get(dayKey) ?? [];
+                     const hasDoses = dayDoses.length > 0;
 
                      return (
                         <button
@@ -304,7 +332,10 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                               const isPast = currentYear < today.getFullYear() || (currentYear === today.getFullYear() && currentMonth < today.getMonth()) || (currentYear === today.getFullYear() && currentMonth === today.getMonth() && day < today.getDate());
                               const isTodayNum = currentYear === today.getFullYear() && currentMonth === today.getMonth() && day === today.getDate();
                               let dayStatusColor = "#38bdf8";
-                              if (isPast) dayStatusColor = day % 3 === 0 ? "#EF4444" : "#00A859";
+                              if (isPast) {
+                                 const takenCount = dayDoses.filter((d) => d.statusTaken).length;
+                                 dayStatusColor = takenCount === dayDoses.length ? "#00A859" : "#EF4444";
+                              }
                               else if (isTodayNum) dayStatusColor = "#F59E0B";
 
                               return (
@@ -313,7 +344,7 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                                  </div>
                               );
                            })()}
-                           {isSelected && doses.length > 0 && (
+                           {isSelected && selectedDoses.length > 0 && (
                               <div className="flex gap-0.5 mt-1.5">
                                  <div className="w-2 h-2 rounded-full bg-white shadow-sm" />
                               </div>
@@ -352,6 +383,24 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                   <h3 className="text-lg font-bold text-white mt-0.5">
                      {selectedDate} {MONTH_NAMES[currentMonth]}, {currentYear}
                   </h3>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                     <div className="rounded-xl p-2 text-center" style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <p className="text-[10px] text-slate-400 uppercase">Total</p>
+                        <p className="text-white font-black text-lg">{selectedDoses.length}</p>
+                     </div>
+                     <div className="rounded-xl p-2 text-center" style={{ background: "rgba(0,168,89,0.15)" }}>
+                        <p className="text-[10px] text-green-300 uppercase">Pris</p>
+                        <p className="text-green-300 font-black text-lg">{takenCount}</p>
+                     </div>
+                     <div className="rounded-xl p-2 text-center" style={{ background: "rgba(245,158,11,0.15)" }}>
+                        <p className="text-[10px] text-amber-300 uppercase">Restant</p>
+                        <p className="text-amber-300 font-black text-lg">{pendingCount}</p>
+                     </div>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+                     <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400" style={{ width: `${adherence}%` }} />
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-400 uppercase tracking-wider">Adhérence du jour: {adherence}%</p>
                </div>
 
                {/* Scheduled doses */}
@@ -414,11 +463,11 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                {!isLoading && (
                   <div className="mt-4 pt-4 grid grid-cols-2 gap-3" style={{ borderTop: "1px solid #006093" }}>
                      <div className="text-center p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }}>
-                        <p className="text-2xl font-black text-white">{selectedDoses.filter(d => d.statusTaken).length}</p>
+                        <p className="text-2xl font-black text-white">{takenCount}</p>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Pris</p>
                      </div>
                      <div className="text-center p-3 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }}>
-                        <p className="text-2xl font-black text-white">{selectedDoses.filter(d => !d.statusTaken).length}</p>
+                        <p className="text-2xl font-black text-white">{pendingCount}</p>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">À venir</p>
                      </div>
                   </div>
@@ -462,6 +511,3 @@ function DashboardStat({ label, value, subtext }: { label: string, value: string
 function ChevronRight({ className }: { className?: string }) {
    return <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
 }
-
-
-

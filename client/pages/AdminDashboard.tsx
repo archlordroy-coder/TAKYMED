@@ -55,7 +55,7 @@ interface AdminStats {
     prescriptions: number;
     medications: number;
     pharmacies: number;
-    recentActivity: { id: number; type: string; message: string; time: string }[];
+    recentActivity: { id: number | string; type: string; message: string; time: string }[];
 }
 
 interface UserRecord {
@@ -79,7 +79,19 @@ interface AdminMedication {
     id: number;
     name: string;
     defaultDose: number;
-    unitId: number;
+    unitId: number | null;
+    description?: string;
+    photoUrl?: string;
+    price?: string;
+    typeUtilisation?: string;
+    modeAdministration?: string;
+    momentRepas?: string;
+    precautionAlimentaire?: string;
+    posology?: {
+        categorieAge: "bébé" | "enfant" | "adulte";
+        doseRecommandee: number;
+        unitId?: number;
+    };
 }
 
 interface AccountTypeSetting {
@@ -123,8 +135,46 @@ export default function AdminDashboard() {
     const [search, setSearch] = useState("");
 
     const [isAddMedOpen, setIsAddMedOpen] = useState(false);
-    const [newMed, setNewMed] = useState({ name: "", unitId: 1, defaultDose: 1 });
+    const [newMed, setNewMed] = useState<Partial<AdminMedication>>({
+        name: "",
+        unitId: 1,
+        defaultDose: 1,
+        description: "",
+        photoUrl: "",
+        price: "",
+        typeUtilisation: "comprime",
+        modeAdministration: "orale",
+        momentRepas: "indifferent",
+        precautionAlimentaire: "aucune",
+        posology: {
+            categorieAge: "adulte",
+            doseRecommandee: 1,
+            unitId: 1,
+        },
+    });
     const [editingMed, setEditingMed] = useState<AdminMedication | null>(null);
+
+    const handleImageUpload = (
+        file: File | undefined,
+        apply: (dataUrl: string) => void,
+    ) => {
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            toast.error("Veuillez sélectionner un fichier image valide");
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("Image trop volumineuse (max 2MB)");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            apply(reader.result as string);
+            toast.success("Image chargée depuis votre appareil");
+        };
+        reader.readAsDataURL(file);
+    };
 
     const refreshData = async () => {
         try {
@@ -172,7 +222,19 @@ export default function AdminDashboard() {
         if (res.ok) {
             toast.success("Médicament ajouté");
             setIsAddMedOpen(false);
-            setNewMed({ name: "", unitId: 1, defaultDose: 1 });
+            setNewMed({
+                name: "",
+                unitId: 1,
+                defaultDose: 1,
+                description: "",
+                photoUrl: "",
+                price: "",
+                typeUtilisation: "comprime",
+                modeAdministration: "orale",
+                momentRepas: "indifferent",
+                precautionAlimentaire: "aucune",
+                posology: { categorieAge: "adulte", doseRecommandee: 1, unitId: 1 },
+            });
             refreshData();
         } else toast.error("Erreur d'ajout");
     };
@@ -400,6 +462,25 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
+                    <p className="text-[10px] uppercase text-slate-400 font-bold">Conversion ordonnances/utilisateurs</p>
+                    <p className="text-2xl font-black text-slate-800">
+                        {stats?.users ? `${Math.round(((stats?.prescriptions || 0) / stats.users) * 100)}%` : "0%"}
+                    </p>
+                </div>
+                <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
+                    <p className="text-[10px] uppercase text-slate-400 font-bold">Catalogue moyen / pharmacie</p>
+                    <p className="text-2xl font-black text-slate-800">
+                        {stats?.pharmacies ? ((stats?.medications || 0) / stats.pharmacies).toFixed(1) : "0"}
+                    </p>
+                </div>
+                <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
+                    <p className="text-[10px] uppercase text-slate-400 font-bold">Activité récente</p>
+                    <p className="text-2xl font-black text-slate-800">{stats?.recentActivity?.length || 0}</p>
+                </div>
+            </div>
+
             {/* Tabs */}
             <Tabs value={getActiveTab()} onValueChange={handleTabChange} className="space-y-6">
                 <TabsList className="bg-white p-1 rounded-2xl border inline-flex h-auto shadow-sm" style={{ borderColor: "#e2e8f0" }}>
@@ -564,7 +645,7 @@ export default function AdminDashboard() {
                                         <div className="space-y-4 py-4">
                                             <div className="space-y-2">
                                                 <label className={labelClass}>Nom du Produit</label>
-                                                <Input className={inputClass} value={newMed.name} onChange={e => setNewMed({ ...newMed, name: e.target.value })} />
+                                                <Input className={inputClass} value={newMed.name || ""} onChange={e => setNewMed({ ...newMed, name: e.target.value })} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
@@ -572,17 +653,110 @@ export default function AdminDashboard() {
                                                     <select
                                                         title="Sélectionner l'unité"
                                                         className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400"
-                                                        value={newMed.unitId}
+                                                        value={newMed.unitId ?? 1}
                                                         onChange={e => setNewMed({ ...newMed, unitId: parseInt(e.target.value) })}
                                                     >
-                                                        <option value={1}>Comprimé</option>
-                                                        <option value={2}>Gélule</option>
-                                                        <option value={3}>Sirop (ml)</option>
+                                                        <option value={1}>mg</option>
+                                                        <option value={2}>ml</option>
+                                                        <option value={3}>comprimé</option>
+                                                        <option value={4}>goutte</option>
+                                                        <option value={5}>unité</option>
                                                     </select>
                                                 </div>
                                                 <div className="space-y-2">
                                                     <label className={labelClass}>Dose Défaut</label>
-                                                    <Input type="number" className={inputClass} value={newMed.defaultDose} onChange={e => setNewMed({ ...newMed, defaultDose: parseFloat(e.target.value) })} />
+                                                    <Input type="number" className={inputClass} value={newMed.defaultDose ?? 1} onChange={e => setNewMed({ ...newMed, defaultDose: parseFloat(e.target.value) })} />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className={labelClass}>Description</label>
+                                                <Input className={inputClass} value={newMed.description || ""} onChange={e => setNewMed({ ...newMed, description: e.target.value })} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Prix</label>
+                                                    <Input className={inputClass} value={newMed.price || ""} onChange={e => setNewMed({ ...newMed, price: e.target.value })} placeholder="ex: 2500 FCFA" />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Photo URL</label>
+                                                    <Input className={inputClass} value={newMed.photoUrl || ""} onChange={e => setNewMed({ ...newMed, photoUrl: e.target.value })} />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className={labelClass}>Ou charger une image locale</label>
+                                                <Input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className={inputClass}
+                                                    onChange={(e) => handleImageUpload(e.target.files?.[0], (dataUrl) => setNewMed({ ...newMed, photoUrl: dataUrl }))}
+                                                />
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">PNG/JPG/WebP - max 2MB</p>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Type d'utilisation</label>
+                                                    <select title="Type d'utilisation" className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400" value={newMed.typeUtilisation || "comprime"} onChange={e => setNewMed({ ...newMed, typeUtilisation: e.target.value })}>
+                                                        <option value="comprime">Comprimé</option>
+                                                        <option value="sirop">Sirop</option>
+                                                        <option value="gelule">Gélule</option>
+                                                        <option value="pommade">Pommade</option>
+                                                        <option value="goutte">Goutte</option>
+                                                        <option value="spray">Spray</option>
+                                                        <option value="injection">Injection</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Mode administration</label>
+                                                    <select title="Mode administration" className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400" value={newMed.modeAdministration || "orale"} onChange={e => setNewMed({ ...newMed, modeAdministration: e.target.value })}>
+                                                        <option value="orale">Orale</option>
+                                                        <option value="buvable">Buvable</option>
+                                                        <option value="injectable">Injectable</option>
+                                                        <option value="cutanee">Cutanée</option>
+                                                        <option value="inhalation">Inhalation</option>
+                                                        <option value="sublinguale">Sublinguale</option>
+                                                        <option value="oculaire">Oculaire</option>
+                                                        <option value="nasale">Nasale</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Moment repas</label>
+                                                    <select title="Moment repas" className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400" value={newMed.momentRepas || "indifferent"} onChange={e => setNewMed({ ...newMed, momentRepas: e.target.value })}>
+                                                        <option value="avant_repas">Avant repas</option>
+                                                        <option value="pendant_repas">Pendant repas</option>
+                                                        <option value="apres_repas">Après repas</option>
+                                                        <option value="a_jeun">À jeun</option>
+                                                        <option value="indifferent">Indifférent</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Précaution</label>
+                                                    <select title="Précaution" className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400" value={newMed.precautionAlimentaire || "aucune"} onChange={e => setNewMed({ ...newMed, precautionAlimentaire: e.target.value })}>
+                                                        <option value="aucune">Aucune</option>
+                                                        <option value="eviter_alcool">Éviter alcool</option>
+                                                        <option value="boire_beaucoup_eau">Boire beaucoup d'eau</option>
+                                                        <option value="eviter_produits_laitiers">Éviter produits laitiers</option>
+                                                        <option value="eviter_pamplemousse">Éviter pamplemousse</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 space-y-3">
+                                                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Posologie recommandée (optionnelle)</p>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <select title="Catégorie d'âge" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={newMed.posology?.categorieAge || "adulte"} onChange={e => setNewMed({ ...newMed, posology: { ...(newMed.posology || { doseRecommandee: 1, unitId: 1 }), categorieAge: e.target.value as "bébé" | "enfant" | "adulte" } })}>
+                                                        <option value="bébé">Bébé</option>
+                                                        <option value="enfant">Enfant</option>
+                                                        <option value="adulte">Adulte</option>
+                                                    </select>
+                                                    <Input type="number" className="h-10 rounded-xl text-xs" value={newMed.posology?.doseRecommandee ?? 1} onChange={e => setNewMed({ ...newMed, posology: { ...(newMed.posology || { categorieAge: "adulte", unitId: newMed.unitId || 1 }), doseRecommandee: parseFloat(e.target.value) || 0 } })} />
+                                                    <select title="Unité posologie" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={newMed.posology?.unitId ?? newMed.unitId ?? 1} onChange={e => setNewMed({ ...newMed, posology: { ...(newMed.posology || { categorieAge: "adulte", doseRecommandee: 1 }), unitId: parseInt(e.target.value) } })}>
+                                                        <option value={1}>mg</option>
+                                                        <option value={2}>ml</option>
+                                                        <option value={3}>comprimé</option>
+                                                        <option value={4}>goutte</option>
+                                                        <option value={5}>unité</option>
+                                                    </select>
                                                 </div>
                                             </div>
                                         </div>
@@ -738,14 +912,58 @@ export default function AdminDashboard() {
                                         value={editingMed.unitId}
                                         onChange={e => setEditingMed({ ...editingMed, unitId: parseInt(e.target.value) })}
                                     >
-                                        <option value={1}>Comprimé</option>
-                                        <option value={2}>Gélule</option>
-                                        <option value={3}>Sirop (ml)</option>
+                                        <option value={1}>mg</option>
+                                        <option value={2}>ml</option>
+                                        <option value={3}>comprimé</option>
+                                        <option value={4}>goutte</option>
+                                        <option value={5}>unité</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className={labelClass}>Dose Défaut</label>
                                     <Input type="number" className={inputClass} value={editingMed.defaultDose} onChange={e => setEditingMed({ ...editingMed, defaultDose: parseFloat(e.target.value) })} />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className={labelClass}>Description</label>
+                                <Input className={inputClass} value={editingMed.description || ""} onChange={e => setEditingMed({ ...editingMed, description: e.target.value })} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className={labelClass}>Prix</label>
+                                    <Input className={inputClass} value={editingMed.price || ""} onChange={e => setEditingMed({ ...editingMed, price: e.target.value })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className={labelClass}>Photo URL</label>
+                                    <Input className={inputClass} value={editingMed.photoUrl || ""} onChange={e => setEditingMed({ ...editingMed, photoUrl: e.target.value })} />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className={labelClass}>Ou charger une image locale</label>
+                                <Input
+                                    type="file"
+                                    accept="image/*"
+                                    className={inputClass}
+                                    onChange={(e) => handleImageUpload(e.target.files?.[0], (dataUrl) => setEditingMed({ ...editingMed, photoUrl: dataUrl }))}
+                                />
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">PNG/JPG/WebP - max 2MB</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 space-y-3">
+                                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Posologie recommandée (optionnelle)</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <select title="Catégorie d'âge" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={editingMed.posology?.categorieAge || "adulte"} onChange={e => setEditingMed({ ...editingMed, posology: { ...(editingMed.posology || { doseRecommandee: 1, unitId: editingMed.unitId || 1 }), categorieAge: e.target.value as "bébé" | "enfant" | "adulte" } })}>
+                                        <option value="bébé">Bébé</option>
+                                        <option value="enfant">Enfant</option>
+                                        <option value="adulte">Adulte</option>
+                                    </select>
+                                    <Input type="number" className="h-10 rounded-xl text-xs" value={editingMed.posology?.doseRecommandee ?? 1} onChange={e => setEditingMed({ ...editingMed, posology: { ...(editingMed.posology || { categorieAge: "adulte", unitId: editingMed.unitId || 1 }), doseRecommandee: parseFloat(e.target.value) || 0 } })} />
+                                    <select title="Unité posologie" className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-800" value={editingMed.posology?.unitId ?? editingMed.unitId ?? 1} onChange={e => setEditingMed({ ...editingMed, posology: { ...(editingMed.posology || { categorieAge: "adulte", doseRecommandee: 1 }), unitId: parseInt(e.target.value) } })}>
+                                        <option value={1}>mg</option>
+                                        <option value={2}>ml</option>
+                                        <option value={3}>comprimé</option>
+                                        <option value={4}>goutte</option>
+                                        <option value={5}>unité</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>

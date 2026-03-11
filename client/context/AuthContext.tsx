@@ -5,7 +5,7 @@ import { toast } from "sonner";
 interface AuthContextType {
   user: UserDTO | null;
   isLoading: boolean;
-  login: (phone: string, type: AccountType, pin?: string) => Promise<boolean>;
+  login: (phone: string, type?: AccountType, pin?: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -18,7 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const login = async (phone: string, type: AccountType, pin?: string): Promise<boolean> => {
+  const login = async (phone: string, type?: AccountType, pin?: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/login", {

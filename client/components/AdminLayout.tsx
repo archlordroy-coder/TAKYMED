@@ -28,6 +28,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Logo from "./Logo";
+import { GlobalAdRails } from "@/components/GlobalAdRails";
+import { AccountAvatar } from "@/components/AccountAvatar";
 
 interface AdminLayoutProps {
     children: React.ReactNode;
@@ -58,10 +60,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
     return (
         <div className="min-h-screen text-slate-800 flex overflow-hidden font-sans" style={{ background: "#f0f4f8" }}>
+            <GlobalAdRails />
             {/* Sidebar */}
             <aside
                 className={cn(
-                    "flex flex-col transition-all duration-300 relative z-50 shadow-xl",
+                    "hidden md:flex flex-col transition-all duration-300 relative z-50 shadow-xl",
                     isSidebarCollapsed ? "w-20" : "w-64"
                 )}
                 style={{ background: "#ffffff", borderRight: "1px solid #e2e8f0" }}
@@ -145,8 +148,28 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col h-screen overflow-hidden">
+                <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 overflow-x-auto">
+                    <div className="flex items-center gap-2 min-w-max">
+                        {navItems.map((item) => {
+                            const isActive = location.pathname === item.path;
+                            return (
+                                <Link
+                                    key={`mobile-${item.path}`}
+                                    to={item.path}
+                                    className={cn(
+                                        "px-3 py-2 rounded-xl text-xs font-bold border",
+                                        isActive ? "text-white border-transparent" : "text-slate-600 border-slate-200 bg-white"
+                                    )}
+                                    style={isActive ? { background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` } : {}}
+                                >
+                                    {item.label}
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
                 {/* Top Header */}
-                <header className="h-20 flex items-center justify-between px-8 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e2e8f0" }}>
+                <header className="h-20 flex items-center justify-between px-4 md:px-8 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e2e8f0" }}>
                     <div className="flex items-center gap-4 flex-1">
                         <div className="relative max-w-sm w-full hidden md:block">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -167,9 +190,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <button className="flex items-center gap-3 group">
-                                        <div className="w-9 h-9 rounded-xl overflow-hidden border-2 group-hover:border-teal-400 transition-all flex items-center justify-center font-extrabold text-white shadow-sm" style={{ borderColor: "#e2e8f0", background: TEAL }}>
-                                            {(user?.name || "AD").substring(0, 1).toUpperCase()}
-                                        </div>
+                                        <AccountAvatar name={user?.name || "Admin"} type="admin" />
                                         <div className="text-left hidden sm:block">
                                             <p className="text-xs font-bold text-slate-800 leading-none mb-0.5">{user?.name || "Admin"}</p>
                                             <p className="text-[10px] font-semibold leading-none" style={{ color: TEAL }}>Administrateur</p>
@@ -197,7 +218,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 </header>
 
                 {/* Main Viewport */}
-                <main className="flex-1 overflow-y-auto p-8 custom-scrollbar" style={{ background: "#f0f4f8" }}>
+                <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 2xl:pb-8 custom-scrollbar" style={{ background: "#f0f4f8" }}>
                     <div className="max-w-7xl mx-auto space-y-8">
                         {children}
                     </div>

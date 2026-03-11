@@ -246,6 +246,13 @@ export default function PharmacyManagement() {
     );
   }
 
+  const totalStocks = pharmacies.reduce((acc, pharmacy) => {
+    return acc + pharmacy.stocks.reduce((sAcc, stock) => sAcc + stock.quantity, 0);
+  }, 0);
+  const lowStockItems = pharmacies.reduce((acc, pharmacy) => {
+    return acc + pharmacy.stocks.filter((stock) => stock.quantity > 0 && stock.quantity <= 5).length;
+  }, 0);
+
   return (
     <div className="bg-slate-50 min-h-[calc(100vh-64px)] pb-20">
       <div className="container mx-auto px-4 py-12 max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -259,6 +266,25 @@ export default function PharmacyManagement() {
               <Plus className="w-5 h-5 mr-2" />
               Ajouter Pharmacie
             </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-3xl border p-4 shadow-sm">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Pharmacies actives</p>
+            <p className="text-2xl font-black">{pharmacies.length}</p>
+          </div>
+          <div className="bg-white rounded-3xl border p-4 shadow-sm">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Médicaments catalogue</p>
+            <p className="text-2xl font-black">{dbMedications.length}</p>
+          </div>
+          <div className="bg-white rounded-3xl border p-4 shadow-sm">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Unités en stock</p>
+            <p className="text-2xl font-black">{totalStocks}</p>
+          </div>
+          <div className="bg-white rounded-3xl border p-4 shadow-sm">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Stocks faibles</p>
+            <p className="text-2xl font-black text-amber-600">{lowStockItems}</p>
           </div>
         </div>
 

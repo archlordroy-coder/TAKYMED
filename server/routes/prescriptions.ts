@@ -33,10 +33,14 @@ router.get("/", (req, res) => {
             medicationName: d.medicationName,
             dose: d.dose,
             unit: "unité",
+            scheduledAt: d.time,
             time: new Date(d.time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            day: new Date(d.time).getDate(),
             statusReminderSent: !!d.statusReminderSent,
             statusTaken: !!d.statusTaken
         }));
+
+        const pharmacyCount = db.prepare("SELECT COUNT(*) as count FROM Pharmacies").get() as { count: number };
 
         res.json({
             doses: mappedDoses,
@@ -46,7 +50,7 @@ router.get("/", (req, res) => {
                     : 100,
                 activeReminders: mappedDoses.filter(d => !d.statusTaken).length,
                 plannedReminders: mappedDoses.length,
-                nearbyPharmacies: 12,
+                nearbyPharmacies: pharmacyCount.count,
                 nextDose: mappedDoses.find(d => !d.statusTaken) || null
             }
         });
