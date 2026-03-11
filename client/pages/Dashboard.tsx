@@ -26,16 +26,25 @@ export default function Dashboard() {
    const [patients, setPatients] = useState<any[]>([]);
    const [isLoading, setIsLoading] = useState(true);
 
+   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+
    useEffect(() => {
       async function fetchPrescriptions() {
          if (!user?.id) return;
          try {
-            const res = await fetch(`/api/prescriptions?userId=${user.id}`);
+            let url = `/api/prescriptions?userId=${user.id}`;
+            if (selectedPatientId) {
+               url += `&patientId=${selectedPatientId}`;
+            }
+            const res = await fetch(url);
             if (!res.ok) throw new Error("Failed to fetch");
             const data = await res.json();
             setDoses(data.doses);
             setStats(data.stats);
-            setPatients(data.patients || []);
+            // Only update patients list if not filtering by patient, so the list stays intact
+            if (!selectedPatientId) {
+               setPatients(data.patients || []);
+            }
          } catch (error) {
             console.error(error);
             toast.error("Erreur lors du chargement des ordonnances");
@@ -44,7 +53,40 @@ export default function Dashboard() {
          }
       }
       fetchPrescriptions();
-   }, [user?.id]);
+   }, [user?.id, selectedPatientId]);
+
+   const handleTakeMedication = async (doseId: number) => {
+      try {
+         const res = await fetch(`/api/prescriptions/doses/${doseId}/take`, { method: "POST" });
+         if (!res.ok) throw new Error("Error marking dose as taken");
+         toast.success("Prise enregistrée !");
+         // Refresh data
+         const url = selectedPatientId
+            ? `/api/prescriptions?userId=${user?.id}&patientId=${selectedPatientId}`
+            : `/api/prescriptions?userId=${user?.id}`;
+         const refreshRes = await fetch(url);
+         if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            setDoses(data.doses);
+            setStats(data.stats);
+         }
+      } catch (error) {
+         console.error(error);
+         toast.error("Erreur lors de l'enregistrement");
+      }
+   };
+
+   const handleDelayMedication = async (doseId: number) => {
+      try {
+         const res = await fetch(`/api/prescriptions/doses/${doseId}/delay`, { method: "POST" });
+         if (!res.ok) throw new Error("Error delaying dose");
+         toast.success("Prise reportée !");
+      } catch (error) {
+         console.error(error);
+         toast.error("Erreur lors du report");
+      }
+   };
+
 
    if (!user) return null;
 
@@ -157,7 +199,16 @@ export default function Dashboard() {
                               </div>
                               <div className="flex-1 text-center md:text-left space-y-2">
                                  <h3 className="text-2xl font-bold">
-                                    {stats?.nextDose ? `Prochaine prise : ${stats.nextDose.medicationName}` : "Aucune prise à venir"}
+                                    {stats?.nextDose ? (
+                                       <>
+                                          Prochaine prise : <span className="text-primary">{stats.nextDose.medicationName}</span>
+                                          <span className="text-sm text-slate-500 font-medium block mt-1">
+                                             Pour {stats.nextDose.clientName}
+                                          </span>
+                                       </>
+                                    ) : (
+                                       "Aucune prise à venir"
+                                    )}
                                  </h3>
                                  <p className="text-muted-foreground">
                                     {stats?.nextDose
@@ -166,11 +217,11 @@ export default function Dashboard() {
                                  </p>
                                  {stats?.nextDose && (
                                     <div className="flex gap-4 justify-center md:justify-start pt-2">
-                                       <Button size="sm" className="rounded-xl h-10 px-6 font-bold">
+                                       <Button size="sm" className="rounded-xl h-10 px-6 font-bold" onClick={() => handleTakeMedication(stats.nextDose.id)}>
                                           <CheckCircle2 className="w-4 h-4 mr-2" />
                                           Marquer comme pris
                                        </Button>
-                                       <Button variant="outline" size="sm" className="rounded-xl h-10 px-6">Plus tard</Button>
+                                       <Button variant="outline" size="sm" className="rounded-xl h-10 px-6" onClick={() => handleDelayMedication(stats.nextDose.id)}>Plus tard</Button>
                                     </div>
                                  )}
                               </div>
@@ -199,10 +250,17 @@ export default function Dashboard() {
                      {/* Right Column: Client List (Pro/Admin/Pharmacist Only) */}
                      {user.type !== 'standard' && (
                         <div className="lg:col-span-1 space-y-8">
-                           <h2 className="text-xl font-bold flex items-center gap-2 px-2">
-                              <Store className="w-5 h-5 text-primary" />
-                              Liste Client
-                           </h2>
+                           <div className="flex items-center justify-between px-2">
+                              <h2 className="text-xl font-bold flex items-center gap-2">
+                                 <Store className="w-5 h-5 text-primary" />
+                                 Liste Client
+                              </h2>
+                              {selectedPatientId && (
+                                 <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-muted-foreground hover:text-primary" onClick={() => setSelectedPatientId(null)}>
+                                    Voir tous
+                                 </Button>
+                              )}
+                           </div>
                            <div className="bg-white rounded-[40px] border shadow-sm p-6 flex flex-col h-[500px]">
                               {patients.length === 0 ? (
                                  <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground opacity-60">
@@ -212,12 +270,26 @@ export default function Dashboard() {
                               ) : (
                                  <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                                     {patients.map(p => (
-                                       <div key={p.id} className="p-4 rounded-3xl border border-slate-100 hover:border-primary/30 hover:shadow-md transition-all bg-slate-50 group cursor-pointer flex justify-between items-center">
+                                       <div
+                                          key={p.id}
+                                          onClick={() => setSelectedPatientId(p.id)}
+                                          className={cn(
+                                             "p-4 rounded-3xl border transition-all cursor-pointer flex justify-between items-center group",
+                                             selectedPatientId === p.id
+                                                ? "border-primary shadow-md bg-primary/5"
+                                                : "border-slate-100 hover:border-primary/30 hover:shadow-md bg-slate-50"
+                                          )}
+                                       >
                                           <div>
-                                             <h4 className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors line-clamp-1">{p.name || 'Client Inconnu'}</h4>
+                                             <h4 className={cn("font-bold text-sm transition-colors line-clamp-1", selectedPatientId === p.id ? "text-primary" : "text-slate-800 group-hover:text-primary")}>
+                                                {p.name || 'Client Inconnu'}
+                                             </h4>
                                              <p className="text-[10px] text-muted-foreground mt-1">Enregistré le {new Date(p.date).toLocaleDateString('fr-FR')}</p>
                                           </div>
-                                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-all shadow-sm">
+                                          <div className={cn(
+                                             "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm",
+                                             selectedPatientId === p.id ? "bg-primary text-white" : "bg-white text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                                          )}>
                                              <ArrowRight className="w-3 h-3" />
                                           </div>
                                        </div>
@@ -231,7 +303,7 @@ export default function Dashboard() {
                </TabsContent>
 
                <TabsContent value="calendar" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <CalendarView doses={doses} isLoading={isLoading} />
+                  <CalendarView doses={doses} isLoading={isLoading} onTakeMed={handleTakeMedication} />
                </TabsContent>
             </Tabs>
          </div>
@@ -250,7 +322,7 @@ const DOSE_COLORS = [
 ];
 
 // ─── Calendar View Component ───────────────────────────────────────────────────
-function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: boolean }) {
+function CalendarView({ doses, isLoading, onTakeMed }: { doses: DoseSchedule[]; isLoading: boolean; onTakeMed: (id: number) => void }) {
    const today = new Date();
    const [currentMonth, setCurrentMonth] = useState(today.getMonth());
    const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -375,6 +447,7 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                               return (
                                  <div className="flex gap-0.5 mt-1.5">
                                     <div className="w-2 h-2 rounded-full shadow-sm" style={{ background: dayStatusColor }} />
+                                    {dayDoses.length > 1 && <div className="w-2 h-2 rounded-full shadow-sm" style={{ background: dayStatusColor, opacity: 0.5 }} />}
                                  </div>
                               );
                            })()}
@@ -475,16 +548,22 @@ function CalendarView({ doses, isLoading }: { doses: DoseSchedule[]; isLoading: 
                                     <span className="flex items-center gap-1 text-slate-400 text-xs">
                                        <Clock className="w-3 h-3" /> {dose.time}
                                     </span>
-                                    <span
-                                       className={cn(
-                                          "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                                          dose.statusTaken
-                                             ? "bg-green-500/20 text-green-400"
-                                             : "bg-orange-500/10 text-orange-400"
-                                       )}
-                                    >
-                                       {dose.statusTaken ? "✓ Pris" : "À prendre"}
-                                    </span>
+                                    {!dose.statusTaken && dose.scheduledAt && new Date(dose.scheduledAt) <= new Date() ? (
+                                       <Button size="sm" variant="ghost" className="h-6 px-3 text-[10px] rounded-full bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 hover:text-orange-500" onClick={(e) => { e.stopPropagation(); onTakeMed(dose.id); }}>
+                                          Marquer pris
+                                       </Button>
+                                    ) : (
+                                       <span
+                                          className={cn(
+                                             "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                                             dose.statusTaken
+                                                ? "bg-green-500/20 text-green-400"
+                                                : "bg-blue-500/10 text-blue-400"
+                                          )}
+                                       >
+                                          {dose.statusTaken ? "✓ Pris" : "À prendre"}
+                                       </span>
+                                    )}
                                  </div>
                               </div>
                            </div>

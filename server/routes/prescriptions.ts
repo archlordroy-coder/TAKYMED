@@ -6,10 +6,11 @@ const router = Router();
 // Get user prescriptions and upcoming doses
 router.get("/", (req, res) => {
     const userId = req.query.userId;
+    const patientId = req.query.patientId;
     if (!userId) return res.status(400).json({ error: "Missing userId" });
 
     try {
-        const doses = db.prepare(`
+        let query = `
       SELECT 
         cp.id_calendrier_prise as id,
         m.id_medicament as medicationId,
@@ -24,9 +25,17 @@ router.get("/", (req, res) => {
       JOIN Medicaments m ON eo.id_medicament = m.id_medicament
       JOIN Ordonnances o ON eo.id_ordonnance = o.id_ordonnance
       WHERE o.id_utilisateur = ? AND o.est_active = 1
-      ORDER BY cp.heure_prevue ASC
-      LIMIT 100
-    `).all(userId);
+      `;
+        const params: any[] = [userId];
+
+        if (patientId) {
+            query += ` AND o.id_ordonnance = ?`;
+            params.push(patientId);
+        }
+
+        query += ` ORDER BY cp.heure_prevue ASC LIMIT 100`;
+
+        const doses = db.prepare(query).all(...params);
 
         const mappedDoses = doses.map((d: any) => ({
             id: d.id,
@@ -172,6 +181,43 @@ router.post("/", (req, res) => {
     } catch (error) {
         console.error("Failed to save prescription:", error);
         res.status(500).json({ error: "Server error saving prescription", details: error instanceof Error ? error.message : "Unknown error" });
+    }
+});
+
+router.post("/doses/:id/take", (req, res) => {
+    try {
+        const result = db.prepare(`
+            UPDATE CalendrierPrises 
+            SET statut_prise = 1 
+            WHERE id_calendrier_prise = ?
+        `).run(req.params.id);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: "Dose not found" });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Failed to mark dose as taken:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+router.post("/doses/:id/delay", (req, res) => {
+    try {
+        // Delay by 1 hour
+        const result = db.prepare(`
+            UPDATE CalendrierPrises 
+            SET heure_prevue = datetime(heure_prevue, '+1 hour') 
+            WHERE id_calendrier_prise = ?
+        `).run(req.params.id);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: "Dose not found" });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Failed to delay dose:", error);
+        res.status(500).json({ error: "Server error" });
     }
 });
 

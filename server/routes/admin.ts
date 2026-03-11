@@ -115,6 +115,39 @@ router.delete("/users/:id", (req, res) => {
     }
 });
 
+// Create user
+router.post("/users", (req, res) => {
+    const { email, phone, password, type, name } = req.body;
+    try {
+        const typeIdStr = String(type).toLowerCase();
+        let typeId = 1; // "standard"
+        if (typeIdStr === "professionnel") typeId = 2;
+        if (typeIdStr === "pharmacien") typeId = 3;
+        if (typeIdStr === "administrateur") typeId = 4;
+
+        db.transaction(() => {
+            const insertUser = db.prepare(`
+                INSERT INTO Utilisateurs (email, mot_de_passe_hash, numero_telephone, id_type_compte)
+                VALUES (?, ?, ?, ?)
+            `).run(email || undefined, password || 'defaultpassword123', phone || undefined, typeId);
+
+            const userId = insertUser.lastInsertRowid;
+
+            if (name) {
+                db.prepare(`
+                    INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet)
+                    VALUES (?, ?)
+                `).run(userId, name);
+            }
+        })();
+
+        res.status(201).json({ success: true });
+    } catch (error) {
+        console.error("Error creating user:", error);
+        res.status(500).json({ error: "Failed to create user" });
+    }
+});
+
 // Medications management
 router.get("/medications", (_req, res) => {
     try {

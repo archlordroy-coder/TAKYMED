@@ -139,6 +139,9 @@ export default function AdminDashboard() {
     const [newCat, setNewCat] = useState({ name: "", description: "" });
     const [editingCat, setEditingCat] = useState<{ id: number, name: string, description: string } | null>(null);
 
+    const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+    const [newUser, setNewUser] = useState({ name: "", email: "", phone: "", password: "", type: "standard" });
+
     const [isAddMedOpen, setIsAddMedOpen] = useState(false);
     const [newMed, setNewMed] = useState<Partial<AdminMedication>>({
         name: "",
@@ -217,6 +220,31 @@ export default function AdminDashboard() {
         const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
         if (res.ok) { toast.success("Utilisateur supprimé"); refreshData(); }
         else toast.error("Erreur lors de la suppression");
+    };
+
+    const handleAddUser = async () => {
+        if (!newUser.phone && !newUser.email) {
+            toast.error("Veuillez fournir un email ou un téléphone");
+            return;
+        }
+        if (!newUser.password) {
+            toast.error("Veuillez fournir un mot de passe");
+            return;
+        }
+        const res = await fetch("/api/admin/users", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newUser)
+        });
+        if (res.ok) {
+            toast.success("Utilisateur créé avec succès");
+            setNewUser({ name: "", email: "", phone: "", password: "", type: "standard" });
+            setIsAddUserOpen(false);
+            refreshData();
+        } else {
+            const data = await res.json().catch(() => null);
+            toast.error(data?.error || "Erreur lors de la création");
+        }
     };
 
     const handleAddMed = async () => {
@@ -619,14 +647,75 @@ export default function AdminDashboard() {
                                 <h3 className="text-lg font-bold text-slate-800">Clients inscrits</h3>
                                 <p className="text-xs text-slate-400 font-medium mt-0.5">{users.length} comptes enregistrés</p>
                             </div>
-                            <div className="relative max-w-xs w-full">
-                                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                <Input
-                                    placeholder="Rechercher..."
-                                    className={cn("pl-10", inputClass)}
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
+                            <div className="flex items-center gap-2 w-full md:w-auto">
+                                <div className="relative max-w-xs w-full">
+                                    <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                                    <Input
+                                        placeholder="Rechercher..."
+                                        className={cn("pl-10", inputClass)}
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                    />
+                                </div>
+                                <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button
+                                            className="text-white rounded-xl px-5 h-11 font-bold shadow-md whitespace-nowrap"
+                                            style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
+                                        >
+                                            <Plus className="w-4 h-4 mr-2" /> Nouveau Client
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
+                                        <DialogHeader>
+                                            <DialogTitle className="text-slate-800">Ajouter un Utilisateur</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-4">
+                                            <div className="space-y-2">
+                                                <label className={labelClass}>Nom Complet (Optionnel)</label>
+                                                <Input className={inputClass} placeholder="ex: Jean Dupont" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Téléphone</label>
+                                                    <Input className={inputClass} placeholder="+225..." value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Email</label>
+                                                    <Input className={inputClass} type="email" placeholder="mail@example.com" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Mot de passe <span className="text-red-500">*</span></label>
+                                                    <Input className={inputClass} type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className={labelClass}>Type de profil <span className="text-red-500">*</span></label>
+                                                    <select
+                                                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400"
+                                                        value={newUser.type}
+                                                        onChange={e => setNewUser({ ...newUser, type: e.target.value })}
+                                                    >
+                                                        <option value="standard">Standard (Patient)</option>
+                                                        <option value="professionnel">Professionnel de santé</option>
+                                                        <option value="pharmacien">Pharmacien</option>
+                                                        <option value="administrateur">Administrateur</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button
+                                                className="w-full h-11 rounded-xl font-bold text-white"
+                                                style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
+                                                onClick={handleAddUser}
+                                            >
+                                                Créer le compte
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
