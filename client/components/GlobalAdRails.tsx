@@ -74,10 +74,10 @@ function AdRail({ ad, side }: { ad?: NewMed; side: "left" | "right" }) {
           {/* Upper half - Product Image */}
           <div className="h-1/2 relative overflow-hidden">
             {ad.photoUrl ? (
-              <img 
-                src={ad.photoUrl} 
+              <img
+                src={ad.photoUrl}
                 alt={ad.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-2"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
@@ -88,7 +88,7 @@ function AdRail({ ad, side }: { ad?: NewMed; side: "left" | "right" }) {
               </div>
             )}
           </div>
-          
+
           {/* Lower half - Text Info */}
           <div className="h-1/2 flex flex-col justify-center text-center gap-3 p-4">
             <p className="font-black text-base leading-tight">{ad.name}</p>
@@ -113,10 +113,10 @@ function AdCard({ ad }: { ad?: NewMed }) {
       {/* Upper half - Product Image */}
       <div className="h-24 relative overflow-hidden">
         {ad.photoUrl ? (
-          <img 
-            src={ad.photoUrl} 
+          <img
+            src={ad.photoUrl}
             alt={ad.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain p-2"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
             }}
@@ -127,7 +127,7 @@ function AdCard({ ad }: { ad?: NewMed }) {
           </div>
         )}
       </div>
-      
+
       {/* Lower half - Info */}
       <div className="p-3 space-y-2">
         <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider text-primary">

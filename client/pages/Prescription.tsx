@@ -294,7 +294,7 @@ export default function Prescription() {
                                 m.frequencyType === currentFreq ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-slate-50 hover:bg-slate-100"
                               )}
                             >
-                              {freq === 'prb' ? 'Au besoin' : freq}
+                              {freq === 'prb' ? '-/-' : freq}
                             </button>
                           );
                         })}
