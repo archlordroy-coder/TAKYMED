@@ -39,16 +39,7 @@ import {
 const TEAL = "#006093";
 const EMERALD = "#00A859";
 
-// Local African avatars from public folder
-const AFRICAN_AVATARS = [
-    "/avatars/patient1.png",
-    "/avatars/patient2.png",
-    "/avatars/doctor.png",
-    "/avatars/pharmacist.png",
-    "/avatars/default.png",
-];
-
-// Removed AFRICAN_AVATARS logic
+// Local African avatars from public/avatars folder are now used based on account type
 
 interface AdminStats {
     users: number;
@@ -180,6 +171,24 @@ export default function AdminDashboard() {
             toast.success("Image chargée depuis votre appareil");
         };
         reader.readAsDataURL(file);
+    };
+
+    const handleDeleteAllMeds = async () => {
+        if (!window.confirm("Êtes-vous sûr de vouloir supprimer TOUS les médicaments du catalogue ? Cette action est irréversible.")) {
+            return;
+        }
+
+        try {
+            const res = await fetch("/api/admin/medications/all", { method: "DELETE" });
+            if (res.ok) {
+                toast.success("Tous les médicaments ont été supprimés.");
+                refreshData();
+            } else {
+                toast.error("Erreur lors de la suppression.");
+            }
+        } catch (error) {
+            toast.error("Erreur réseau.");
+        }
     };
 
     const refreshData = async () => {
@@ -737,15 +746,15 @@ export default function AdminDashboard() {
                                                 <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div
-                                                                className="h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-white shadow-sm border-2 border-white"
-                                                                style={{
-                                                                    background: u.type === 'Standard' ? '#3b82f6' :
-                                                                        u.type === 'Professionnel' ? '#10b981' :
-                                                                            u.type === 'Pharmacien' ? '#f59e0b' : '#8b5cf6'
-                                                                }}
-                                                            >
-                                                                {displayName.substring(0, 1).toUpperCase()}
+                                                            <div className="h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-white shadow-sm border overflow-hidden">
+                                                                <img
+                                                                    src={`/avatars/${u.type}.svg`}
+                                                                    alt={u.type}
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={(e) => {
+                                                                        (e.target as HTMLImageElement).src = "/avatars/default.png";
+                                                                    }}
+                                                                />
                                                             </div>
                                                             <div>
                                                                 <p className="font-extrabold text-slate-900 text-sm">{displayName}</p>
@@ -826,6 +835,14 @@ export default function AdminDashboard() {
                                     onClick={handleExportPDF}
                                 >
                                     <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
+                                </Button>
+                                {/* Delete All */}
+                                <Button
+                                    variant="outline"
+                                    className="rounded-xl h-10 px-4 text-xs font-bold border-red-200 text-red-700 hover:bg-red-100"
+                                    onClick={handleDeleteAllMeds}
+                                >
+                                    <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Tout Supprimer
                                 </Button>
                                 {/* Add New */}
                                 <Dialog open={isAddMedOpen} onOpenChange={setIsAddMedOpen}>

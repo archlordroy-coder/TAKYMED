@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +46,28 @@ export default function SearchMedications() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isFindingLocation, setIsFindingLocation] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [bookmarks, setBookmarks] = useState<number[]>([]);
+  const navigate = useNavigate();
+
+  // Load bookmarks
+  useEffect(() => {
+    const saved = localStorage.getItem("med_bookmarks");
+    if (saved) setBookmarks(JSON.parse(saved));
+  }, []);
+
+  const toggleBookmark = (id: number) => {
+    const newBookmarks = bookmarks.includes(id)
+      ? bookmarks.filter(b => b !== id)
+      : [...bookmarks, id];
+    setBookmarks(newBookmarks);
+    localStorage.setItem("med_bookmarks", JSON.stringify(newBookmarks));
+    toast.success(bookmarks.includes(id) ? "Supprimé des favoris" : "Ajouté aux favoris");
+  };
+
+  const handleAddToTreatment = () => {
+    if (!selectedMed) return;
+    navigate(`/prescription?med=${encodeURIComponent(selectedMed.name)}`);
+  };
 
   // Fetch medications based on query
   useEffect(() => {
@@ -206,10 +229,18 @@ export default function SearchMedications() {
                         </div>
                       </div>
                       <div className="flex gap-3">
-                        <Button variant="outline" size="icon" className="rounded-2xl h-12 w-12 border-slate-200">
-                          <Bookmark className="w-5 h-5" />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className={cn("rounded-2xl h-12 w-12 border-slate-200 transition-colors", bookmarks.includes(selectedMed.id) && "bg-amber-50 border-amber-200 text-amber-500")}
+                          onClick={() => toggleBookmark(selectedMed.id)}
+                        >
+                          <Bookmark className={cn("w-5 h-5", bookmarks.includes(selectedMed.id) && "fill-current")} />
                         </Button>
-                        <Button className="rounded-2xl h-12 px-6 font-bold bg-primary shadow-lg shadow-primary/20">
+                        <Button
+                          className="rounded-2xl h-12 px-6 font-bold bg-primary shadow-lg shadow-primary/20"
+                          onClick={handleAddToTreatment}
+                        >
                           <Plus className="w-4 h-4 mr-2" />
                           Ajouter au traitement
                         </Button>
@@ -273,8 +304,14 @@ export default function SearchMedications() {
                               <CheckCircle2 className="w-4 h-4" />
                               En stock ({p.quantity} unités)
                             </div>
-                            <Button variant="ghost" className="h-8 rounded-xl text-xs font-bold gap-2">
-                              {p.phone || "Appeler"}
+                            <Button
+                              asChild
+                              variant="ghost"
+                              className="h-8 rounded-xl text-xs font-bold gap-2"
+                            >
+                              <a href={`tel:${p.phone?.replace(/\s+/g, '')}`}>
+                                {p.phone || "Appeler"}
+                              </a>
                             </Button>
                           </div>
                         </div>

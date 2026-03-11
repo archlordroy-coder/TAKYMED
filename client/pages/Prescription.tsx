@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MedicationEntry, DoseSchedule, FrequencyType } from "@shared/api";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 
 
@@ -45,10 +45,13 @@ export default function Prescription() {
 
   const [categories, setCategories] = useState<{ id: number, name: string, description: string }[]>([]);
 
+  const [searchParams] = useSearchParams();
+  const initialMedName = searchParams.get("med") || "";
+
   const [medications, setMedications] = useState<MedicationEntry[]>([
     {
       id: "1",
-      name: "",
+      name: initialMedName,
       frequencyType: "1x",
       times: ["08:00"],
       durationDays: 1,

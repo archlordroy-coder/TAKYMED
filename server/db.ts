@@ -148,6 +148,36 @@ export function initializeDatabase() {
                 `);
             }
 
+            // Migration: allow dynamic age categories and cleanup Ordonnances
+            const ordonnanceSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='Ordonnances'").get() as { sql?: string } | undefined;
+            const hasOrdonnanceCategorieAgeCheck = ordonnanceSchema?.sql?.includes("CHECK(categorie_age IN") || false;
+            const hasAgePatient = ordonnanceSchema?.sql?.includes("age_patient") || false;
+
+            if (hasOrdonnanceCategorieAgeCheck || hasAgePatient) {
+                console.log("Migrating Ordonnances to remove fixed categorie_age CHECK constraint and cleanup columns...");
+                db.exec(`
+                    BEGIN;
+                    CREATE TABLE IF NOT EXISTS Ordonnances_new (
+                        id_ordonnance INTEGER PRIMARY KEY AUTOINCREMENT,
+                        id_utilisateur INT NOT NULL,
+                        titre VARCHAR(255),
+                        nom_patient VARCHAR(255),
+                        categorie_age TEXT DEFAULT 'adulte',
+                        poids_patient DECIMAL(5,2),
+                        date_ordonnance DATE DEFAULT CURRENT_DATE,
+                        est_active BOOLEAN DEFAULT TRUE,
+                        cree_le DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE
+                    );
+                    INSERT INTO Ordonnances_new (id_ordonnance, id_utilisateur, titre, nom_patient, categorie_age, poids_patient, date_ordonnance, est_active, cree_le)
+                    SELECT id_ordonnance, id_utilisateur, titre, nom_patient, categorie_age, poids_patient, date_ordonnance, est_active, cree_le
+                    FROM Ordonnances;
+                    DROP TABLE Ordonnances;
+                    ALTER TABLE Ordonnances_new RENAME TO Ordonnances;
+                    COMMIT;
+                `);
+            }
+
             // Phase 9: Admin Account Initialization
             const adminType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get();
             if (!adminType) {

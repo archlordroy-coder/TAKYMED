@@ -1,6 +1,42 @@
 import { Router } from "express";
 import { db } from "../db";
 import { z } from "zod";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(process.cwd(), "public", "uploads");
+
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+/**
+ * Saves a base64 image string to the uploads directory and returns the public URL.
+ */
+function saveBase64Image(base64Data: string, prefix: string = "med"): string {
+    if (!base64Data || !base64Data.startsWith("data:image/")) return base64Data;
+
+    try {
+        const matches = base64Data.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) return base64Data;
+
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const extension = type.split('/')[1] === 'jpeg' ? 'jpg' : type.split('/')[1];
+        const filename = `${prefix}_${Date.now()}.${extension}`;
+        const filePath = path.join(uploadsDir, filename);
+
+        fs.writeFileSync(filePath, buffer);
+        return `/uploads/${filename}`;
+    } catch (error) {
+        console.error("Error saving image:", error);
+        return base64Data;
+    }
+}
+
 
 const router = Router();
 
@@ -208,12 +244,14 @@ router.post("/medications", (req, res) => {
     const { name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, precautionAlimentaire, posology } = parsed.data;
 
     try {
+        const finalPhotoUrl = saveBase64Image(photoUrl || "", "med");
+
         const insertTx = db.transaction(() => {
             const result = db.prepare(`
                 INSERT INTO Medicaments
                 (nom, id_unite_par_defaut, dose_par_defaut, description, photo_url, prix, type_utilisation, precaution_alimentaire)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, precautionAlimentaire);
+            `).run(name, unitId, defaultDose, description, finalPhotoUrl, price, typeUtilisation, precautionAlimentaire);
 
             const medicationId = Number(result.lastInsertRowid);
 
@@ -256,13 +294,15 @@ router.put("/medications/:id", (req, res) => {
 
     const { name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, precautionAlimentaire, posology } = parsed.data;
     try {
+        const finalPhotoUrl = saveBase64Image(photoUrl || "", "med");
+
         const updateTx = db.transaction(() => {
             db.prepare(`
                 UPDATE Medicaments
                 SET nom = ?, id_unite_par_defaut = ?, dose_par_defaut = ?, description = ?, photo_url = ?, prix = ?,
                     type_utilisation = ?, precaution_alimentaire = ?
                 WHERE id_medicament = ?
-            `).run(name, unitId, defaultDose, description, photoUrl, price, typeUtilisation, precautionAlimentaire, id);
+            `).run(name, unitId, defaultDose, description, finalPhotoUrl, price, typeUtilisation, precautionAlimentaire, id);
 
             if (posology) {
                 db.prepare("DELETE FROM PosologieDefautMedicaments WHERE id_medicament = ? AND categorie_age = ?")
@@ -278,6 +318,17 @@ router.put("/medications/:id", (req, res) => {
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: "Failed to update medication" });
+    }
+});
+
+// Delete all medications
+router.delete("/medications/all", (req, res) => {
+    try {
+        db.prepare("DELETE FROM Medicaments").run();
+        res.json({ success: true, message: "Tous les médicaments ont été supprimés." });
+    } catch (error) {
+        console.error("Failed to delete all medications:", error);
+        res.status(500).json({ error: "Failed to delete all medications" });
     }
 });
 
