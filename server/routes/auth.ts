@@ -10,12 +10,104 @@ const typeMap: Record<string, string> = {
   admin: "Administrateur",
 };
 
-const reverseTypeMap: Record<string, "standard" | "professional" | "pharmacist" | "admin"> = {
+const reverseTypeMap: Record<
+  string,
+  "standard" | "professional" | "pharmacist" | "admin"
+> = {
   Standard: "standard",
   Professionnel: "professional",
   Pharmacien: "pharmacist",
   Administrateur: "admin",
 };
+
+router.get("/account-types", (_req, res) => {
+  try {
+    const types = db
+      .prepare(
+        `
+          SELECT
+            tc.id_type_compte as id,
+            tc.nom_type as name,
+            tc.description as description,
+            tc.necessite_paiement as requiresPayment,
+            COALESCE(f.montant, 0) as price,
+            COALESCE(f.devise, 'FCFA') as currency
+          FROM TypesComptes tc
+          LEFT JOIN FraisComptesProfessionnels f ON tc.id_type_compte = f.id_type_compte
+          WHERE tc.nom_type <> 'Administrateur'
+          ORDER BY tc.id_type_compte ASC
+        `,
+      )
+      .all();
+
+    res.json({ types });
+  } catch (error) {
+    console.error("Account types error:", error);
+    res.status(500).json({ error: "Failed to fetch account types" });
+  }
+});
+
+router.post("/register", (req, res) => {
+  const { phone, pin, type } = req.body;
+
+  try {
+    const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
+    const normalizedPin = typeof pin === "string" ? pin.trim() : "";
+    const requestedType = typeof type === "string" ? type : "standard";
+    const dbType = typeMap[requestedType] || "Standard";
+
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: "Phone is required" });
+    }
+
+    if (!normalizedPin) {
+      return res.status(400).json({ error: "PIN is required" });
+    }
+
+    const existingUser = db
+      .prepare(
+        "SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = ?",
+      )
+      .get(normalizedPhone);
+
+    if (existingUser) {
+      return res.status(409).json({ error: "Ce numéro est déjà utilisé" });
+    }
+
+    const typeRecord = db
+      .prepare(
+        "SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = ?",
+      )
+      .get(dbType) as { id_type_compte: number; nom_type: string } | undefined;
+
+    if (!typeRecord) {
+      return res.status(400).json({ error: "Invalid account type" });
+    }
+
+    const info = db
+      .prepare(
+        `
+          INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien)
+          VALUES (?, ?, ?, ?)
+        `,
+      )
+      .run(
+        normalizedPhone,
+        normalizedPin,
+        typeRecord.id_type_compte,
+        typeRecord.nom_type === "Pharmacien" ? 1 : 0,
+      );
+
+    db.prepare(
+      "INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)",
+    ).run(info.lastInsertRowid, `User ${normalizedPhone.slice(-4)}`);
+
+    res.status(201).json({ success: true });
+  } catch (error) {
+    console.error("Register error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // Login route
 router.post("/login", (req, res) => {
@@ -28,13 +120,18 @@ router.post("/login", (req, res) => {
     }
 
     let user: any;
-    let frontendType: "standard" | "professional" | "pharmacist" | "admin" = "standard";
+    let frontendType: "standard" | "professional" | "pharmacist" | "admin" =
+      "standard";
 
     if (type) {
       const dbType = typeMap[type] || "Standard";
       const typeRecord = db
-        .prepare("SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = ?")
-        .get(dbType) as { id_type_compte: number; nom_type: string } | undefined;
+        .prepare(
+          "SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = ?",
+        )
+        .get(dbType) as
+        | { id_type_compte: number; nom_type: string }
+        | undefined;
 
       if (!typeRecord) {
         return res.status(400).json({ error: "Invalid account type" });
@@ -73,7 +170,9 @@ router.post("/login", (req, res) => {
 
     if (!user && normalizedPhone !== "admin") {
       const standardType = db
-        .prepare("SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = 'Standard'")
+        .prepare(
+          "SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = 'Standard'",
+        )
         .get() as { id_type_compte: number; nom_type: string } | undefined;
 
       if (!standardType) {
@@ -89,10 +188,9 @@ router.post("/login", (req, res) => {
         )
         .run(normalizedPhone, standardType.id_type_compte);
 
-      db.prepare(`INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)`).run(
-        info.lastInsertRowid,
-        `User ${normalizedPhone.slice(-4)}`,
-      );
+      db.prepare(
+        `INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)`,
+      ).run(info.lastInsertRowid, `User ${normalizedPhone.slice(-4)}`);
 
       user = db
         .prepare(

@@ -6,6 +6,7 @@ interface AuthContextType {
   user: UserDTO | null;
   isLoading: boolean;
   login: (phone: string, type?: AccountType, pin?: string) => Promise<boolean>;
+  register: (phone: string, pin: string, type: AccountType) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -18,7 +19,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const login = async (phone: string, type?: AccountType, pin?: string): Promise<boolean> => {
+  const login = async (
+    phone: string,
+    type?: AccountType,
+    pin?: string,
+  ): Promise<boolean> => {
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
@@ -30,7 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!response.ok) {
-        throw new Error("Authentication failed");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Authentication failed");
       }
 
       const userData: UserDTO = await response.json();
@@ -39,10 +45,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (error) {
       console.error(error);
-      toast.error("Erreur d'authentification");
+      toast.error(
+        error instanceof Error ? error.message : "Erreur d'authentification",
+      );
       return false;
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const register = async (
+    phone: string,
+    pin: string,
+    type: AccountType,
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone, pin, type }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Register failed");
+      }
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        error instanceof Error ? error.message : "Erreur d'inscription",
+      );
+      return false;
     }
   };
 
@@ -52,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
