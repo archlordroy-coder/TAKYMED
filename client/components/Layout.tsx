@@ -217,12 +217,12 @@ export function Layout({ children }: LayoutProps) {
       <main
         className={cn(
           "pt-16 md:pt-20 min-h-[calc(100vh-64px-300px)] md:min-h-[calc(100vh-80px-300px)]",
-          shouldShowGlobalAds ? "pb-24 2xl:pb-0" : "",
+          shouldShowGlobalAds ? "pb-24 2xl:pb-0 2xl:px-[176px]" : "",
         )}
       >
         {children}
       </main>
-      <footer className="bg-muted py-12 border-t">
+      <footer className={cn("bg-muted py-12 border-t", shouldShowGlobalAds ? "2xl:px-[176px]" : "")}>
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2 space-y-6">
             <div className="flex items-center gap-3">

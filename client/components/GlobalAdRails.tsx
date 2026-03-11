@@ -35,12 +35,8 @@ export function GlobalAdRails() {
 
   return (
     <>
-      <div className="hidden lg:block fixed left-2 top-24 z-40">
-        <AdCard ad={left} compact />
-      </div>
-      <div className="hidden lg:block fixed right-2 top-24 z-40">
-        <AdCard ad={right} compact />
-      </div>
+      <AdRail ad={left} side="left" />
+      <AdRail ad={right} side="right" />
 
       <div className="lg:hidden fixed bottom-3 left-3 right-3 z-40">
         <div className="mx-auto max-w-md">
@@ -51,7 +47,44 @@ export function GlobalAdRails() {
   );
 }
 
-function AdCard({ ad, compact = false }: { ad?: NewMed; compact?: boolean }) {
+function AdRail({ ad, side }: { ad?: NewMed; side: "left" | "right" }) {
+  if (!ad) return null;
+
+  const railBg =
+    side === "left"
+      ? "from-[#006093] via-[#0078A8] to-[#00A859] border-r border-white/30"
+      : "from-[#00A859] via-[#009C7A] to-[#006093] border-l border-white/30";
+
+  return (
+    <Link
+      to={`/search?q=${ad.name}`}
+      className={`hidden 2xl:flex fixed ${side}-0 top-20 bottom-0 z-30 w-[176px] bg-gradient-to-b ${railBg} group`}
+      aria-label={`Voir la publicité pour ${ad.name}`}
+    >
+      <div className="w-full h-full p-4 flex flex-col text-white">
+        <div className="text-[10px] uppercase tracking-wider font-bold opacity-90 flex items-center gap-1.5">
+          <Megaphone className="w-3 h-3" />
+          Publicité
+        </div>
+
+        <div className="mt-6 flex-1 flex flex-col items-center justify-center text-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <Pill className="w-7 h-7" />
+          </div>
+          <p className="font-black text-base leading-tight">{ad.name}</p>
+          <p className="text-xs leading-relaxed line-clamp-6 opacity-95">{ad.description || "Nouveau ce mois-ci"}</p>
+        </div>
+
+        <div className="mt-auto pt-4 border-t border-white/30">
+          <p className="text-xs font-bold truncate">{ad.price || "Prix en pharmacie"}</p>
+          <p className="text-[11px] font-semibold mt-1 group-hover:underline">Voir le produit</p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function AdCard({ ad }: { ad?: NewMed }) {
   if (!ad) return null;
 
   return (
@@ -67,7 +100,7 @@ function AdCard({ ad, compact = false }: { ad?: NewMed; compact?: boolean }) {
           </div>
           <div className="min-w-0">
             <p className="text-xs font-black truncate">{ad.name}</p>
-            <p className="text-[11px] text-muted-foreground line-clamp-2">{ad.description || "Nouveau ce mois-ci"}</p>
+            <p className="text-[11px] text-muted-foreground line-clamp-3">{ad.description || "Nouveau ce mois-ci"}</p>
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 pt-1">
@@ -79,7 +112,7 @@ function AdCard({ ad, compact = false }: { ad?: NewMed; compact?: boolean }) {
           </Button>
         </Link>
       </div>
-      {!compact && <div className="h-1 bg-gradient-to-r from-primary to-emerald-500 rounded-b-2xl" />}
+      <div className="h-1 bg-gradient-to-r from-primary to-emerald-500 rounded-b-2xl" />
     </div>
   );
 }
