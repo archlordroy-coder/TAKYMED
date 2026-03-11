@@ -44,18 +44,18 @@ export function AdminHeroCard({ name, amount, targetPercent }: AdminHeroCardProp
                 <h2 className="text-2xl font-black text-white tracking-tight leading-tight">
                     Bienvenue, {name} 👋
                 </h2>
-                <p className="text-white/70 text-sm mt-1">Voici un résumé de l'activité du système.</p>
+                <p className="text-white/80 text-sm mt-1">Voici un résumé de l'activité du système.</p>
 
                 <div className="mt-8">
                     <p className="text-5xl font-black text-white tracking-tighter">{amount}</p>
-                    <p className="text-xs font-bold text-white/60 mt-1 uppercase tracking-widest">
+                    <p className="text-xs font-bold text-white/70 mt-1 uppercase tracking-widest">
                         Ordonnances totales
                     </p>
                 </div>
 
                 {/* Progress bar */}
                 <div className="mt-8">
-                    <div className="flex justify-between text-xs text-white/70 font-bold mb-2">
+                    <div className="flex justify-between text-xs text-white/80 font-bold mb-2">
                         <span>Objectif du mois</span>
                         <span>{targetPercent}%</span>
                     </div>

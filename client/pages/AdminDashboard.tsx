@@ -631,8 +631,7 @@ export default function AdminDashboard() {
                         <TabsTrigger
                             key={tab.value}
                             value={tab.value}
-                            className="rounded-xl px-6 py-2.5 text-sm font-semibold text-slate-500 transition-all data-[state=active]:text-white data-[state=active]:shadow-md"
-                            style={{}}
+                            className="rounded-xl px-6 py-2.5 text-sm font-semibold text-slate-500 transition-all data-[state=active]:bg-[#006093] data-[state=active]:text-white data-[state=active]:shadow-md"
                         >
                             {tab.label}
                         </TabsTrigger>
@@ -693,6 +692,7 @@ export default function AdminDashboard() {
                                                 <div className="space-y-2">
                                                     <label className={labelClass}>Type de profil <span className="text-red-500">*</span></label>
                                                     <select
+                                                        title="Type de profil"
                                                         className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400"
                                                         value={newUser.type}
                                                         onChange={e => setNewUser({ ...newUser, type: e.target.value })}
@@ -799,6 +799,7 @@ export default function AdminDashboard() {
                                 <input
                                     type="file"
                                     id="csv-import-input"
+                                    title="Importer un fichier CSV"
                                     className="hidden"
                                     accept=".csv"
                                     onChange={handleImportCSV}
@@ -1336,7 +1337,7 @@ function EditableSettingCard({
                             type="number"
                             value={price}
                             onChange={e => setPrice(parseInt(e.target.value))}
-                            className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm"
+                            className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm text-slate-800"
                         />
                     </div>
                     <div>
@@ -1344,7 +1345,7 @@ function EditableSettingCard({
                         <Input
                             value={desc}
                             onChange={e => setDesc(e.target.value)}
-                            className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm"
+                            className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm text-slate-800"
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -1355,7 +1356,7 @@ function EditableSettingCard({
                                 placeholder="Illimité"
                                 value={maxOrdo}
                                 onChange={e => setMaxOrdo(e.target.value)}
-                                className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm placeholder:text-teal-500 placeholder:italic"
+                                className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm text-slate-800 placeholder:text-teal-500 placeholder:italic"
                             />
                         </div>
                         <div>
@@ -1365,7 +1366,7 @@ function EditableSettingCard({
                                 placeholder="Illimité"
                                 value={maxRappels}
                                 onChange={e => setMaxRappels(e.target.value)}
-                                className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm placeholder:text-teal-500 placeholder:italic"
+                                className="bg-slate-50 border-slate-200 h-10 rounded-xl text-sm text-slate-800 placeholder:text-teal-500 placeholder:italic"
                             />
                         </div>
                     </div>
