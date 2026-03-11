@@ -122,6 +122,32 @@ export function initializeDatabase() {
                 )
             `);
 
+
+            // Migration: allow dynamic age categories in PosologieDefautMedicaments
+            const posologyTable = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='PosologieDefautMedicaments'").get() as { sql?: string } | undefined;
+            const hasCategorieAgeCheck = posologyTable?.sql?.includes("CHECK(categorie_age IN") || false;
+            if (hasCategorieAgeCheck) {
+                console.log("Migrating PosologieDefautMedicaments to remove fixed categorie_age CHECK constraint...");
+                db.exec(`
+                    BEGIN;
+                    CREATE TABLE IF NOT EXISTS PosologieDefautMedicaments_new (
+                        id_posologie INTEGER PRIMARY KEY AUTOINCREMENT,
+                        id_medicament INT NOT NULL,
+                        categorie_age TEXT,
+                        dose_recommandee DECIMAL(10,2),
+                        id_unite INT,
+                        FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE,
+                        FOREIGN KEY (id_unite) REFERENCES Unites(id_unite)
+                    );
+                    INSERT INTO PosologieDefautMedicaments_new (id_posologie, id_medicament, categorie_age, dose_recommandee, id_unite)
+                    SELECT id_posologie, id_medicament, categorie_age, dose_recommandee, id_unite
+                    FROM PosologieDefautMedicaments;
+                    DROP TABLE PosologieDefautMedicaments;
+                    ALTER TABLE PosologieDefautMedicaments_new RENAME TO PosologieDefautMedicaments;
+                    COMMIT;
+                `);
+            }
+
             // Phase 9: Admin Account Initialization
             const adminType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get();
             if (!adminType) {

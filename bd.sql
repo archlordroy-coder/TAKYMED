@@ -92,7 +92,7 @@ CREATE TABLE Medicaments (
     dose_par_defaut DECIMAL(10,2),
     id_unite_par_defaut INT,
     description TEXT,
-    photo_url VARCHAR(255),
+    photo_url TEXT,
     
     mode_administration TEXT CHECK(mode_administration IN ('orale','buvable','injectable','cutanee','inhalation','sublinguale','oculaire','nasale')) DEFAULT 'orale',
 
@@ -113,7 +113,7 @@ CREATE TABLE Medicaments (
 CREATE TABLE PosologieDefautMedicaments (
     id_posologie INTEGER PRIMARY KEY AUTOINCREMENT,
     id_medicament INT NOT NULL,
-    categorie_age TEXT CHECK(categorie_age IN ('bébé','enfant','adulte')),
+    categorie_age TEXT,
     dose_recommandee DECIMAL(10,2),
     id_unite INT,
 
@@ -277,7 +277,7 @@ CREATE TABLE Pharmacies (
     telephone VARCHAR(20),
     heure_ouverture TIME,
     heure_fermeture TIME,
-    photo_url VARCHAR(255),
+    photo_url TEXT,
 
     FOREIGN KEY (id_pharmacien)
         REFERENCES Utilisateurs(id_utilisateur)
