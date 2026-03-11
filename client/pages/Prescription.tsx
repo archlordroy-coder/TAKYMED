@@ -300,6 +300,12 @@ export default function Prescription() {
                         })}
                       </div>
 
+                      {m.frequencyType === '1x' && <p className="text-xs text-primary mt-2">Une fois par jour le matin</p>}
+                      {m.frequencyType === '2x' && <p className="text-xs text-primary mt-2">Deux fois par jour le matin et le soir</p>}
+                      {m.frequencyType === '3x' && <p className="text-xs text-primary mt-2">Trois fois par jour le matin, le midi et le soir</p>}
+                      {m.frequencyType === 'interval' && <p className="text-xs text-primary mt-2">Prises à intervalles réguliers</p>}
+                      {m.frequencyType === 'prn' && <p className="text-xs text-primary mt-2">En cas de besoin</p>}
+
                       {/* Custom Time Selection for 1x, 2x, 3x */}
                       {(m.frequencyType === '1x' || m.frequencyType === '2x' || m.frequencyType === '3x') && (
                         <div className="grid grid-cols-1 gap-2 mt-4">
@@ -347,9 +353,8 @@ export default function Prescription() {
                               type="number"
                               value={m.doseValue}
                               onChange={(e) => updateMedication(m.id, { doseValue: parseInt(e.target.value) || 0 })}
-                              className="rounded-xl h-10 w-16 text-center"
+                              className="rounded-xl h-10 w-24 text-center"
                             />
-                            <span className="text-xs text-muted-foreground">{m.unit}</span>
                           </div>
                         </div>
                         <div className="space-y-2">
