@@ -8,7 +8,6 @@ import {
     Users,
     Pill,
     Activity,
-    Search,
     Briefcase,
     Shield,
     Plus,
@@ -123,13 +122,12 @@ export default function AdminDashboard() {
     const [pharmacies, setPharmacies] = useState<AdminPharmacy[]>([]);
     const [medications, setMedications] = useState<AdminMedication[]>([]);
     const [settings, setSettings] = useState<AccountTypeSetting[]>([]);
-    const [categories, setCategories] = useState<{ id: number, name: string, description: string }[]>([]);
+    const [categories, setCategories] = useState<{ id: number, name: string, description: string, considerWeight: boolean }[]>([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState("");
 
     const [isAddCatOpen, setIsAddCatOpen] = useState(false);
-    const [newCat, setNewCat] = useState({ name: "", description: "" });
-    const [editingCat, setEditingCat] = useState<{ id: number, name: string, description: string } | null>(null);
+    const [newCat, setNewCat] = useState({ name: "", description: "", considerWeight: false });
+    const [editingCat, setEditingCat] = useState<{ id: number, name: string, description: string, considerWeight: boolean } | null>(null);
 
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
     const [newUser, setNewUser] = useState({ name: "", email: "", phone: "", password: "", type: "standard" });
@@ -383,7 +381,7 @@ export default function AdminDashboard() {
         });
         if (res.ok) {
             toast.success("Catégorie ajoutée");
-            setNewCat({ name: "", description: "" });
+            setNewCat({ name: "", description: "", considerWeight: false });
             setIsAddCatOpen(false);
             refreshData();
         } else {
@@ -664,15 +662,6 @@ export default function AdminDashboard() {
                                 <p className="text-xs text-slate-400 font-medium mt-0.5">{users.length} comptes enregistrés</p>
                             </div>
                             <div className="flex items-center gap-2 w-full md:w-auto">
-                                <div className="relative max-w-xs w-full">
-                                    <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                                    <Input
-                                        placeholder="Rechercher..."
-                                        className={cn("pl-10", inputClass)}
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                    />
-                                </div>
                                 <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
                                     <DialogTrigger asChild>
                                         <Button
@@ -746,9 +735,7 @@ export default function AdminDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
-                                    {users
-                                        .filter(u => (u.name || u.email || u.phone || "").toLowerCase().includes(search.toLowerCase()))
-                                        .map((u) => {
+                                    {users.map((u) => {
                                             const displayName = u.name || u.email || u.phone || `User #${u.id}`;
                                             return (
                                                 <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
@@ -1123,6 +1110,18 @@ export default function AdminDashboard() {
                                             <label className={labelClass}>Description</label>
                                             <Input className={inputClass} placeholder="ex: 12 à 18 ans" value={newCat.description} onChange={e => setNewCat({ ...newCat, description: e.target.value })} />
                                         </div>
+                                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                                            <input
+                                                type="checkbox"
+                                                id="considerWeight"
+                                                checked={newCat.considerWeight}
+                                                onChange={e => setNewCat({ ...newCat, considerWeight: e.target.checked })}
+                                                className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary"
+                                            />
+                                            <label htmlFor="considerWeight" className="text-sm font-medium text-slate-700 cursor-pointer">
+                                                Cette catégorie nécessite la prise en compte du poids du patient
+                                            </label>
+                                        </div>
                                     </div>
                                     <DialogFooter>
                                         <Button
@@ -1142,6 +1141,7 @@ export default function AdminDashboard() {
                                     <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Catégorie</th>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Description</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Poids requis</th>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -1150,6 +1150,19 @@ export default function AdminDashboard() {
                                         <tr key={c.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="px-6 py-4 font-bold text-slate-800 text-sm capitalize">{c.name}</td>
                                             <td className="px-6 py-4 text-sm text-slate-600">{c.description || "—"}</td>
+                                            <td className="px-6 py-4 text-sm">
+                                                {c.considerWeight ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">
+                                                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                                                        Oui
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-bold">
+                                                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+                                                        Non
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 text-right space-x-1">
                                                 <Button variant="ghost" size="icon" className="hover:bg-teal-50 hover:text-teal-600 rounded-xl" onClick={() => setEditingCat(c)}>
                                                     <Edit2 size={15} />
@@ -1162,7 +1175,7 @@ export default function AdminDashboard() {
                                     ))}
                                     {categories.length === 0 && (
                                         <tr>
-                                            <td colSpan={3} className="px-6 py-8 text-center text-slate-500 font-bold text-sm">
+                                            <td colSpan={4} className="px-6 py-8 text-center text-slate-500 font-bold text-sm">
                                                 Aucune catégorie enregistrée.
                                             </td>
                                         </tr>
@@ -1295,6 +1308,18 @@ export default function AdminDashboard() {
                             <div className="space-y-2">
                                 <label className={labelClass}>Description</label>
                                 <Input className={inputClass} value={editingCat.description} onChange={e => setEditingCat({ ...editingCat, description: e.target.value })} />
+                            </div>
+                            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                                <input
+                                    type="checkbox"
+                                    id="editConsiderWeight"
+                                    checked={editingCat.considerWeight}
+                                    onChange={e => setEditingCat({ ...editingCat, considerWeight: e.target.checked })}
+                                    className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary"
+                                />
+                                <label htmlFor="editConsiderWeight" className="text-sm font-medium text-slate-700 cursor-pointer">
+                                    Cette catégorie nécessite la prise en compte du poids du patient
+                                </label>
                             </div>
                         </div>
                     )}

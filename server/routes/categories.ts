@@ -7,7 +7,7 @@ const router = Router();
 router.get("/", (_req, res) => {
     try {
         const categories = db.prepare(`
-            SELECT id_categorie as id, nom_categorie as name, description
+            SELECT id_categorie as id, nom_categorie as name, description, COALESCE(considere_poids, 0) as considerWeight
             FROM CategoriesAge
             ORDER BY id_categorie ASC
         `).all();
@@ -38,11 +38,11 @@ router.post("/", (req, res) => {
 // Update a category
 router.put("/:id", (req, res) => {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description, considerWeight } = req.body;
     if (!name) return res.status(400).json({ error: "Category name is required" });
 
     try {
-        db.prepare("UPDATE CategoriesAge SET nom_categorie = ?, description = ? WHERE id_categorie = ?").run(name, description || "", id);
+        db.prepare("UPDATE CategoriesAge SET nom_categorie = ?, description = ?, considere_poids = ? WHERE id_categorie = ?").run(name, description || "", considerWeight ? 1 : 0, id);
         res.json({ success: true });
     } catch (error: any) {
         if (error.message.includes("UNIQUE constraint failed")) {

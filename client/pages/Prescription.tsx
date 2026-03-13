@@ -44,7 +44,9 @@ export default function Prescription() {
     startDate: new Date().toISOString().split('T')[0]
   });
 
-  const [categories, setCategories] = useState<{ id: number, name: string, description: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: number, name: string, description: string, considerWeight: boolean }[]>([]);
+  const [countries, setCountries] = useState<{ code: string, name: string, dialCode: string, flag: string }[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState("CM");
 
   const [searchParams] = useSearchParams();
   const initialMedName = searchParams.get("med") || "";
@@ -131,8 +133,21 @@ export default function Prescription() {
       }
     }
 
+    async function fetchCountries() {
+      try {
+        const res = await fetch('/api/countries');
+        if (res.ok) {
+          const data = await res.json();
+          setCountries(data.countries);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des pays:", err);
+      }
+    }
+
     fetchMeds();
     fetchCategories();
+    fetchCountries();
   }, []);
 
   const addMedication = () => {
@@ -581,23 +596,23 @@ export default function Prescription() {
                     <Label className="text-lg font-bold">Votre Numéro</Label>
                     <div className="flex gap-2">
                       <select
-                        className="w-24 h-14 rounded-2xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                        className="w-32 h-14 rounded-2xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                        value={selectedCountry}
                         onChange={(e) => {
                           const code = e.target.value;
-                          if (!notifConfig.phone.startsWith('+')) {
-                            setNotifConfig({ ...notifConfig, phone: code + notifConfig.phone });
+                          setSelectedCountry(code);
+                          const country = countries.find(c => c.code === code);
+                          if (country) {
+                            const phoneWithoutCode = notifConfig.phone.replace(/^\+\d+/, '');
+                            setNotifConfig({ ...notifConfig, phone: country.dialCode + phoneWithoutCode });
                           }
                         }}
-                        defaultValue="+225"
                       >
-                        <option value="+225">+225 (CI)</option>
-                        <option value="+221">+221 (SN)</option>
-                        <option value="+226">+226 (BF)</option>
-                        <option value="+229">+229 (BJ)</option>
-                        <option value="+223">+223 (ML)</option>
-                        <option value="+224">+224 (GN)</option>
-                        <option value="+233">+233 (GH)</option>
-                        <option value="+33">+33 (FR)</option>
+                        {countries.map(c => (
+                          <option key={c.code} value={c.code}>
+                            {c.flag} {c.dialCode}
+                          </option>
+                        ))}
                       </select>
                       <div className="relative flex-1">
                         <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />

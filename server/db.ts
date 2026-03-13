@@ -102,6 +102,15 @@ export function initializeDatabase() {
                     considere_poids BOOLEAN DEFAULT 0
                 )
             `);
+
+            // Migration: Add considere_poids column if it doesn't exist
+            const catColumns = db.prepare("PRAGMA table_info(CategoriesAge)").all() as { name: string }[];
+            const hasConsiderePoids = catColumns.some(c => c.name === 'considere_poids');
+            if (!hasConsiderePoids) {
+                console.log("Adding considere_poids column to CategoriesAge...");
+                db.exec("ALTER TABLE CategoriesAge ADD COLUMN considere_poids BOOLEAN DEFAULT 0");
+            }
+
             const catAgeCount = db.prepare("SELECT COUNT(*) as count FROM CategoriesAge").get() as { count: number };
             if (catAgeCount.count === 0) {
                 console.log("Adding default age categories...");

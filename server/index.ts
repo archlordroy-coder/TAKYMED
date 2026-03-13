@@ -8,6 +8,7 @@ import { medicationRouter } from "./routes/medications";
 import { pharmacyRouter } from "./routes/pharmacies";
 import { otpRouter } from "./routes/otp";
 import { categoriesAgeRouter } from "./routes/categories";
+import { countriesRouter } from "./routes/countries";
 import { adminRouter } from "./routes/admin";
 import { notificationRouter } from "./services/notificationProvider";
 import { startReminderWorker } from "./services/reminderWorker";
@@ -46,6 +47,7 @@ export function createServer() {
   app.use("/api/medications", medicationRouter);
   app.use("/api/pharmacies", pharmacyRouter);
   app.use("/api/categories", categoriesAgeRouter);
+  app.use("/api/countries", countriesRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/notifications", notificationRouter);
 
