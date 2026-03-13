@@ -3,11 +3,15 @@ name: Deploy to Production Server
 on:
   push:
     branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+    types: [closed]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     
     steps:
     - name: Checkout code
@@ -22,20 +26,24 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
-    - name: Build application
-      run: npm run build
+    - name: Install SSH tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y sshpass rsync
       
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+        echo "${{ secrets.SERVER_HOST }}" > ~/.ssh/known_hosts
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} 2>/dev/null >> ~/.ssh/known_hosts || true
         
     - name: Deploy to server
       env:
         HOST: ${{ secrets.SERVER_HOST }}
         USER: ${{ secrets.SERVER_USER }}
+        PASS: ${{ secrets.SERVER_PASS }}
       run: |
         # Create exclude list for sensitive files
         cat > rsync-exclude.txt << EOF
@@ -48,10 +56,10 @@ jobs:
         .gitignore
         EOF
         
-        # Sync files to server
+        # Sync files to server using sshpass
         rsync -avz --exclude-from=rsync-exclude.txt \
-          -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" \
-          ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/TAKYMED/
+          -e "sshpass -p '$PASS' ssh -o StrictHostKeyChecking=no" \
+          ./ $USER@$HOST:/home/TAKYMED/
           
     - name: Install dependencies on server
       env:
