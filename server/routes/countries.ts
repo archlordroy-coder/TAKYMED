@@ -6,7 +6,10 @@ const router = Router();
 // Get all countries with dial codes and flags
 router.get("/", (_req, res) => {
     try {
-        const countries = CountryList.getAll().map((c: any) => ({
+        // Handle potential different export styles of the library
+        const list = (CountryList as any).getAll ? (CountryList as any).getAll() : (CountryList as any).default?.getAll ? (CountryList as any).default.getAll() : [];
+
+        const countries = list.map((c: any) => ({
             code: c.code,
             name: c.name,
             dialCode: c.dial_code,
@@ -27,7 +30,13 @@ router.get("/", (_req, res) => {
 router.get("/:code", (req, res) => {
     try {
         const { code } = req.params;
-        const country = CountryList.findOneByCountryCode(code.toUpperCase());
+        const finder = (CountryList as any).findOneByCountryCode || (CountryList as any).default?.findOneByCountryCode;
+
+        if (!finder) {
+            return res.status(500).json({ error: "Country lookup not available" });
+        }
+
+        const country = finder(code.toUpperCase());
         
         if (!country) {
             return res.status(404).json({ error: "Country not found" });

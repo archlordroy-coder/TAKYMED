@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -573,11 +574,9 @@ export default function Prescription() {
                   <div className="bg-slate-100 p-6 rounded-3xl space-y-4">
                     <Label className="text-lg font-bold">Votre Numéro</Label>
                     <div className="flex gap-2">
-                      <select
-                        className="w-32 h-14 rounded-2xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+<Select
                         value={selectedCountry}
-                        onChange={(e) => {
-                          const code = e.target.value;
+                        onValueChange={(code) => {
                           setSelectedCountry(code);
                           const country = countries.find(c => c.code === code);
                           if (country) {
@@ -586,12 +585,20 @@ export default function Prescription() {
                           }
                         }}
                       >
-                        {countries.map(c => (
-                          <option key={c.code} value={c.code}>
-                            {c.flag} {c.dialCode}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-32 h-14 rounded-2xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none">
+                          <SelectValue placeholder="Pays" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-2xl max-h-60">
+                          {countries.map(c => (
+                            <SelectItem key={c.code} value={c.code} className="rounded-xl">
+                              <span className="flex items-center gap-2">
+                                <span className="text-lg">{c.flag}</span>
+                                <span>{c.dialCode}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <div className="relative flex-1">
                         <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
                         <Input

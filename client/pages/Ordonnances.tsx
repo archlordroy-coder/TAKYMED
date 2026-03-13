@@ -124,7 +124,10 @@ export default function Ordonnances() {
       });
       if (res.ok) {
         toast.success("Ordonnance modifiée avec succès");
-        fetchOrdonnances();
+        // Update local state directly to avoid full refresh
+        setOrdonnances(prev => prev.map(o =>
+          o.id === id ? { ...o, ...editForm } : o
+        ));
         setEditingId(null);
         setEditForm({});
       } else {
@@ -248,25 +251,26 @@ export default function Ordonnances() {
                         {getStatusBadge(ord)}
                         {expandedId === ord.id ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                       </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-slate-500">
-                        <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
+                        <span className="flex items-center gap-1.5">
                           <User className="w-4 h-4" />
-                          {ord.nom_patient || 'Patient'}
-                        </div>
-                        <div className="flex items-center gap-1">
+                          {ord.nom_patient}
+                        </span>
+                        <span className="flex items-center gap-1.5">
                           <Calendar className="w-4 h-4" />
                           {new Date(ord.date_ordonnance).toLocaleDateString('fr-FR')}
-                        </div>
-                        <div className="flex items-center gap-1">
+                        </span>
+                        <span className="flex items-center gap-1.5">
                           <Pill className="w-4 h-4" />
                           {ord.nombre_medicaments} médicament(s)
-                        </div>
+                        </span>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-500">Progression</span>
+                    {/* Progress */}
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-slate-500 text-xs">Progression</span>
                         <span className="font-bold text-primary">{getProgressPercentage(ord)}%</span>
                       </div>
                       <div className="w-48 h-2 bg-slate-200 rounded-full overflow-hidden">
