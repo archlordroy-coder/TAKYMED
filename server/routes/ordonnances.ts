@@ -101,12 +101,14 @@ router.put("/:id", (req, res) => {
     const { id } = req.params;
     const { titre, nom_patient, poids_patient, categorie_age } = req.body;
 
+    console.log("Updating ordonnance:", id, { titre, nom_patient, poids_patient, categorie_age });
+
     try {
         const result = db.prepare(`
             UPDATE Ordonnances 
             SET titre = ?, nom_patient = ?, poids_patient = ?, categorie_age = ?
             WHERE id_ordonnance = ?
-        `).run(titre, nom_patient, poids_patient || null, categorie_age, id);
+        `).run(titre || null, nom_patient || null, poids_patient || null, categorie_age || 'adulte', id);
 
         if (result.changes === 0) {
             return res.status(404).json({ error: "Ordonnance not found" });
