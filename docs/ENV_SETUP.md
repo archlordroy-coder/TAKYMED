@@ -1,105 +1,120 @@
-# Environment Variables Template
+# Environment Variables Setup Guide
 
-This file contains all the environment variables needed for TAKYMED deployment.
+## 🛡️ Security First Approach
 
-## Quick Setup
+We use a two-tier approach for environment variables:
 
-1. Copy this file to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
+1. **Public Variables** (.env) - Safe to commit
+2. **Secret Variables** (DevServerControl) - Secure storage
 
-2. Update the values with your actual configuration
+---
 
-## Required Variables
+## 🟢 Public Variables (.env.example)
 
-### Server Configuration
-- `PORT`: Server port (default: 3500)
-- `DB_PATH`: Path to SQLite database
-- `ADMIN_PHONE`: Admin phone number
-- `ADMIN_PIN`: Admin PIN
-- `SERVER_IP`: Server IP address
-- `SERVER_USER`: Server username (usually root)
-- `SERVER_PASS`: Server password
-
-### Client Configuration
-- `VITE_PUBLIC_BUILDER_KEY`: Builder public key for client
-
-### GitHub Actions Configuration
-These variables are used by the deployment workflow:
-- `SERVER_HOST`: Your server IP/hostname (e.g., 82.165.150.150)
-- `APP_URL`: Full URL to your app (e.g., http://dev.takymed.com:3500)
-
-## Optional Variables
-
-### Payment Configuration
-- `STRIPE_PUBLIC_KEY`: Stripe public key for payments
-- `STRIPE_SECRET_KEY`: Stripe secret key for payments
-
-### Email Configuration
-- `EMAIL_HOST`: SMTP server (e.g., smtp.gmail.com)
-- `EMAIL_PORT`: SMTP port (e.g., 587)
-- `EMAIL_USER`: Email username
-- `EMAIL_PASS`: Email password/app password
-
-### Orange Money Configuration
-- `ORANGE_MONEY_API_KEY`: Orange Money API key
-- `ORANGE_MONEY_SECRET`: Orange Money secret
-
-## Security Notes
-
-⚠️ **Important**: Never commit your actual `.env` file to Git!
-- The `.env` file is already in `.gitignore`
-- Only commit `.env.example` as a template
-- Use GitHub Secrets for sensitive deployment variables
-
-## GitHub Secrets Setup
-
-For automated deployment, add these secrets to your GitHub repository:
-
-1. `SERVER_HOST`: Your server IP/hostname
-2. `SERVER_USER`: Server username (root)
-3. `SSH_PRIVATE_KEY`: SSH private key for deployment
-4. `APP_URL`: Full application URL
-
-## Example .env File
+Copy `.env.example` to `.env` for local development:
 
 ```bash
-# Server Configuration
-PORT=3500
-DB_PATH=./bd.sqlite
-PING_MESSAGE="TAKYMED API is running"
-ADMIN_PHONE=admin
-ADMIN_PIN=admin
-SERVER_IP=127.0.0.1
-SERVER_USER=root
-SERVER_PASS=your_actual_password
-
-# Client Configuration
-VITE_PUBLIC_BUILDER_KEY=__BUILDER_PUBLIC_KEY__
-
-# GitHub Actions Configuration
-SERVER_HOST=82.165.150.150
-APP_URL=http://dev.takymed.com:3500
+cp .env.example .env
 ```
 
-## Testing
+These variables are safe to commit to Git:
+- `VITE_PUBLIC_BUILDER_KEY` - Public Builder.io API key
+- `PING_MESSAGE` - Server status message  
+- `PORT` - Server port (3500)
+- `DB_PATH` - Database path
+- `SERVER_IP` - Server IP address
+- `SERVER_USER` - Server username
+- `DOMAIN` - Domain name
 
-After setting up your `.env` file:
+---
 
-1. Test locally:
-   ```bash
-   npm run dev
-   ```
+## 🔒 Secret Variables (DevServerControl)
 
-2. Test deployment:
-   ```bash
-   ./scripts/push.sh
-   ```
+For sensitive data, use DevServerControl:
 
-3. Test GitHub Actions:
-   ```bash
-   git add .
-   git commit -m "Test deployment"
-   git push origin master
-   ```
+### Server Password
+```bash
+DevServerControl set_env_variable: ["SERVER_PASS", "your_actual_password"]
+```
+
+### Payment Configuration
+```bash
+DevServerControl set_env_variable: ["STRIPE_PUBLIC_KEY", "pk_test_..."]
+DevServerControl set_env_variable: ["STRIPE_SECRET_KEY", "sk_test_..."]
+```
+
+### Email Configuration  
+```bash
+DevServerControl set_env_variable: ["EMAIL_HOST", "smtp.gmail.com"]
+DevServerControl set_env_variable: ["EMAIL_PORT", "587"]
+DevServerControl set_env_variable: ["EMAIL_USER", "your_email@gmail.com"]
+DevServerControl set_env_variable: ["EMAIL_PASS", "your_app_password"]
+```
+
+### Orange Money Configuration
+```bash
+DevServerControl set_env_variable: ["ORANGE_MONEY_API_KEY", "your_key"]
+DevServerControl set_env_variable: ["ORANGE_MONEY_SECRET", "your_secret"]
+```
+
+---
+
+## 🚀 GitHub Actions Setup
+
+### 1. Public Variables in Repository
+`.env.example` is committed with safe variables only.
+
+### 2. Secret Variables in GitHub Secrets
+Add these to GitHub → Settings → Secrets:
+
+- `SERVER_PASS` - Server password
+- `STRIPE_SECRET_KEY` - Stripe secret
+- `EMAIL_PASS` - Email password  
+- `ORANGE_MONEY_SECRET` - Orange Money secret
+- `SSH_PRIVATE_KEY` - Deployment SSH key
+- `SERVER_HOST` - Server IP (82.165.150.150)
+- `SERVER_USER` - root
+- `APP_URL` - http://dev.takymed.com:3500
+
+---
+
+## 📋 Complete Setup Checklist
+
+### Local Development
+- [ ] Copy `.env.example` to `.env`
+- [ ] Set DevServerControl variables for secrets
+- [ ] Test with `npm run dev`
+
+### Production Deployment
+- [ ] Configure GitHub Secrets
+- [ ] Test deployment with `git push`
+- [ ] Verify health check passes
+
+### Security Review
+- [ ] No passwords in `.env`
+- [ ] All secrets in DevServerControl
+- [ ] GitHub Secrets configured
+- [ ] Documentation updated
+
+---
+
+## 🔧 DevServerControl Commands
+
+```bash
+# Set variable
+DevServerControl set_env_variable: ["KEY", "value"]
+
+# List all variables  
+DevServerControl list_env_variables
+
+# Remove variable
+DevServerControl remove_env_variable: ["KEY"]
+```
+
+---
+
+## 📚 Documentation
+
+- [Security Guide](./SECURITY.md) - Detailed security practices
+- [GitHub Actions](../.github/workflows/README.md) - Deployment workflow
+- [Builder.io API](https://www.builder.io/c/docs/using-your-api-key)
