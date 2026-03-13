@@ -206,6 +206,13 @@ export function initializeDatabase() {
                     .run('Administrateur', 'Accès complet au système', null, null, 0, null);
             }
 
+            // Migration: Update Professionnel to have max_pharmacies = 5 (Pro accounts can manage pharmacies)
+            const proTypeForMigration = db.prepare("SELECT id_type_compte, max_pharmacies FROM TypesComptes WHERE nom_type = 'Professionnel'").get() as { id_type_compte: number; max_pharmacies: number | null } | undefined;
+            if (proTypeForMigration && proTypeForMigration.max_pharmacies === null) {
+                console.log("Updating Professionnel account type to allow pharmacy management (max 5)...");
+                db.prepare("UPDATE TypesComptes SET max_pharmacies = 5, description = 'Compte Pro avancé' WHERE nom_type = 'Professionnel'").run();
+            }
+
             const getAdminTypeId = () => db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get() as { id_type_compte: number };
             const adminPhone = process.env.ADMIN_PHONE || 'admin';
             const adminPin = process.env.ADMIN_PIN || 'admin';
@@ -248,7 +255,7 @@ export function initializeDatabase() {
                 CREATE TABLE IF NOT EXISTS UpgradeRequests (
                     id_request INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_utilisateur INTEGER NOT NULL,
-                    requested_type TEXT NOT NULL CHECK(requested_type IN ('Professionnel', 'Pharmacien')),
+                    requested_type TEXT NOT NULL CHECK(requested_type IN ('Pro', 'Professionnel', 'Pharmacien')),
                     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
                     admin_notes TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -256,6 +263,20 @@ export function initializeDatabase() {
                     processed_by INTEGER,
                     FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE,
                     FOREIGN KEY (processed_by) REFERENCES Utilisateurs(id_utilisateur)
+                )
+            `);
+
+            // Create Paiements table for payment tracking
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS Paiements (
+                    id_paiement INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_utilisateur INTEGER NOT NULL,
+                    montant DECIMAL(10,2) NOT NULL,
+                    devise VARCHAR(10) DEFAULT 'FCFA',
+                    statut VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK(statut IN ('pending', 'complete', 'failed', 'refunded')),
+                    date_paiement DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    reference VARCHAR(100),
+                    FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE
                 )
             `);
         }

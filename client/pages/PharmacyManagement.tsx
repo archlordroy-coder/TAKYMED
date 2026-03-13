@@ -84,7 +84,7 @@ export default function PharmacyManagement() {
 
   const fetchPharmacies = async () => {
     try {
-      const res = await fetch(`/api/pharmacies?pharmacistId=${user?.id}`);
+      const res = await fetch(`/api/pharmacies?userId=${user?.id}`);
       if (res.ok) {
         const data = await res.json();
         // Fetch stocks for each pharmacy
@@ -174,7 +174,7 @@ export default function PharmacyManagement() {
     try {
       const payload = {
         ...newPharmacy,
-        pharmacistId: user?.id,
+        userId: user?.id,
         initialMeds: initialStocks,
         latitude: selectedCoords?.lat,
         longitude: selectedCoords?.lng

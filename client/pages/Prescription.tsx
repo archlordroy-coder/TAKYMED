@@ -35,7 +35,7 @@ export default function Prescription() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [patient, setPatient] = useState({
     title: "",
     name: user?.name || "",
@@ -225,8 +225,6 @@ export default function Prescription() {
         return;
       }
       setStep(2);
-    } else if (step === 2) {
-      setStep(3);
     }
   };
 
@@ -248,15 +246,7 @@ export default function Prescription() {
             step >= 2 ? "bg-primary text-white" : "bg-slate-200 text-muted-foreground"
           )}>
             <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">2</div>
-            <span className="font-medium">Calendrier de Prise</span>
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
-          <div className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-2xl whitespace-nowrap",
-            step >= 3 ? "bg-primary text-white" : "bg-slate-200 text-muted-foreground"
-          )}>
-            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">3</div>
-            <span className="font-medium">Rappels & Validation</span>
+            <span className="font-medium">Calendrier & Rappels</span>
           </div>
         </div>
 
@@ -484,6 +474,7 @@ export default function Prescription() {
 
         {step === 2 && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Calendrier des prises */}
             <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -565,20 +556,7 @@ export default function Prescription() {
               </div>
             </div>
 
-            <div className="flex justify-between items-center">
-              <Button variant="ghost" onClick={() => setStep(1)} className="rounded-2xl h-14 px-8">
-                Retour
-              </Button>
-              <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNext}>
-                Suivant
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Méthodes de Rappel - Fusionné dans l'étape 2 */}
             <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-8">
               <div className="text-center space-y-2">
                 <div className="bg-primary/10 w-16 h-16 rounded-3xl flex items-center justify-center text-primary mx-auto mb-4">
@@ -640,12 +618,11 @@ export default function Prescription() {
                     <NotificationOption
                       selected={notifConfig.type === 'whatsapp'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'whatsapp' })}
-                      icon={<MessageSquare className="w-5 h-5" />} // Changed to MessageSquare for simplicity
+                      icon={<MessageSquare className="w-5 h-5" />}
                       label="WhatsApp"
                       color="#25d366"
                     />
                   </div>
-
                 </div>
 
                 <div className="max-w-md mx-auto p-4 bg-slate-50 rounded-2xl border border-dashed flex items-center gap-3">
@@ -657,86 +634,85 @@ export default function Prescription() {
                   </p>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground italic">
+            <div className="flex justify-between items-center">
+              <Button variant="ghost" onClick={() => setStep(1)} className="rounded-2xl h-14 px-8">
+                Retour
+              </Button>
+              <div className="flex gap-4">
+                <span className="text-sm text-muted-foreground italic self-center">
                   {notifConfig.phone ? `Destinataire: ${notifConfig.phone}` : "Veuillez entrer un numéro"}
                 </span>
-                <div className="flex gap-4">
-                  <Button variant="ghost" onClick={() => setStep(2)} className="rounded-2xl h-14 px-8">
-                    Retour
-                  </Button>
-                  <Button
-                    size="lg"
-                    disabled={isSubmitting || !notifConfig.phone}
-                    className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-[200px]"
-                    onClick={async () => {
-                      if (!user) {
-                        toast.error("Vous devez être connecté");
-                        return;
-                      }
+                <Button
+                  size="lg"
+                  disabled={isSubmitting || !notifConfig.phone}
+                  className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-[200px]"
+                  onClick={async () => {
+                    if (!user) {
+                      toast.error("Vous devez être connecté");
+                      return;
+                    }
 
-                      setIsSubmitting(true);
-                      try {
-                        // 1. Save to DB
-                        const res = await fetch("/api/prescriptions", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            userId: user.id,
-                            title: patient.title,
-                            weight: patient.weight,
-                            categorieAge: patient.categorieAge,
-                            medications: medications.map(m => ({
-                              ...m,
-                              name: m.name
-                            })),
-                            notifConfig
-                          })
-                        });
+                    setIsSubmitting(true);
+                    try {
+                      // 1. Save to DB
+                      const res = await fetch("/api/prescriptions", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          userId: user.id,
+                          title: patient.title,
+                          weight: patient.weight,
+                          categorieAge: patient.categorieAge,
+                          medications: medications.map(m => ({
+                            ...m,
+                            name: m.name
+                          })),
+                          notifConfig
+                        })
+                      });
 
-                        if (!res.ok) throw new Error("Erreur de sauvegarde");
+                      if (!res.ok) throw new Error("Erreur de sauvegarde");
 
-                        // 2. Simulation Step (What the user specifically requested)
-                        const notifMethod = notifConfig.type === 'sms' ? 'SMS'
-                          : notifConfig.type === 'call' ? 'Appel vocal'
-                            : notifConfig.type === 'push' ? 'Notification Push'
-                              : 'WhatsApp';
+                      // 2. Simulation Step
+                      const notifMethod = notifConfig.type === 'sms' ? 'SMS'
+                        : notifConfig.type === 'call' ? 'Appel vocal'
+                          : notifConfig.type === 'push' ? 'Notification Push'
+                            : 'WhatsApp';
 
-                        toast.info(`Initialisation de l'envoi des rappels...`, { duration: 2000 });
+                      toast.info(`Initialisation de l'envoi des rappels...`, { duration: 2000 });
 
-                        // Sequential simulation
-                        await new Promise(r => setTimeout(r, 1500));
-                        toast.loading(`Envoi du message de confirmation via ${notifMethod} au ${notifConfig.phone}...`, { id: "simul-notif" });
+                      await new Promise(r => setTimeout(r, 1500));
+                      toast.loading(`Envoi du message de confirmation via ${notifMethod} au ${notifConfig.phone}...`, { id: "simul-notif" });
 
-                        await new Promise(r => setTimeout(r, 2000));
-                        toast.success(`Succès : Programme de rappel activé pour ${medications.length} médicament(s).`, { id: "simul-notif" });
+                      await new Promise(r => setTimeout(r, 2000));
+                      toast.success(`Succès : Programme de rappel activé pour ${medications.length} médicament(s).`, { id: "simul-notif" });
 
-                        await new Promise(r => setTimeout(r, 1000));
-                        toast.success("Ordonnance enregistrée avec succès !");
+                      await new Promise(r => setTimeout(r, 1000));
+                      toast.success("Ordonnance enregistrée avec succès !");
 
-                        setTimeout(() => navigate("/dashboard"), 1000);
+                      setTimeout(() => navigate("/dashboard"), 1000);
 
-                      } catch (error) {
-                        console.error(error);
-                        toast.error("Échec de l'enregistrement de l'ordonnance");
-                        setIsSubmitting(false);
-                      }
-                    }}
-                  >
-                    {isSubmitting ? (
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Traitement...
-                      </div>
-                    ) : (
-                      <>
-                        Suivant
-                        <ArrowRight className="ml-2 w-5 h-5" />
-                      </>
-                    )}
-                  </Button>
-                </div>
+                    } catch (error) {
+                      console.error(error);
+                      toast.error("Échec de l'enregistrement de l'ordonnance");
+                      setIsSubmitting(false);
+                    }
+                  }}
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Traitement...
+                    </div>
+                  ) : (
+                    <>
+                      Enregistrer
+                      <Save className="ml-2 w-5 h-5" />
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>

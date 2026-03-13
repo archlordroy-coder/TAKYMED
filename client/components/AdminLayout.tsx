@@ -7,7 +7,6 @@ import {
     Users,
     Pill,
     Settings,
-    Bell,
     ChevronLeft,
     ChevronRight,
     LogOut,
@@ -15,10 +14,8 @@ import {
     BarChart3,
     Globe,
     MoreVertical,
-    Search,
 } from "lucide-react";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -169,25 +166,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     </div>
                 </div>
                 {/* Top Header */}
-                <header className="h-20 flex items-center justify-between px-4 md:px-8 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e2e8f0" }}>
-                    <div className="flex items-center gap-4 flex-1">
-                        <div className="relative max-w-sm w-full hidden md:block">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <Input
-                                placeholder="Rechercher..."
-                                className="bg-slate-50 border-slate-200 pl-10 h-10 rounded-xl text-slate-700 focus:border-teal-400 transition-all placeholder:text-slate-400"
-                            />
-                        </div>
-                    </div>
-
+                <header className="h-20 flex items-center justify-end px-4 md:px-8 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e2e8f0" }}>
                     <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="icon" className="relative rounded-xl hover:bg-slate-100">
-                            <Bell className="w-5 h-5 text-slate-500" />
-                            <span className="absolute top-2 right-2 w-2 h-2 rounded-full border-2 border-white" style={{ background: "#e53e3e" }} />
-                        </Button>
-
-                        <div className="flex items-center gap-3 pl-3 border-l" style={{ borderColor: "#e2e8f0" }}>
-                            <DropdownMenu>
+                        <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <button className="flex items-center gap-3 group">
                                         <AccountAvatar name={user?.name || "Admin"} type="admin" />
@@ -213,7 +194,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                        </div>
                     </div>
                 </header>
 

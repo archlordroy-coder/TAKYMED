@@ -47,7 +47,7 @@ INSERT INTO TypesComptes (
         max_pharmacies
     )
 VALUES ('Standard', 'Compte limité', 1, 3, 0, NULL),
-    ('Professionnel', 'Compte avancé', NULL, NULL, 1, NULL),
+    ('Professionnel', 'Compte Pro avancé', NULL, NULL, 1, 5),
     ('Pharmacien', 'Gestion pharmacie', NULL, NULL, 1, 5);
 -- ===============================
 -- UTILISATEURS

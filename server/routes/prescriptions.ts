@@ -54,11 +54,14 @@ router.get("/", (req, res) => {
         }));
 
         // Fetch unique patients/prescriptions for the user
+        // Only include patients that have active prescriptions with pending doses
         const patientsDb = db.prepare(`
-           SELECT id_ordonnance as id, titre as name, date_ordonnance as date
-           FROM Ordonnances
-           WHERE id_utilisateur = ? AND est_active = 1
-           ORDER BY date_ordonnance DESC
+           SELECT DISTINCT o.id_ordonnance as id, o.titre as name, o.date_ordonnance as date
+           FROM Ordonnances o
+           JOIN ElementsOrdonnance eo ON o.id_ordonnance = eo.id_ordonnance
+           JOIN CalendrierPrises cp ON eo.id_element_ordonnance = cp.id_element_ordonnance
+           WHERE o.id_utilisateur = ? AND o.est_active = 1 AND cp.statut_prise = 0
+           ORDER BY o.date_ordonnance DESC
         `).all(userId);
 
         const pharmacyCount = db.prepare("SELECT COUNT(*) as count FROM Pharmacies").get() as { count: number };

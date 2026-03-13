@@ -13,6 +13,7 @@ import {
    Store,
    ArrowRight,
    Loader2,
+   Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -182,7 +183,7 @@ export default function Dashboard() {
                               color="bg-primary"
                            />
                            <DashboardActionCard
-                              title="Recherche"
+                              title="Médicament"
                               description="Trouvez une pharmacie ayant le médicament voulu"
                               icon={<Search className="w-6 h-6" />}
                               link="/search"
@@ -245,12 +246,14 @@ export default function Dashboard() {
                               </div>
                            </div>
 
-                           {/* Stats */}
-                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-                              <DashboardStat label="Observance" value={stats ? `${stats.observanceRate}%` : "0%"} subtext="Cette semaine" />
-                              <DashboardStat label="Rappels actifs" value={stats ? stats.activeReminders.toString() : "0"} subtext={`Sur ${stats ? stats.plannedReminders : 0} planifiés`} />
-                              <DashboardStat label="Pharmacies" value={stats ? stats.nearbyPharmacies.toString() : "0"} subtext="À proximité" />
-                           </div>
+                           {/* Stats - Pro/Admin/Pharmacist Only */}
+                           {user.type !== 'standard' && (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                                 <DashboardStat label="Observance" value={stats ? `${stats.observanceRate}%` : "0%"} subtext="Cette semaine" />
+                                 <DashboardStat label="Rappels actifs" value={stats ? stats.activeReminders.toString() : "0"} subtext={`Sur ${stats ? stats.plannedReminders : 0} planifiés`} />
+                                 <DashboardStat label="Pharmacies" value={stats ? stats.nearbyPharmacies.toString() : "0"} subtext="À proximité" />
+                              </div>
+                           )}
 
                            {/* Tips */}
                            <div className="p-6 bg-slate-50 rounded-3xl border border-dashed flex items-start gap-4">

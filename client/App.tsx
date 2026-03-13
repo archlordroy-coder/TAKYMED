@@ -18,6 +18,8 @@ import PharmacyManagement from "./pages/PharmacyManagement";
 import InteractionsManagement from "./pages/InteractionsManagement";
 import Ads from "./pages/Ads";
 import Upgrade from "./pages/Upgrade";
+import Checkout from "./pages/Checkout";
+import Ordonnances from "./pages/Ordonnances";
 
 import { AdminLayout } from "@/components/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -79,6 +81,8 @@ const App = () => (
                     <Route path="/interactions-mgmt" element={<ProtectedRoute><InteractionsManagement /></ProtectedRoute>} />
                     <Route path="/ads" element={<ProtectedRoute><Ads /></ProtectedRoute>} />
                     <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
+                    <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                    <Route path="/ordonnances" element={<ProtectedRoute><Ordonnances /></ProtectedRoute>} />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>

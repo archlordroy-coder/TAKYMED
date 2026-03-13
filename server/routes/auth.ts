@@ -5,8 +5,8 @@ const router = Router();
 
 const typeMap: Record<string, string> = {
   standard: "Standard",
-  professional: "Professionnel",
-  pharmacist: "Pharmacien",
+  professional: "Pro",
+  pharmacist: "Pro",
   admin: "Administrateur",
 };
 
@@ -15,8 +15,9 @@ const reverseTypeMap: Record<
   "standard" | "professional" | "pharmacist" | "admin"
 > = {
   Standard: "standard",
+  Pro: "professional",
+  Pharmacien: "professional",
   Professionnel: "professional",
-  Pharmacien: "pharmacist",
   Administrateur: "admin",
 };
 
@@ -30,6 +31,9 @@ router.get("/account-types", (_req, res) => {
             tc.nom_type as name,
             tc.description as description,
             tc.necessite_paiement as requiresPayment,
+            tc.max_pharmacies as maxPharmacies,
+            tc.max_ordonnances_actives as maxOrdonnances,
+            tc.limite_notifications as maxNotifications,
             COALESCE(f.montant, 0) as price,
             COALESCE(f.devise, 'FCFA') as currency
           FROM TypesComptes tc
@@ -240,7 +244,7 @@ router.post("/upgrade-request", (req, res) => {
     return res.status(401).json({ error: "Non authentifié" });
   }
 
-  if (!requestedType || !["Professionnel", "Pharmacien"].includes(requestedType)) {
+  if (!requestedType || !["Pro", "Professionnel", "Pharmacien"].includes(requestedType)) {
     return res.status(400).json({ error: "Type de compte invalide" });
   }
 

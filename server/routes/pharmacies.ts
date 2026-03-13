@@ -3,17 +3,17 @@ import { db } from "../db";
 
 const router = Router();
 
-// Get pharmacies owned by a specific pharmacist
+// Get pharmacies owned by a specific user (Pro or Pharmacist)
 router.get("/", (req, res) => {
-    const pharmacistId = req.query.pharmacistId;
-    if (!pharmacistId) return res.status(400).json({ error: "Missing pharmacistId" });
+    const userId = req.query.pharmacistId || req.query.userId;
+    if (!userId) return res.status(400).json({ error: "Missing userId" });
 
     try {
         const pharmacies = db.prepare(`
             SELECT id_pharmacie as id, nom_pharmacie as name, adresse as address, telephone as phone
             FROM Pharmacies
             WHERE id_pharmacien = ?
-        `).all(pharmacistId);
+        `).all(userId);
         res.json({ pharmacies });
     } catch (error) {
         console.error("Failed to fetch pharmacies:", error);
@@ -21,19 +21,51 @@ router.get("/", (req, res) => {
     }
 });
 
-// Create a new pharmacy (Pharmacist only)
+// Create a new pharmacy (Pro users with limit)
 router.post("/", (req, res) => {
-    const { name, address, phone, openTime, closeTime, pharmacistId, initialMeds, latitude, longitude } = req.body;
-    if (!name || !pharmacistId) {
-        return res.status(400).json({ error: "Name and Pharmacist ID are required" });
+    const { name, address, phone, openTime, closeTime, pharmacistId, userId, initialMeds, latitude, longitude } = req.body;
+    const ownerId = pharmacistId || userId;
+    
+    if (!name || !ownerId) {
+        return res.status(400).json({ error: "Name and User ID are required" });
     }
 
     try {
+        // Check user type and pharmacy limit
+        const user = db.prepare(`
+            SELECT u.id_utilisateur, tc.nom_type, tc.max_pharmacies
+            FROM Utilisateurs u
+            JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte
+            WHERE u.id_utilisateur = ?
+        `).get(ownerId) as { id_utilisateur: number; nom_type: string; max_pharmacies: number | null } | undefined;
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        // Only Pro (professional) and Pharmacist can create pharmacies
+        if (user.nom_type !== "Professionnel" && user.nom_type !== "Pharmacien" && user.nom_type !== "Pro") {
+            return res.status(403).json({ error: "Only Pro accounts can manage pharmacies" });
+        }
+
+        // Check current pharmacy count against limit
+        const currentCount = db.prepare(`
+            SELECT COUNT(*) as count FROM Pharmacies WHERE id_pharmacien = ?
+        `).get(ownerId) as { count: number };
+
+        if (user.max_pharmacies !== null && currentCount.count >= user.max_pharmacies) {
+            return res.status(403).json({ 
+                error: `Pharmacy limit reached. Maximum allowed: ${user.max_pharmacies}`,
+                maxPharmacies: user.max_pharmacies,
+                currentCount: currentCount.count
+            });
+        }
+
         const transaction = db.transaction(() => {
             const info = db.prepare(`
                 INSERT INTO Pharmacies (nom_pharmacie, adresse, telephone, heure_ouverture, heure_fermeture, id_pharmacien, latitude, longitude)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(name, address || "", phone || "", openTime || "08:00", closeTime || "20:00", pharmacistId, latitude || null, longitude || null);
+            `).run(name, address || "", phone || "", openTime || "08:00", closeTime || "20:00", ownerId, latitude || null, longitude || null);
 
             const pharmacyId = info.lastInsertRowid;
 

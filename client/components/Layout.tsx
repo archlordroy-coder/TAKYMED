@@ -15,7 +15,8 @@ import {
   Search,
   User as UserIcon,
   LogOut,
-  Crown
+  Crown,
+  FileText
 } from "lucide-react";
 import {
   Sheet,
@@ -73,7 +74,13 @@ export function Layout({ children }: LayoutProps) {
                   <Search className="w-4 h-4" />
                   Médicaments
                 </Link>
-                {user.type === "pharmacist" && (
+                {user.type !== "standard" && (
+                  <Link to="/ordonnances" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
+                    <FileText className="w-4 h-4" />
+                    Ordonnances
+                  </Link>
+                )}
+                {(user.type === "pharmacist" || user.type === "professional") && (
                   <>
                     <Link to="/pharmacy-mgmt" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                       <Stethoscope className="w-4 h-4" />
@@ -168,7 +175,13 @@ export function Layout({ children }: LayoutProps) {
                           <Search className="w-6 h-6" />
                           Médicaments
                         </Link>
-                        {user.type === "pharmacist" && (
+                        {user.type !== "standard" && (
+                          <Link to="/ordonnances" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
+                            <FileText className="w-6 h-6" />
+                            Ordonnances
+                          </Link>
+                        )}
+                        {(user.type === "pharmacist" || user.type === "professional") && (
                           <>
                             <Link to="/pharmacy-mgmt" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
                               <Stethoscope className="w-6 h-6" />

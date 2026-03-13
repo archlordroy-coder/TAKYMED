@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Check, ArrowRight, Crown, Shield, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface AccountType {
   id: number;
@@ -55,8 +56,7 @@ export default function Upgrade() {
   const getTypeIcon = (name: string) => {
     switch (name) {
       case "Standard": return <Users className="w-8 h-8" />;
-      case "Professionnel": return <Shield className="w-8 h-8" />;
-      case "Pharmacien": return <Crown className="w-8 h-8" />;
+      case "Pro": return <Shield className="w-8 h-8" />;
       default: return <Users className="w-8 h-8" />;
     }
   };
@@ -65,8 +65,7 @@ export default function Upgrade() {
   const getTypeColor = (name: string) => {
     switch (name) {
       case "Standard": return "bg-blue-500";
-      case "Professionnel": return "bg-purple-500";
-      case "Pharmacien": return "bg-amber-500";
+      case "Pro": return "bg-purple-500";
       default: return "bg-slate-500";
     }
   };
@@ -88,25 +87,15 @@ export default function Upgrade() {
       ];
     }
 
-    if (type.name === "Professionnel") {
+    if (type.name === "Pro") {
       return [
         "Ordonnances illimitées",
         "Notifications SMS/WhatsApp",
         "Statistiques d'observance",
         "Suivi des pharmacies",
-        "Rapports détaillés",
-        "Support prioritaire"
-      ];
-    }
-
-    if (type.name === "Pharmacien") {
-      return [
-        "Toutes les fonctionnalités Pro",
         "Gestion de pharmacie",
-        "Incompatibilités médicamenteuses",
-        "Gestion des stocks",
-        "Interface pharmacien dédiée",
-        "Support 24/7"
+        "Rapports détaillés",
+        "Support prioritaire 24/7"
       ];
     }
 
@@ -119,7 +108,7 @@ export default function Upgrade() {
     return `${type.price.toLocaleString()} ${type.currency}/mois`;
   };
 
-  const handleUpgrade = async (typeName: string) => {
+  const handleUpgrade = (typeName: string) => {
     if (!user) {
       toast.error("Vous devez être connecté");
       return;
@@ -130,29 +119,32 @@ export default function Upgrade() {
       return;
     }
 
-    try {
-      const response = await fetch("/api/auth/upgrade-request", {
+    // Find the plan and redirect to checkout
+    const plan = accountTypes.find(t => t.name === typeName);
+    if (plan && plan.price > 0) {
+      navigate(`/checkout?plan=${plan.id}`);
+    } else if (plan && plan.price === 0) {
+      // Free plan - direct upgrade
+      fetch("/api/auth/upgrade-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestedType: typeName })
-      });
-
-      if (response.ok) {
-        toast.success("Demande envoyée ! Un administrateur traitera votre demande sous peu.");
-        navigate("/dashboard");
-      } else {
-        const data = await response.json();
-        toast.error(data.error || "Erreur lors de l'envoi de la demande");
-      }
-    } catch (error) {
-      toast.error("Erreur de connexion");
+      }).then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            toast.success("Compte mis à jour avec succès !");
+            window.location.reload();
+          } else {
+            toast.error(data.error || "Erreur lors de la mise à jour");
+          }
+        })
+        .catch(() => toast.error("Erreur lors de la mise à jour"));
     }
   };
 
   // Get current user type name
   const userTypeName = user?.type === "standard" ? "Standard" :
-                       user?.type === "professional" ? "Professionnel" :
-                       user?.type === "pharmacist" ? "Pharmacien" :
+                       user?.type === "professional" || user?.type === "pharmacist" ? "Pro" :
                        user?.type === "admin" ? "Administrateur" : "Standard";
 
   const currentTypeId = accountTypes.find(t => t.name === userTypeName)?.id || 1;
@@ -190,19 +182,19 @@ export default function Upgrade() {
             return (
               <Card
                 key={type.id}
-                className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
-                  isPopular ? 'ring-2 ring-primary shadow-lg scale-105' : 'hover:scale-102'
+                className={`relative transition-all duration-300 hover:shadow-xl ${
+                  isPopular ? 'ring-2 ring-primary shadow-lg' : 'hover:scale-102'
                 }`}
               >
                 {isPopular && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <Badge className="bg-primary text-white px-4 py-1 rounded-full text-xs font-bold">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                    <Badge className="bg-primary text-white px-4 py-1 rounded-full text-xs font-bold shadow-md">
                       Plus populaire
                     </Badge>
                   </div>
                 )}
 
-                <CardHeader className="text-center pb-4">
+                <CardHeader className={cn("text-center pb-4", isPopular && "pt-8")}>
                   <div className={`w-16 h-16 rounded-2xl ${getTypeColor(type.name)} text-white flex items-center justify-center mx-auto mb-4`}>
                     {getTypeIcon(type.name)}
                   </div>
