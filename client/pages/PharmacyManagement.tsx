@@ -227,7 +227,7 @@ export default function PharmacyManagement() {
     }
   };
 
-  if (user?.type !== "pharmacist") {
+  if (user?.type !== "pharmacist" && user?.type !== "professional") {
     return (
       <div className="container mx-auto px-4 py-24 text-center animate-in fade-in duration-700">
         <div className="bg-white p-12 rounded-[40px] shadow-2xl border max-w-lg mx-auto space-y-6">
