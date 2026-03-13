@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Check, CreditCard, Lock, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import { Check, Smartphone, Lock, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -24,11 +24,10 @@ export default function Checkout() {
   const [processing, setProcessing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<AccountType | null>(null);
 
-  // Payment form state
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardName, setCardName] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvv, setCvv] = useState("");
+  // Orange Money form state
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
 
   const planId = searchParams.get("plan");
 
@@ -59,40 +58,47 @@ export default function Checkout() {
     return `${type.price.toLocaleString()} ${type.currency || 'FCFA'}/mois`;
   };
 
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || '';
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
+  const handleSendOtp = async () => {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      toast.error("Numéro de téléphone invalide");
+      return;
     }
-    return parts.length ? parts.join(' ') : v;
+
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/payments/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber,
+          amount: selectedPlan?.price
+        })
+      });
+
+      if (res.ok) {
+        toast.success("Code OTP envoyé par SMS");
+        setOtpSent(true);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Erreur lors de l'envoi du code");
+      }
+    } catch (error) {
+      console.error("OTP error:", error);
+      toast.error("Erreur lors de l'envoi du code");
+    } finally {
+      setProcessing(false);
+    }
   };
 
-  const formatExpiry = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-    if (v.length >= 2) {
-      return v.substring(0, 2) + '/' + v.substring(2, 4);
-    }
-    return v;
+  const handleResendOtp = async () => {
+    setOtpSent(false);
+    setOtpCode("");
+    await handleSendOtp();
   };
 
   const handlePayment = async () => {
-    if (!cardNumber || cardNumber.replace(/\s/g, '').length < 16) {
-      toast.error("Numéro de carte invalide");
-      return;
-    }
-    if (!cardName.trim()) {
-      toast.error("Nom du titulaire requis");
-      return;
-    }
-    if (!expiry || expiry.length < 5) {
-      toast.error("Date d'expiration invalide");
-      return;
-    }
-    if (!cvv || cvv.length < 3) {
-      toast.error("CVV invalide");
+    if (!otpCode || otpCode.length < 6) {
+      toast.error("Code OTP invalide");
       return;
     }
     if (!selectedPlan) {
@@ -109,14 +115,15 @@ export default function Checkout() {
         body: JSON.stringify({
           userId: user?.id,
           planId: selectedPlan.id,
-          cardLast4: cardNumber.replace(/\s/g, '').slice(-4),
-          amount: selectedPlan.price
+          phoneNumber,
+          otpCode,
+          amount: selectedPlan.price,
+          method: "orange_money"
         })
       });
 
       if (res.ok) {
         toast.success("Paiement réussi ! Votre compte a été mis à niveau.");
-        // Refresh user data
         setTimeout(() => {
           navigate("/dashboard");
         }, 1500);
@@ -176,92 +183,90 @@ export default function Checkout() {
           <Card className="shadow-lg border-0">
             <CardHeader className="border-b bg-slate-50/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-primary" />
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                  <Smartphone className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">Informations de paiement</CardTitle>
-                  <CardDescription>Vos données sont sécurisées et cryptées</CardDescription>
+                  <CardTitle className="text-lg">Orange Money</CardTitle>
+                  <CardDescription>Paiement mobile sécurisé via Orange Money</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              {/* Card Number */}
+              {/* Phone Number */}
               <div className="space-y-2">
-                <Label htmlFor="cardNumber">Numéro de carte</Label>
+                <Label htmlFor="phoneNumber">Numéro Orange Money</Label>
                 <Input
-                  id="cardNumber"
-                  placeholder="1234 5678 9012 3456"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                  maxLength={19}
-                  className="h-12 rounded-xl text-lg font-mono"
+                  id="phoneNumber"
+                  placeholder="+237 6XX XXX XXX"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="h-12 rounded-xl text-lg"
                 />
               </div>
 
-              {/* Card Holder */}
-              <div className="space-y-2">
-                <Label htmlFor="cardName">Nom du titulaire</Label>
-                <Input
-                  id="cardName"
-                  placeholder="JEAN DUPONT"
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value.toUpperCase())}
-                  className="h-12 rounded-xl text-lg uppercase"
-                />
-              </div>
-
-              {/* Expiry & CVV */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* OTP Code */}
+              {otpSent && (
                 <div className="space-y-2">
-                  <Label htmlFor="expiry">Date d'expiration</Label>
+                  <Label htmlFor="otpCode">Code OTP reçu</Label>
                   <Input
-                    id="expiry"
-                    placeholder="MM/AA"
-                    value={expiry}
-                    onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                    maxLength={5}
+                    id="otpCode"
+                    placeholder="Entrez le code à 6 chiffres"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                    maxLength={6}
                     className="h-12 rounded-xl text-lg font-mono"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cvv">CVV</Label>
-                  <Input
-                    id="cvv"
-                    placeholder="123"
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
-                    maxLength={4}
-                    type="password"
-                    className="h-12 rounded-xl text-lg font-mono"
-                  />
-                </div>
-              </div>
+              )}
 
-              {/* Security Notice */}
-              <div className="flex items-center gap-2 p-4 bg-green-50 rounded-xl text-green-700">
-                <Lock className="w-5 h-5" />
-                <span className="text-sm font-medium">Paiement 100% sécurisé et crypté</span>
-              </div>
+              {/* Send OTP Button */}
+              {!otpSent ? (
+                <Button
+                  className="w-full h-12 rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={handleSendOtp}
+                  disabled={processing || !phoneNumber}
+                >
+                  {processing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Envoi en cours...
+                    </>
+                  ) : (
+                    "Envoyer le code OTP"
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  className="w-full h-12 rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={handleResendOtp}
+                  disabled={processing}
+                  variant="outline"
+                >
+                  Renvoyer le code
+                </Button>
+              )}
 
               {/* Submit Button */}
-              <Button
-                className="w-full h-14 rounded-xl text-lg font-bold bg-primary hover:bg-primary/90"
-                onClick={handlePayment}
-                disabled={processing}
-              >
-                {processing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Traitement en cours...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="w-5 h-5 mr-2" />
-                    Payer {formatPrice(selectedPlan)}
-                  </>
-                )}
-              </Button>
+              {otpSent && (
+                <Button
+                  className="w-full h-14 rounded-xl text-lg font-bold bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={handlePayment}
+                  disabled={processing}
+                >
+                  {processing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Traitement en cours...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-5 h-5 mr-2" />
+                      Confirmer le paiement {formatPrice(selectedPlan)}
+                    </>
+                  )}
+                </Button>
+              )}
             </CardContent>
           </Card>
 
