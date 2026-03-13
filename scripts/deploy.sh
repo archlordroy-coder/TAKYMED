@@ -11,7 +11,7 @@ REMOTE_USER=${SERVER_USER:-"root"}
 REMOTE_HOST=${SERVER_IP:-"localhost"}
 REMOTE_DIR=${DEST_DIR:-"/home/TAKYMED"}
 SOURCE_DIR="$(pwd)"
-PORT=${PORT:-3000}
+PORT=${PORT:-3500}
 
 # SSH/RSYNC configurations
 SSH_OPT="-o StrictHostKeyChecking=no"
@@ -37,7 +37,7 @@ rsync -av -e "ssh $SSH_OPT" --progress "$SOURCE_DIR/" "$REMOTE_USER@$REMOTE_HOST
     --exclude 'bd.sqlite-wal' \
     --exclude 'public/uploads/*' || { echo "❌ File synchronization failed."; exit 1; }
 
-# 3. Rebuild on Remote (with Node.js version check)
+# 3. Rebuild on Remote (with Node.js version check and PM2)
 echo "🛠️ Checking Node.js version and rebuilding on remote..."
 $SSH_CMD $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_DIR && \
     NODE_VER=\$(node -v | cut -d. -f1 | sed 's/v//') && \
@@ -45,11 +45,18 @@ $SSH_CMD $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_DIR && \
         echo \"⚠️ Node.js version too old (\$NODE_VER). Updating to Node 22...\" && \
         curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs; \
     fi && \
+    if ! command -v pm2 &> /dev/null; then \
+        echo \"📦 Installing PM2 globally...\" && \
+        npm install -g pm2; \
+    fi && \
     npm install && npm run build" || { echo "❌ Remote update/build failed."; exit 1; }
 
-# 4. Start the application (Dev Mode)
-echo "🟢 Starting application in dev mode on port 3500..."
-$SSH_CMD $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_DIR && pkill -f 'node-build.mjs' || true && pkill -f 'vite' || true && nohup npm run dev > $REMOTE_DIR/app.log 2>&1 & sleep 5" || { echo "❌ Failed to start application."; exit 1; }
+# 4. Start the application with PM2
+echo "🟢 Starting application with PM2 (Production Mode)..."
+$SSH_CMD $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_DIR && \
+    pm2 delete takymed || true && \
+    PORT=3500 pm2 start dist/server/node-build.mjs --name takymed && \
+    pm2 save" || { echo "❌ Failed to start application with PM2."; exit 1; }
 
 # 5. Health Check
 echo "🔍 Performing health check..."
@@ -60,7 +67,7 @@ HEALTH_PASSED=false
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     echo "Wait for server to start... (Attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)"
     sleep 5
-    RESPONSE=$(curl -s http://$REMOTE_HOST:$PORT/api/ping || echo "")
+    RESPONSE=$(curl -s http://$REMOTE_HOST:3500/api/ping || echo "")
     if [[ "$RESPONSE" == *"message"* ]]; then
         echo "✅ Health check passed! Application is responding with data."
         HEALTH_PASSED=true

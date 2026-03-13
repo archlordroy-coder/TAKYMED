@@ -10,56 +10,19 @@ import {
   ShieldCheck,
   AlertCircle,
   Info,
-  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { AccountType } from "@shared/api";
 
-type AccountTypePricing = {
-  id: number;
-  name: string;
-  description: string;
-  requiresPayment: number;
-  price: number;
-  currency: string;
-};
-
-const typeLabelMap: Record<AccountType, string> = {
-  standard: "Standard",
-  professional: "Professionnel",
-  pharmacist: "Pharmacien",
-  admin: "Administrateur",
-};
-
 export default function Auth({ mode }: { mode: "login" | "register" }) {
   const navigate = useNavigate();
   const { login, register } = useAuth();
-  const [step, setStep] = useState<"form" | "payment" | "pin">("form");
+  const [step, setStep] = useState<"form" | "pin">("form");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
   const [selectedType, setSelectedType] = useState<AccountType>("standard");
-  const [accountTypes, setAccountTypes] = useState<AccountTypePricing[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (mode !== "register") return;
-    fetch("/api/auth/account-types")
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to fetch account types");
-        const data = await res.json();
-        setAccountTypes(data.types || []);
-      })
-      .catch((err) => {
-        console.error(err);
-        toast.error("Impossible de charger les tarifs des comptes");
-      });
-  }, [mode]);
-
-  const currentType = useMemo(() => {
-    const desired = typeLabelMap[selectedType];
-    return accountTypes.find((t) => t.name === desired);
-  }, [accountTypes, selectedType]);
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,16 +30,8 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
       toast.error("Veuillez saisir votre numéro de téléphone.");
       return;
     }
-    if (mode === "register") {
-      setStep("payment");
-      return;
-    }
+    // Pour l'inscription, on passe directement au PIN (type forcé à "standard")
     setStep("pin");
-  };
-
-  const handleContinueFromPayment = () => {
-    setStep("pin");
-    toast.success("Paiement validé (mode démonstration)");
   };
 
   const handlePin = async (e: React.FormEvent) => {
@@ -152,20 +107,9 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
               </div>
 
               {mode === "register" && (
-                <div className="space-y-2">
-                  <Label htmlFor="type">Type de compte</Label>
-                  <select
-                    id="type"
-                    className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm"
-                    value={selectedType}
-                    onChange={(e) =>
-                      setSelectedType(e.target.value as AccountType)
-                    }
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="professional">Professionnel</option>
-                    <option value="pharmacist">Pharmacien</option>
-                  </select>
+                <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 text-sm text-muted-foreground">
+                  <p>Votre compte sera créé en formule <strong className="text-primary">Standard</strong> (gratuit).</p>
+                  <p className="text-xs mt-1">Vous pourrez évoluer vers Pro ou Pharmacien depuis votre espace.</p>
                 </div>
               )}
 
@@ -174,46 +118,6 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </form>
-          )}
-
-          {step === "payment" && mode === "register" && (
-            <div className="space-y-6 animate-in slide-in-from-right duration-300">
-              <div className="text-center">
-                <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-full mb-4">
-                  <CreditCard className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-bold">Paiement de l'abonnement</h3>
-                <p className="text-muted-foreground text-sm mt-2">
-                  Le tarif dépend du type de compte défini par l'administrateur.
-                </p>
-              </div>
-              <div className="p-4 rounded-xl border bg-slate-50 space-y-2">
-                <p className="text-sm">
-                  <strong>Type :</strong> {typeLabelMap[selectedType]}
-                </p>
-                <p className="text-sm">
-                  <strong>Prix :</strong> {currentType?.price ?? 0}{" "}
-                  {currentType?.currency ?? "FCFA"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {currentType?.description || "Compte utilisateur"}
-                </p>
-              </div>
-              <Button
-                className="w-full h-12 rounded-xl font-bold"
-                onClick={handleContinueFromPayment}
-              >
-                Payer et continuer
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => setStep("form")}
-              >
-                Retour
-              </Button>
-            </div>
           )}
 
           {step === "pin" && (
@@ -249,9 +153,7 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                 type="button"
                 variant="ghost"
                 className="w-full"
-                onClick={() =>
-                  setStep(mode === "register" ? "payment" : "form")
-                }
+                onClick={() => setStep("form")}
               >
                 Retour
               </Button>

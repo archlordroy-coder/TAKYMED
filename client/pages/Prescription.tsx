@@ -39,8 +39,9 @@ export default function Prescription() {
   const [patient, setPatient] = useState({
     title: "",
     name: user?.name || "",
-    categorieAge: "",
-    weight: 0
+    categorieAge: "adulte",
+    weight: 0,
+    startDate: new Date().toISOString().split('T')[0]
   });
 
   const [categories, setCategories] = useState<{ id: number, name: string, description: string }[]>([]);
@@ -64,6 +65,40 @@ export default function Prescription() {
     phone: user?.phone || "",
     type: "whatsapp" as "sms" | "whatsapp" | "call" | "push"
   });
+
+  // Custom dates for each day (allows modification with propagation)
+  const [customDates, setCustomDates] = useState<Record<number, string>>({});
+
+  // Calculate exact date for a given day
+  const getDateForDay = (day: number): string => {
+    if (customDates[day]) return customDates[day];
+    const baseDate = new Date(patient.startDate);
+    baseDate.setDate(baseDate.getDate() + day - 1);
+    return baseDate.toISOString().split('T')[0];
+  };
+
+  // Format date as dd/mm/yy
+  const formatDateShort = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  };
+
+  // Handle date modification with propagation
+  const handleDateChange = (day: number, newDate: string) => {
+    const updatedDates: Record<number, string> = { ...customDates, [day]: newDate };
+
+    // Propagate to following days
+    const maxDay = Math.max(...medications.map(m => m.durationDays));
+    const baseDate = new Date(newDate);
+
+    for (let d = day + 1; d <= maxDay; d++) {
+      const nextDate = new Date(baseDate);
+      nextDate.setDate(nextDate.getDate() + (d - day));
+      updatedDates[d] = nextDate.toISOString().split('T')[0];
+    }
+
+    setCustomDates(updatedDates);
+  };
 
   const [dbMedications, setDbMedications] = useState<{ id: number, name: string }[]>([]);
 
@@ -235,25 +270,29 @@ export default function Prescription() {
                     value={patient.categorieAge}
                     onChange={(e) => setPatient({ ...patient, categorieAge: e.target.value })}
                   >
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name.charAt(0).toUpperCase() + cat.name.slice(1)} {cat.description ? `(${cat.description})` : ''}
-                      </option>
-                    ))}
+                    {categories
+                      .sort((a, b) => {
+                        const order = ["adulte", "enfant", "bébé"];
+                        const indexA = order.indexOf(a.name.toLowerCase());
+                        const indexB = order.indexOf(b.name.toLowerCase());
+                        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+                      })
+                      .map(cat => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name.charAt(0).toUpperCase() + cat.name.slice(1)} {cat.description ? `(${cat.description})` : ''}
+                        </option>
+                      ))}
                   </select>
                 </div>
-                {(patient.categorieAge === "bébé" || patient.categorieAge === "enfant") && (
-                  <div className="space-y-2 animate-in slide-in-from-left duration-300">
-                    <Label>Poids (kg)</Label>
-                    <Input
-                      type="number"
-                      value={patient.weight}
-                      onChange={(e) => setPatient({ ...patient, weight: parseInt(e.target.value) || 0 })}
-                      className="rounded-xl h-12"
-                      placeholder="Indispensable pour bébé/enfant"
-                    />
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label>Date de début de la prise</Label>
+                  <Input
+                    type="date"
+                    value={patient.startDate}
+                    onChange={(e) => setPatient({ ...patient, startDate: e.target.value })}
+                    className="rounded-xl h-12"
+                  />
+                </div>
               </div>
             </div>
 
@@ -421,7 +460,7 @@ export default function Prescription() {
             </div>
             <div className="flex justify-end pt-8">
               <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNext}>
-                Valider les Médicaments
+                Suivant
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </div>
@@ -459,36 +498,45 @@ export default function Prescription() {
                     </tr>
                   </thead>
                   <tbody>
-                    {schedule.map((s, idx) => (
-                      <tr key={idx} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-semibold">Jour {s.day}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className="font-bold text-primary">{s.medicationName}</span>
-                        </td>
-                        <td className="p-4">
-                          <span className="bg-slate-100 px-2 py-1 rounded-lg text-sm font-medium">
-                            {s.dose} {s.unit}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Clock className="w-4 h-4" />
-                            <span className="font-mono">{s.time}</span>
-                          </div>
-                        </td>
-                        <td className="p-4 text-center">
-                          <Checkbox checked={s.statusReminderSent} className="rounded-full h-5 w-5 border-2" />
-                        </td>
-                        <td className="p-4 text-center">
-                          <Checkbox checked={s.statusTaken} className="rounded-full h-5 w-5 border-2" />
-                        </td>
-                      </tr>
-                    ))}
+                    {schedule.map((s, idx) => {
+                      const dateStr = getDateForDay(s.day);
+                      return (
+                        <tr key={idx} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-muted-foreground" />
+                              <input
+                                type="date"
+                                value={dateStr}
+                                onChange={(e) => handleDateChange(s.day, e.target.value)}
+                                className="font-semibold bg-transparent border-b border-transparent hover:border-primary focus:border-primary focus:outline-none cursor-pointer"
+                              />
+                              <span className="text-xs text-muted-foreground">({formatDateShort(dateStr)})</span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="font-bold text-primary">{s.medicationName}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="bg-slate-100 px-2 py-1 rounded-lg text-sm font-medium">
+                              {s.dose} {s.unit}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="w-4 h-4" />
+                              <span className="font-mono">{s.time}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-center">
+                            <Checkbox checked={s.statusReminderSent} className="rounded-full h-5 w-5 border-2" />
+                          </td>
+                          <td className="p-4 text-center">
+                            <Checkbox checked={s.statusTaken} className="rounded-full h-5 w-5 border-2" />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -507,7 +555,7 @@ export default function Prescription() {
                 Retour
               </Button>
               <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNext}>
-                Configurer les Rappels
+                Suivant
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </div>
@@ -531,140 +579,149 @@ export default function Prescription() {
                 <div className="space-y-4 text-center">
                   <div className="bg-slate-100 p-6 rounded-3xl space-y-4">
                     <Label className="text-lg font-bold">Votre Numéro</Label>
-                    <div className="relative">
-                      <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
-                      <Input
-                        value={notifConfig.phone}
-                        onChange={(e) => setNotifConfig({ ...notifConfig, phone: e.target.value })}
-                        className="pl-12 h-14 rounded-2xl text-lg font-mono tracking-wider"
-                      />
+                    <div className="flex gap-2">
+                      <select
+                        className="w-24 h-14 rounded-2xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          if (!notifConfig.phone.startsWith('+')) {
+                            setNotifConfig({ ...notifConfig, phone: code + notifConfig.phone });
+                          }
+                        }}
+                        defaultValue="+225"
+                      >
+                        <option value="+225">+225 (CI)</option>
+                        <option value="+221">+221 (SN)</option>
+                        <option value="+226">+226 (BF)</option>
+                        <option value="+229">+229 (BJ)</option>
+                        <option value="+223">+223 (ML)</option>
+                        <option value="+224">+224 (GN)</option>
+                        <option value="+233">+233 (GH)</option>
+                        <option value="+33">+33 (FR)</option>
+                      </select>
+                      <div className="relative flex-1">
+                        <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          placeholder="0701020304"
+                          value={notifConfig.phone}
+                          onChange={(e) => setNotifConfig({ ...notifConfig, phone: e.target.value })}
+                          className="pl-12 h-14 rounded-2xl text-lg font-mono tracking-wider"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <Label className="text-lg font-bold block text-center mb-4">Type de Notification</Label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <NotificationOption
                       selected={notifConfig.type === 'sms'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'sms' })}
-                      icon={<Smartphone className="w-5 h-5" />}
+                      icon={<MessageSquare className="w-5 h-5" />}
                       label="SMS"
-                      color="#3b82f6"
+                      color="#10b981"
                     />
                     <NotificationOption
                       selected={notifConfig.type === 'whatsapp'}
                       onClick={() => setNotifConfig({ ...notifConfig, type: 'whatsapp' })}
-                      icon={<MessageSquare className="w-5 h-5" />}
+                      icon={<MessageSquare className="w-5 h-5" />} // Changed to MessageSquare for simplicity
                       label="WhatsApp"
-                      color="#22c55e"
-                    />
-                    <NotificationOption
-                      selected={notifConfig.type === 'call'}
-                      onClick={() => setNotifConfig({ ...notifConfig, type: 'call' })}
-                      icon={<PhoneCall className="w-5 h-5" />}
-                      label="Appel"
-                      color="#f97316"
-                    />
-                    <NotificationOption
-                      selected={notifConfig.type === 'push'}
-                      onClick={() => setNotifConfig({ ...notifConfig, type: 'push' })}
-                      icon={<Bell className="w-5 h-5" />}
-                      label="Push App"
-                      color="#8b5cf6"
+                      color="#25d366"
                     />
                   </div>
+
+                </div>
+
+                <div className="max-w-md mx-auto p-4 bg-slate-50 rounded-2xl border border-dashed flex items-center gap-3">
+                  <div className="bg-primary/20 p-2 rounded-full">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Les messages seront jumelés si plusieurs médicaments doivent être pris à la même heure.
+                  </p>
                 </div>
               </div>
 
-              <div className="max-w-md mx-auto p-4 bg-slate-50 rounded-2xl border border-dashed flex items-center gap-3">
-                <div className="bg-primary/20 p-2 rounded-full">
-                  <CheckCircle2 className="w-4 h-4 text-primary" />
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground italic">
+                  {notifConfig.phone ? `Destinataire: ${notifConfig.phone}` : "Veuillez entrer un numéro"}
+                </span>
+                <div className="flex gap-4">
+                  <Button variant="ghost" onClick={() => setStep(2)} className="rounded-2xl h-14 px-8">
+                    Retour
+                  </Button>
+                  <Button
+                    size="lg"
+                    disabled={isSubmitting || !notifConfig.phone}
+                    className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-[200px]"
+                    onClick={async () => {
+                      if (!user) {
+                        toast.error("Vous devez être connecté");
+                        return;
+                      }
+
+                      setIsSubmitting(true);
+                      try {
+                        // 1. Save to DB
+                        const res = await fetch("/api/prescriptions", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            userId: user.id,
+                            title: patient.title,
+                            weight: patient.weight,
+                            categorieAge: patient.categorieAge,
+                            medications: medications.map(m => ({
+                              ...m,
+                              name: m.name
+                            })),
+                            notifConfig
+                          })
+                        });
+
+                        if (!res.ok) throw new Error("Erreur de sauvegarde");
+
+                        // 2. Simulation Step (What the user specifically requested)
+                        const notifMethod = notifConfig.type === 'sms' ? 'SMS'
+                          : notifConfig.type === 'call' ? 'Appel vocal'
+                            : notifConfig.type === 'push' ? 'Notification Push'
+                              : 'WhatsApp';
+
+                        toast.info(`Initialisation de l'envoi des rappels...`, { duration: 2000 });
+
+                        // Sequential simulation
+                        await new Promise(r => setTimeout(r, 1500));
+                        toast.loading(`Envoi du message de confirmation via ${notifMethod} au ${notifConfig.phone}...`, { id: "simul-notif" });
+
+                        await new Promise(r => setTimeout(r, 2000));
+                        toast.success(`Succès : Programme de rappel activé pour ${medications.length} médicament(s).`, { id: "simul-notif" });
+
+                        await new Promise(r => setTimeout(r, 1000));
+                        toast.success("Ordonnance enregistrée avec succès !");
+
+                        setTimeout(() => navigate("/dashboard"), 1000);
+
+                      } catch (error) {
+                        console.error(error);
+                        toast.error("Échec de l'enregistrement de l'ordonnance");
+                        setIsSubmitting(false);
+                      }
+                    }}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Traitement...
+                      </div>
+                    ) : (
+                      <>
+                        Suivant
+                        <ArrowRight className="ml-2 w-5 h-5" />
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Les messages seront jumelés si plusieurs médicaments doivent être pris à la même heure.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground italic">
-                {notifConfig.phone ? `Destinataire: ${notifConfig.phone}` : "Veuillez entrer un numéro"}
-              </span>
-              <div className="flex gap-4">
-                <Button variant="ghost" onClick={() => setStep(2)} className="rounded-2xl h-14 px-8">
-                  Retour
-                </Button>
-                <Button
-                  size="lg"
-                  disabled={isSubmitting || !notifConfig.phone}
-                  className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-[200px]"
-                  onClick={async () => {
-                    if (!user) {
-                      toast.error("Vous devez être connecté");
-                      return;
-                    }
-
-                    setIsSubmitting(true);
-                    try {
-                      // 1. Save to DB
-                      const res = await fetch("/api/prescriptions", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          userId: user.id,
-                          title: patient.title,
-                          weight: patient.weight,
-                          categorieAge: patient.categorieAge,
-                          medications: medications.map(m => ({
-                            ...m,
-                            name: m.name
-                          })),
-                          notifConfig
-                        })
-                      });
-
-                      if (!res.ok) throw new Error("Erreur de sauvegarde");
-
-                      // 2. Simulation Step (What the user specifically requested)
-                      const notifMethod = notifConfig.type === 'sms' ? 'SMS'
-                        : notifConfig.type === 'call' ? 'Appel vocal'
-                          : notifConfig.type === 'push' ? 'Notification Push'
-                            : 'WhatsApp';
-
-                      toast.info(`Initialisation de l'envoi des rappels...`, { duration: 2000 });
-
-                      // Sequential simulation
-                      await new Promise(r => setTimeout(r, 1500));
-                      toast.loading(`Envoi du message de confirmation via ${notifMethod} au ${notifConfig.phone}...`, { id: "simul-notif" });
-
-                      await new Promise(r => setTimeout(r, 2000));
-                      toast.success(`Succès : Programme de rappel activé pour ${medications.length} médicament(s).`, { id: "simul-notif" });
-
-                      await new Promise(r => setTimeout(r, 1000));
-                      toast.success("Ordonnance enregistrée avec succès !");
-
-                      setTimeout(() => navigate("/dashboard"), 1000);
-
-                    } catch (error) {
-                      console.error(error);
-                      toast.error("Échec de l'enregistrement de l'ordonnance");
-                      setIsSubmitting(false);
-                    }
-                  }}
-                >
-                  {isSubmitting ? (
-                    <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Traitement...
-                    </div>
-                  ) : (
-                    <>
-                      Valider & Envoyer
-                      <Send className="ml-2 w-5 h-5" />
-                    </>
-                  )}
-                </Button>
               </div>
             </div>
           </div>

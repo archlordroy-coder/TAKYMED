@@ -17,9 +17,10 @@ import SearchMedications from "./pages/SearchMedications";
 import PharmacyManagement from "./pages/PharmacyManagement";
 import InteractionsManagement from "./pages/InteractionsManagement";
 import Ads from "./pages/Ads";
-import AdminDashboard from "./pages/AdminDashboard";
+import Upgrade from "./pages/Upgrade";
 
 import { AdminLayout } from "@/components/AdminLayout";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -41,13 +42,21 @@ const App = () => (
           <Routes>
             {/* Admin Routes with Sidebar Layout */}
             <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <AdminDashboard />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin/*"
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <Routes>
-                      <Route path="*" element={<AdminDashboard />} />
-                    </Routes>
+                    <AdminDashboard />
                   </AdminLayout>
                 </ProtectedRoute>
               }
@@ -68,7 +77,7 @@ const App = () => (
                     <Route path="/search" element={<ProtectedRoute><SearchMedications /></ProtectedRoute>} />
                     <Route path="/pharmacy-mgmt" element={<ProtectedRoute><PharmacyManagement /></ProtectedRoute>} />
                     <Route path="/interactions-mgmt" element={<ProtectedRoute><InteractionsManagement /></ProtectedRoute>} />
-                    <Route path="/ads" element={<ProtectedRoute><Ads /></ProtectedRoute>} />
+                    <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>

@@ -14,7 +14,8 @@ import {
   Shield,
   Search,
   User as UserIcon,
-  LogOut
+  LogOut,
+  Crown
 } from "lucide-react";
 import {
   Sheet,
@@ -68,13 +69,9 @@ export function Layout({ children }: LayoutProps) {
                   <LayoutDashboard className="w-4 h-4" />
                   Tableau de bord
                 </Link>
-                <Link to="/prescription" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
-                  <PlusCircle className="w-4 h-4" />
-                  Ordonnance
-                </Link>
                 <Link to="/search" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <Search className="w-4 h-4" />
-                  Recherche
+                  Médicaments
                 </Link>
                 {user.type === "pharmacist" && (
                   <>
@@ -104,6 +101,12 @@ export function Layout({ children }: LayoutProps) {
                   <Bell className="w-4 h-4" />
                   Actu
                 </Link>
+                {user?.type !== "admin" && (
+                  <Link to="/upgrade" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap text-primary font-semibold">
+                    <Crown className="w-4 h-4" />
+                    Upgrade
+                  </Link>
+                )}
               </>
             ) : null}
           </nav>
@@ -161,13 +164,9 @@ export function Layout({ children }: LayoutProps) {
                           <LayoutDashboard className="w-6 h-6" />
                           Tableau de bord
                         </Link>
-                        <Link to="/prescription" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
-                          <PlusCircle className="w-6 h-6" />
-                          Ordonnance
-                        </Link>
                         <Link to="/search" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
                           <Search className="w-6 h-6" />
-                          Recherche
+                          Médicaments
                         </Link>
                         {user.type === "pharmacist" && (
                           <>
@@ -199,6 +198,12 @@ export function Layout({ children }: LayoutProps) {
                           <Bell className="w-6 h-6" />
                           Nouveautés
                         </Link>
+                        {user?.type !== "admin" && (
+                          <Link to="/upgrade" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5 text-primary">
+                            <Crown className="w-6 h-6" />
+                            Upgrade
+                          </Link>
+                        )}
                       </nav>
                       <div className="absolute bottom-8 left-8 right-8">
                         <Button variant="destructive" className="w-full rounded-2xl h-12 font-bold" onClick={handleLogout}>
@@ -237,10 +242,7 @@ export function Layout({ children }: LayoutProps) {
             <h4 className="font-semibold">Services</h4>
             <ul className="text-sm space-y-2 text-muted-foreground">
               <li>
-                <Link to="/search" className="hover:text-primary">Recherche</Link>
-              </li>
-              <li>
-                <Link to="/prescription" className="hover:text-primary">Ordonnances</Link>
+                <Link to="/search" className="hover:text-primary">Médicaments</Link>
               </li>
               <li>
                 <Link to="/ads" className="hover:text-primary">Nouveautés</Link>

@@ -48,13 +48,13 @@ router.get("/account-types", (_req, res) => {
 });
 
 router.post("/register", (req, res) => {
-  const { phone, pin, type } = req.body;
+  const { phone, pin } = req.body;
 
   try {
     const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
     const normalizedPin = typeof pin === "string" ? pin.trim() : "";
-    const requestedType = typeof type === "string" ? type : "standard";
-    const dbType = typeMap[requestedType] || "Standard";
+    // Force Standard account type - upgrades are handled by admin
+    const dbType = "Standard";
 
     if (!normalizedPhone) {
       return res.status(400).json({ error: "Phone is required" });
@@ -228,6 +228,43 @@ router.post("/login", (req, res) => {
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Request account upgrade
+router.post("/upgrade-request", (req, res) => {
+  const { requestedType } = req.body;
+  const userId = req.headers["x-user-id"];
+
+  if (!userId) {
+    return res.status(401).json({ error: "Non authentifié" });
+  }
+
+  if (!requestedType || !["Professionnel", "Pharmacien"].includes(requestedType)) {
+    return res.status(400).json({ error: "Type de compte invalide" });
+  }
+
+  try {
+    // Check if user already has a pending request
+    const existingRequest = db
+      .prepare(
+        "SELECT * FROM UpgradeRequests WHERE id_utilisateur = ? AND status = 'pending'"
+      )
+      .get(userId as string);
+
+    if (existingRequest) {
+      return res.status(400).json({ error: "Vous avez déjà une demande en attente" });
+    }
+
+    // Create upgrade request
+    db.prepare(
+      "INSERT INTO UpgradeRequests (id_utilisateur, requested_type) VALUES (?, ?)"
+    ).run(userId, requestedType);
+
+    res.json({ success: true, message: "Demande envoyée avec succès" });
+  } catch (error) {
+    console.error("Upgrade request error:", error);
+    res.status(500).json({ error: "Erreur lors de la demande" });
   }
 });
 

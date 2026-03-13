@@ -111,6 +111,62 @@ router.get("/stats", (_req, res) => {
     }
 });
 
+// Monthly activity statistics for charts
+router.get("/monthly-activity", (_req, res) => {
+    try {
+        // Get prescriptions per month for the last 7 months
+        const prescriptionsByMonth = db.prepare(`
+            SELECT 
+                strftime('%m', date_ordonnance) as month,
+                strftime('%Y', date_ordonnance) as year,
+                COUNT(*) as count
+            FROM Ordonnances
+            WHERE date_ordonnance >= date('now', '-7 months')
+            GROUP BY year, month
+            ORDER BY year, month
+        `).all() as { month: string; year: string; count: number }[];
+
+        // Get user registrations (visits/sessions) per month
+        const visitsByMonth = db.prepare(`
+            SELECT 
+                strftime('%m', cree_le) as month,
+                strftime('%Y', cree_le) as year,
+                COUNT(*) as count
+            FROM Utilisateurs
+            WHERE cree_le >= date('now', '-7 months')
+            GROUP BY year, month
+            ORDER BY year, month
+        `).all() as { month: string; year: string; count: number }[];
+
+        // Generate last 7 months labels (current month first, going back)
+        const months = [];
+        const now = new Date();
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            months.push({
+                key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+                label: d.toLocaleDateString('fr-FR', { month: 'short' })
+            });
+        }
+
+        // Map data to months (reverse to show current month first)
+        const data = months.map(m => {
+            const presc = prescriptionsByMonth.find(p => `${p.year}-${p.month}` === m.key);
+            const visits = visitsByMonth.find(v => `${v.year}-${v.month}` === m.key);
+            return {
+                name: m.label.charAt(0).toUpperCase() + m.label.slice(1, 3),
+                prescriptions: presc?.count || 0,
+                visites: visits?.count || 0
+            };
+        });
+
+        res.json(data);
+    } catch (error) {
+        console.error("Error fetching monthly activity:", error);
+        res.status(500).json({ error: "Failed to fetch monthly activity" });
+    }
+});
+
 // List all users with their account types
 router.get("/users", (_req, res) => {
     try {

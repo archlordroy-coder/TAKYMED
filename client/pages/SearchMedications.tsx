@@ -145,7 +145,7 @@ export default function SearchMedications() {
     <div className="bg-slate-50 min-h-[calc(100vh-64px)] pb-20">
       <div className="container mx-auto px-4 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold tracking-tight mb-4">Rechercher un Médicament</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-4">Médicaments</h1>
           <p className="text-muted-foreground max-w-lg mx-auto">
             Trouvez les informations et vérifiez la disponibilité dans les pharmacies les plus proches.
           </p>

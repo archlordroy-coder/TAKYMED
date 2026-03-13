@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import {
@@ -197,17 +197,41 @@ export function DistributionChart() {
 }
 
 // --- ACTIVITY CHART (BAR) ---
-const BAR_DATA = [
-    { name: 'Jan', prescriptions: 40, visites: 24 },
-    { name: 'Fév', prescriptions: 30, visites: 14 },
-    { name: 'Mar', prescriptions: 55, visites: 38 },
-    { name: 'Avr', prescriptions: 28, visites: 39 },
-    { name: 'Mai', prescriptions: 19, visites: 48 },
-    { name: 'Jun', prescriptions: 60, visites: 38 },
-    { name: 'Jul', prescriptions: 70, visites: 43 },
-];
+interface ActivityChartProps {
+    data?: { name: string; prescriptions: number; visites: number }[];
+}
 
-export function ActivityChart() {
+export function ActivityChart({ data }: ActivityChartProps) {
+    const [chartData, setChartData] = useState<{ name: string; prescriptions: number; visites: number }[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                const res = await fetch("/api/admin/monthly-activity");
+                if (res.ok) {
+                    const data = await res.json();
+                    setChartData(data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch monthly activity:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, []);
+
+    const displayData = data || chartData;
+
+    if (loading) {
+        return (
+            <div className="bg-white rounded-[2.5rem] p-8 border shadow-sm h-full flex items-center justify-center" style={{ borderColor: "#e2e8f0" }}>
+                <div className="h-8 w-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: TEAL, borderTopColor: "transparent" }} />
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white rounded-[2.5rem] p-8 border shadow-sm h-full" style={{ borderColor: "#e2e8f0" }}>
             <div className="flex items-center justify-between mb-8">
@@ -231,7 +255,7 @@ export function ActivityChart() {
 
             <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={BAR_DATA} barGap={4}>
+                    <BarChart data={displayData} barGap={4}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis
                             dataKey="name"

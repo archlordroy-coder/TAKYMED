@@ -6,8 +6,11 @@ import { authRouter } from "./routes/auth";
 import { prescriptionRouter } from "./routes/prescriptions";
 import { medicationRouter } from "./routes/medications";
 import { pharmacyRouter } from "./routes/pharmacies";
-import { adminRouter } from "./routes/admin";
+import { otpRouter } from "./routes/otp";
 import { categoriesAgeRouter } from "./routes/categories";
+import { adminRouter } from "./routes/admin";
+import { notificationRouter } from "./services/notificationProvider";
+import { startReminderWorker } from "./services/reminderWorker";
 import { db, initializeDatabase } from "./db";
 
 // Initialize the SQLite database on server startup
@@ -38,12 +41,16 @@ export function createServer() {
   });
 
   app.use("/api/auth", authRouter);
+  app.use("/api/otp", otpRouter);
   app.use("/api/prescriptions", prescriptionRouter);
   app.use("/api/medications", medicationRouter);
   app.use("/api/pharmacies", pharmacyRouter);
-  app.use("/api/admin", adminRouter);
   app.use("/api/categories", categoriesAgeRouter);
-  app.get("/api/demo", handleDemo);
+  app.use("/api/admin", adminRouter);
+  app.use("/api/notifications", notificationRouter);
+
+  // Start reminder worker
+  startReminderWorker();
 
   return app;
 }

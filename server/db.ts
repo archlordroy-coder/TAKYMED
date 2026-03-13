@@ -98,15 +98,16 @@ export function initializeDatabase() {
                 CREATE TABLE IF NOT EXISTS CategoriesAge (
                     id_categorie INTEGER PRIMARY KEY AUTOINCREMENT,
                     nom_categorie TEXT NOT NULL UNIQUE,
-                    description TEXT
+                    description TEXT,
+                    considere_poids BOOLEAN DEFAULT 0
                 )
             `);
             const catAgeCount = db.prepare("SELECT COUNT(*) as count FROM CategoriesAge").get() as { count: number };
             if (catAgeCount.count === 0) {
                 console.log("Adding default age categories...");
-                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description) VALUES (?, ?)").run('bébé', '0 à 2 ans');
-                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description) VALUES (?, ?)").run('enfant', '2 à 12 ans');
-                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description) VALUES (?, ?)").run('adulte', 'Plus de 12 ans');
+                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('bébé', '0 à 2 ans', 1);
+                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('enfant', '2 à 12 ans', 1);
+                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('adulte', 'Plus de 12 ans', 0);
             }
 
             // Create PosologieDefautMedicaments table if not exists (Updated for dynamic categories)
@@ -165,6 +166,7 @@ export function initializeDatabase() {
                         categorie_age TEXT DEFAULT 'adulte',
                         poids_patient DECIMAL(5,2),
                         date_ordonnance DATE DEFAULT CURRENT_DATE,
+                        date_debut DATE,
                         est_active BOOLEAN DEFAULT TRUE,
                         cree_le DATETIME DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE
@@ -176,6 +178,15 @@ export function initializeDatabase() {
                     ALTER TABLE Ordonnances_new RENAME TO Ordonnances;
                     COMMIT;
                 `);
+            }
+
+            // Migration for Phase 2: date_debut
+            const ordonnanceCols = db.prepare("PRAGMA table_info(Ordonnances)").all() as { name: string }[];
+            if (!ordonnanceCols.some(c => c.name === 'date_debut')) {
+                console.log("Adding date_debut column to Ordonnances...");
+                db.exec("ALTER TABLE Ordonnances ADD COLUMN date_debut DATE");
+                // Initialize date_debut with date_ordonnance for existing records
+                db.exec("UPDATE Ordonnances SET date_debut = date_ordonnance WHERE date_debut IS NULL");
             }
 
             // Phase 9: Admin Account Initialization
@@ -222,6 +233,22 @@ export function initializeDatabase() {
                 db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
                     .run(info.lastInsertRowid, 'Pharmacien Test');
             }
+
+            // Create UpgradeRequests table for account upgrade requests
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS UpgradeRequests (
+                    id_request INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_utilisateur INTEGER NOT NULL,
+                    requested_type TEXT NOT NULL CHECK(requested_type IN ('Professionnel', 'Pharmacien')),
+                    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+                    admin_notes TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    processed_at DATETIME,
+                    processed_by INTEGER,
+                    FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE,
+                    FOREIGN KEY (processed_by) REFERENCES Utilisateurs(id_utilisateur)
+                )
+            `);
         }
     } catch (error) {
         console.error("Failed to initialize database:", error);

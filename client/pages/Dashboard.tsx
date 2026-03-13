@@ -118,29 +118,46 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-               <div className="bg-white rounded-3xl p-5 border shadow-sm">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Observance</p>
-                  <p className="text-2xl font-black">{stats ? `${stats.observanceRate}%` : "0%"}</p>
-               </div>
-               <div className="bg-white rounded-3xl p-5 border shadow-sm">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Prises planifiées</p>
-                  <p className="text-2xl font-black">{stats ? stats.plannedReminders : 0}</p>
-               </div>
-               <div className="bg-white rounded-3xl p-5 border shadow-sm">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">À prendre</p>
-                  <p className="text-2xl font-black">{stats ? stats.activeReminders : 0}</p>
-               </div>
-               <div className="bg-white rounded-3xl p-5 border shadow-sm">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Pharmacies proches</p>
-                  <p className="text-2xl font-black">{stats ? stats.nearbyPharmacies : 0}</p>
-               </div>
+               {user.type === 'standard' ? (
+                  <div className="col-span-full bg-white rounded-3xl p-8 border shadow-sm text-center space-y-4">
+                     <Crown className="w-12 h-12 text-primary mx-auto" />
+                     <h3 className="text-xl font-bold">Passez à la formule Pro</h3>
+                     <p className="text-muted-foreground max-w-md mx-auto">
+                        Débloquez le suivi de l'observance, les statistiques détaillées et les rappels avancés en passant à la formule Pro.
+                     </p>
+                     <Link to="/upgrade">
+                        <Button variant="outline" className="rounded-xl font-bold border-primary text-primary hover:bg-primary/5">
+                           Découvrir les avantages Pro
+                        </Button>
+                     </Link>
+                  </div>
+               ) : (
+                  <>
+                     <div className="bg-white rounded-3xl p-5 border shadow-sm">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Observance</p>
+                        <p className="text-2xl font-black">{stats ? `${stats.observanceRate}%` : "0%"}</p>
+                     </div>
+                     <div className="bg-white rounded-3xl p-5 border shadow-sm">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Prises planifiées</p>
+                        <p className="text-2xl font-black">{stats ? stats.plannedReminders : 0}</p>
+                     </div>
+                     <div className="bg-white rounded-3xl p-5 border shadow-sm">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">À prendre</p>
+                        <p className="text-2xl font-black">{stats ? stats.activeReminders : 0}</p>
+                     </div>
+                     <div className="bg-white rounded-3xl p-5 border shadow-sm">
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Pharmacies proches</p>
+                        <p className="text-2xl font-black">{stats ? stats.nearbyPharmacies : 0}</p>
+                     </div>
+                  </>
+               )}
             </div>
 
             <Tabs defaultValue="today" className="space-y-8">
                <TabsList className="bg-white/50 backdrop-blur-sm border p-1 rounded-2xl h-14 w-full max-w-md mx-auto grid grid-cols-2 shadow-sm">
                   <TabsTrigger value="today" className="rounded-xl font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
                      <Clock className="w-4 h-4 mr-2" />
-                     Aujourd'hui
+                     {user.type === 'standard' ? "Ma Prise" : "Aujourd'hui"}
                   </TabsTrigger>
                   <TabsTrigger value="calendar" className="rounded-xl font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
                      <CalendarUIIcon className="w-4 h-4 mr-2" />
@@ -346,6 +363,17 @@ function CalendarView({ doses, isLoading, onTakeMed, user, patients }: {
    const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
    const DAY_NAMES = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
+   // New helper for correct date format jj/mm/aa
+   const formatDateJJMMYY = (date: Date) => {
+      const j = String(date.getDate()).padStart(2, '0');
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const a = String(date.getFullYear()).slice(-2);
+      return `${j}/${m}/${a}`;
+   };
+
+   // State for showing prescription details
+   const [expandedPrescriptionId, setExpandedPrescriptionId] = useState<number | string | null>(null);
+
    // Days in the current month
    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
    const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
@@ -536,9 +564,9 @@ function CalendarView({ doses, isLoading, onTakeMed, user, patients }: {
             <div className="border-t lg:border-t-0 lg:border-l p-6 flex flex-col" style={{ borderColor: "#006093", background: "rgba(255,255,255,0.03)" }}>
                {/* Header */}
                <div className="mb-5">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Programmé</p>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Ordonnances</p>
                   <h3 className="text-lg font-bold text-white mt-0.5">
-                     {selectedDate} {MONTH_NAMES[currentMonth]}, {currentYear}
+                     {formatDateJJMMYY(new Date(currentYear, currentMonth, selectedDate))}
                   </h3>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                      <div className="rounded-xl p-2 text-center" style={{ background: "rgba(255,255,255,0.05)" }}>

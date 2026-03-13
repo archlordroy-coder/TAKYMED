@@ -20,11 +20,11 @@ router.get("/", (_req, res) => {
 
 // Add a new category
 router.post("/", (req, res) => {
-    const { name, description } = req.body;
+    const { name, description, considerWeight } = req.body;
     if (!name) return res.status(400).json({ error: "Category name is required" });
 
     try {
-        const info = db.prepare("INSERT INTO CategoriesAge (nom_categorie, description) VALUES (?, ?)").run(name, description || "");
+        const info = db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run(name, description || "", considerWeight ? 1 : 0);
         res.status(201).json({ success: true, id: info.lastInsertRowid });
     } catch (error: any) {
         if (error.message.includes("UNIQUE constraint failed")) {
