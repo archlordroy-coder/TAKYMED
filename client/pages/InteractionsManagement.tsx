@@ -89,7 +89,7 @@ export default function InteractionsManagement() {
         }
     };
 
-    if (user?.type !== "pharmacist") {
+    if (user?.type !== "pharmacist" && user?.type !== "professional") {
         return (
             <div className="container mx-auto px-4 py-20 text-center">
                 <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />

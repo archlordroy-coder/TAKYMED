@@ -48,7 +48,6 @@ INSERT INTO TypesComptes (
     )
 VALUES ('Standard', 'Compte limité', 1, 3, 0, NULL),
     ('Professionnel', 'Compte Pro avancé', NULL, NULL, 1, 5),
-    ('Pharmacien', 'Gestion pharmacie', NULL, NULL, 1, 5);
 -- ===============================
 -- UTILISATEURS
 -- ===============================
@@ -323,7 +322,7 @@ CREATE TABLE IF NOT EXISTS UpgradeRequests (
     id_request INTEGER PRIMARY KEY AUTOINCREMENT,
     id_utilisateur INTEGER NOT NULL,
     requested_type TEXT NOT NULL CHECK(
-        requested_type IN ('Professionnel', 'Pharmacien')
+        requested_type IN ('Professionnel')
     ),
     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
     admin_notes TEXT,

@@ -5,8 +5,8 @@ const router = Router();
 
 const typeMap: Record<string, string> = {
   standard: "Standard",
-  professional: "Pro",
-  pharmacist: "Pro",
+  professional: "Professionnel",
+  pharmacist: "Professionnel",
   admin: "Administrateur",
 };
 
@@ -15,8 +15,6 @@ const reverseTypeMap: Record<
   "standard" | "professional" | "pharmacist" | "admin"
 > = {
   Standard: "standard",
-  Pro: "professional",
-  Pharmacien: "professional",
   Professionnel: "professional",
   Administrateur: "admin",
 };
@@ -99,7 +97,7 @@ router.post("/register", (req, res) => {
         normalizedPhone,
         normalizedPin,
         typeRecord.id_type_compte,
-        typeRecord.nom_type === "Pharmacien" ? 1 : 0,
+        0,
       );
 
     db.prepare(
@@ -193,7 +191,7 @@ router.post("/login", (req, res) => {
             VALUES (?, ?, ?)
           `,
         )
-        .run(normalizedPhone, accountType.id_type_compte, accountType.nom_type === "Pharmacien" ? 1 : 0);
+        .run(normalizedPhone, accountType.id_type_compte, 0);
 
       db.prepare(
         `INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)`,
@@ -244,7 +242,7 @@ router.post("/upgrade-request", (req, res) => {
     return res.status(401).json({ error: "Non authentifié" });
   }
 
-  if (!requestedType || !["Pro", "Professionnel", "Pharmacien"].includes(requestedType)) {
+  if (!requestedType || !["Pro", "Professionnel"].includes(requestedType)) {
     return res.status(400).json({ error: "Type de compte invalide" });
   }
 

@@ -109,7 +109,7 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
               {mode === "register" && (
                 <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 text-sm text-muted-foreground">
                   <p>Votre compte sera créé en formule <strong className="text-primary">Standard</strong> (gratuit).</p>
-                  <p className="text-xs mt-1">Vous pourrez évoluer vers Pro ou Pharmacien depuis votre espace.</p>
+                  <p className="text-xs mt-1">Vous pourrez évoluer vers Pro depuis votre espace.</p>
                 </div>
               )}
 
@@ -179,13 +179,6 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                 className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
               >
                 Pro
-              </button>
-              <button
-                type="button"
-                onClick={() => setTestUser("+237 699999999", "1234", "pharmacist")}
-                className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
-              >
-                Pharmacien
               </button>
               <button
                 type="button"

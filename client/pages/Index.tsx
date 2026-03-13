@@ -110,7 +110,7 @@ export default function Index() {
               icon={<Store className="w-8 h-8 text-primary" />}
               title="Mes Pharmacies"
               description="Espace dédié aux pharmaciens pour gérer leurs officines et stocks."
-              link={user?.type === 'pharmacist' ? "/pharmacy-mgmt" : "/login"}
+              link={user?.type === 'pharmacist' || user?.type === 'professional' ? "/pharmacy-mgmt" : "/login"}
             />
             <FeatureCard
               icon={<LayoutDashboard className="w-8 h-8 text-secondary" />}
@@ -242,7 +242,7 @@ export default function Index() {
                   <span>Jusqu'à 5 pharmacies</span>
                 </li>
               </ul>
-              <Link to={user ? (user.type === 'pharmacist' ? "/pharmacy-mgmt" : "/dashboard") : "/login"} className="w-full">
+              <Link to={user ? (user.type === 'pharmacist' || user.type === 'professional' ? "/pharmacy-mgmt" : "/dashboard") : "/login"} className="w-full">
                 <Button variant="outline" className="w-full border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-white">
                   {user ? "Mon Espace" : "Accès Pharmacie"}
                 </Button>
