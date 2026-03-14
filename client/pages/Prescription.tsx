@@ -17,6 +17,7 @@ import {
   Info,
   Calendar,
   Stethoscope,
+  Pill,
   Save,
   MessageSquare,
   Smartphone,
@@ -174,50 +175,58 @@ export default function Prescription() {
     setMedications(medications.map(m => m.id === id ? { ...m, ...updates } : m));
   };
 
-  const schedule: DoseSchedule[] = useMemo(() => {
-    const result: DoseSchedule[] = [];
-    medications.forEach(m => {
-      if (!m.name || m.frequencyType === 'prn') return;
+  // Lifted schedule state for interactivity in step 2 preview
+  const [scheduleState, setScheduleState] = useState<DoseSchedule[]>([]);
 
-      for (let day = 1; day <= m.durationDays; day++) {
-        if (m.frequencyType === 'interval' && m.intervalHours) {
-          // Simplified interval logic for demo
-          let hour = 8;
-          while (hour < 24) {
-            result.push({
-              medicationId: m.id,
-              medicationName: m.name,
-              clientName: patient.title,
-              patientId: 0,
-              dose: m.doseValue,
-              unit: m.unit,
-              time: `${hour.toString().padStart(2, '0')}:00`,
-              day,
-              statusReminderSent: false,
-              statusTaken: false
+  useEffect(() => {
+    if (step === 2) {
+      const computedSchedule: DoseSchedule[] = [];
+      medications.forEach(m => {
+        if (!m.name || m.frequencyType === 'prn') return;
+
+        for (let day = 1; day <= m.durationDays; day++) {
+          if (m.frequencyType === 'interval' && m.intervalHours) {
+            let hour = 8;
+            while (hour < 24) {
+              computedSchedule.push({
+                medicationId: m.id,
+                medicationName: m.name,
+                clientName: patient.title,
+                patientId: 0,
+                dose: m.doseValue,
+                unit: m.unit,
+                time: `${hour.toString().padStart(2, '0')}:00`,
+                day,
+                statusReminderSent: false,
+                statusTaken: false
+              });
+              hour += m.intervalHours;
+            }
+          } else {
+            m.times.forEach(timeStr => {
+              computedSchedule.push({
+                medicationId: m.id,
+                medicationName: m.name,
+                clientName: patient.title,
+                patientId: 0,
+                dose: m.doseValue,
+                unit: m.unit,
+                time: timeStr,
+                day,
+                statusReminderSent: false,
+                statusTaken: false
+              });
             });
-            hour += m.intervalHours;
           }
-        } else {
-          m.times.forEach(timeStr => {
-            result.push({
-              medicationId: m.id,
-              medicationName: m.name,
-              clientName: patient.title,
-              patientId: 0,
-              dose: m.doseValue,
-              unit: m.unit,
-              time: timeStr,
-              day,
-              statusReminderSent: false,
-              statusTaken: false
-            });
-          });
         }
-      }
-    });
-    return result;
-  }, [medications]);
+      });
+      setScheduleState(computedSchedule);
+    }
+  }, [step, medications, patient.title]);
+
+  const handleToggleDose = (idx: number) => {
+    setScheduleState(prev => prev.map((s, i) => i === idx ? { ...s, statusTaken: !s.statusTaken } : s));
+  };
 
   const handleNext = () => {
     if (step === 1) {
@@ -265,14 +274,14 @@ export default function Prescription() {
                   <Input
                     value={patient.title}
                     onChange={(e) => setPatient({ ...patient, title: e.target.value })}
-                    className="rounded-xl h-12"
+                    className="rounded-2xl h-14 text-lg"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Catégorie</Label>
                   <select
                     title="Sélectionner la catégorie d'âge"
-                    className="w-full h-12 rounded-xl border bg-slate-50 px-3 text-sm focus-visible:ring-2 ring-primary/20 outline-none"
+                    className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-base font-medium focus-visible:ring-2 ring-primary/20 outline-none"
                     value={patient.categorieAge}
                     onChange={(e) => setPatient({ ...patient, categorieAge: e.target.value })}
                   >
@@ -296,7 +305,7 @@ export default function Prescription() {
                     type="date"
                     value={patient.startDate}
                     onChange={(e) => setPatient({ ...patient, startDate: e.target.value })}
-                    className="rounded-xl h-12"
+                    className="rounded-2xl h-14 text-lg"
                   />
                 </div>
               </div>
@@ -310,24 +319,24 @@ export default function Prescription() {
                 <div key={m.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                        {idx + 1}
-                      </div>
+
                       <div className="w-full max-w-[320px] space-y-1">
-                        <Input
-                          list={`medication-options-${m.id}`}
-                          title="Saisir ou sélectionner un médicament"
-                          value={m.name}
-                          onChange={(e) => updateMedication(m.id, { name: e.target.value })}
-                          placeholder="Saisir ou sélectionner un médicament"
-                          className="bg-slate-50 text-base md:text-lg font-bold rounded-xl h-12 border-none focus-visible:ring-primary px-4 outline-none hover:bg-slate-100 transition-colors"
-                        />
-                        <datalist id={`medication-options-${m.id}`}>
-                          {dbMedications.map((dbM) => (
-                            <option key={dbM.id} value={dbM.name} />
-                          ))}
-                        </datalist>
-                        <p className="text-[10px] text-muted-foreground">Vous pouvez choisir un médicament existant ou saisir un nouveau nom.</p>
+                        <div className="relative group">
+                          <Pill className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500 group-hover:text-primary transition-colors" />
+                          <Input
+                            list={`medication-options-${m.id}`}
+                            title="Saisir un médicament"
+                            value={m.name}
+                            onChange={(e) => updateMedication(m.id, { name: e.target.value })}
+                            placeholder="Saisir un médicament"
+                            className="rounded-2xl h-14 pl-12 focus-visible:ring-primary text-lg"
+                          />
+                          <datalist id={`medication-options-${m.id}`}>
+                            {dbMedications.map((dbM) => (
+                              <option key={dbM.id} value={dbM.name} />
+                            ))}
+                          </datalist>
+                        </div>
                       </div>
                     </div>
                     <Button variant="ghost" size="icon" onClick={() => removeMedication(m.id)} className="text-muted-foreground hover:text-destructive">
@@ -358,7 +367,7 @@ export default function Prescription() {
                                 });
                               }}
                               className={cn(
-                                "flex-1 min-w-[50px] py-2 rounded-xl border text-[10px] md:text-xs font-bold transition-all",
+                                "flex-1 min-w-[50px] h-14 rounded-2xl border text-[10px] md:text-sm font-bold transition-all",
                                 m.frequencyType === currentFreq ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-slate-50 hover:bg-slate-100"
                               )}
                             >
@@ -397,10 +406,10 @@ export default function Prescription() {
 
                       {m.frequencyType === 'interval' && (
                         <div className="space-y-2 mt-4">
-                          <Label className="text-[10px] text-muted-foreground uppercase">Intervalle (heures)</Label>
+                          <Label className="text-[10px] text-muted-foreground uppercase"></Label>
                           <select
                             title="Choisir l'intervalle de temps"
-                            className="w-full h-10 rounded-xl border bg-slate-50 px-3 text-xs outline-none"
+                            className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-sm outline-none font-medium"
                             value={m.intervalHours}
                             onChange={(e) => updateMedication(m.id, { intervalHours: parseInt(e.target.value) })}
                           >
@@ -421,14 +430,14 @@ export default function Prescription() {
                               type="number"
                               value={m.doseValue}
                               onChange={(e) => updateMedication(m.id, { doseValue: parseInt(e.target.value) || 0 })}
-                              className="rounded-xl h-10 w-24 text-center"
+                              className="rounded-2xl h-14 w-28 text-center text-lg"
                             />
                           </div>
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs uppercase">Unité</Label>
                           <select
-                            className="w-full h-10 rounded-xl border bg-slate-50 px-3 text-sm focus-visible:ring-1 focus-visible:ring-primary outline-none"
+                            className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-base font-medium focus-visible:ring-1 focus-visible:ring-primary outline-none"
                             value={m.unit}
                             onChange={(e) => updateMedication(m.id, { unit: e.target.value })}
                             aria-label="Unité de dosage"
@@ -449,7 +458,7 @@ export default function Prescription() {
                             type="number"
                             value={m.durationDays}
                             onChange={(e) => updateMedication(m.id, { durationDays: parseInt(e.target.value) || 0 })}
-                            className="rounded-xl h-10"
+                            className="rounded-2xl h-14 text-center text-lg w-28"
                           />
                         </div>
                       </div>
@@ -459,7 +468,11 @@ export default function Prescription() {
               ))}
             </div>
             <div className="flex items-center justify-between">
-              <Button onClick={addMedication} variant="outline" className="rounded-xl">
+              <Button
+                onClick={addMedication}
+                variant="outline"
+                className="rounded-xl border-emerald-500 text-emerald-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Ajouter un médicament
               </Button>
@@ -505,7 +518,7 @@ export default function Prescription() {
                     </tr>
                   </thead>
                   <tbody>
-                    {schedule.map((s, idx) => {
+                    {scheduleState.map((s, idx) => {
                       const dateStr = getDateForDay(s.day);
                       return (
                         <tr key={idx} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
@@ -539,7 +552,11 @@ export default function Prescription() {
                             <Checkbox checked={s.statusReminderSent} className="rounded-full h-5 w-5 border-2" />
                           </td>
                           <td className="p-4 text-center">
-                            <Checkbox checked={s.statusTaken} className="rounded-full h-5 w-5 border-2" />
+                            <Checkbox
+                              checked={s.statusTaken}
+                              onCheckedChange={() => handleToggleDose(idx)}
+                              className="rounded-full h-5 w-5 border-2"
+                            />
                           </td>
                         </tr>
                       );
@@ -548,33 +565,19 @@ export default function Prescription() {
                 </table>
               </div>
 
-              <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex gap-3">
-                <Info className="w-5 h-5 text-primary flex-shrink-0" />
-                <p className="text-sm text-primary/80">
-                  Les doses et les heures sont pré-calculées en fonction de vos réglages.
-                  Vous pouvez modifier ces horaires individuellement dans les paramètres de notification.
-                </p>
-              </div>
-            </div>
-
-            {/* Méthodes de Rappel - Fusionné dans l'étape 2 */}
-            <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-8">
-              <div className="text-center space-y-2">
-                <div className="bg-primary/10 w-16 h-16 rounded-3xl flex items-center justify-center text-primary mx-auto mb-4">
-                  <Bell className="w-8 h-8" />
+              {/* Méthodes de Rappel - Moved and Redesigned */}
+              <div className="pt-6 border-t space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="bg-primary/10 w-10 h-10 rounded-xl flex items-center justify-center text-primary">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xl font-bold">Méthodes de Rappel</h3>
                 </div>
-                <h2 className="text-3xl font-bold">Méthodes de Rappel</h2>
-                <p className="text-muted-foreground">
-                  Définissez comment vous souhaitez être prévenu pour chaque prise.
-                </p>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-2xl mx-auto">
-                <div className="space-y-4 text-center">
-                  <div className="bg-slate-100 p-6 rounded-3xl space-y-4">
-                    <Label className="text-lg font-bold">Votre Numéro</Label>
-                    <div className="flex gap-2">
-<Select
+                <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                  <div className="flex-1 w-full space-y-3">
+                    <div className="flex gap-3">
+                      <Select
                         value={selectedCountry}
                         onValueChange={(code) => {
                           setSelectedCountry(code);
@@ -585,7 +588,7 @@ export default function Prescription() {
                           }
                         }}
                       >
-                        <SelectTrigger className="w-32 h-14 rounded-2xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none">
+                        <SelectTrigger className="w-32 h-14 rounded-2xl border bg-white px-3 text-base font-bold focus:ring-2 focus:ring-primary outline-none">
                           <SelectValue placeholder="Pays" />
                         </SelectTrigger>
                         <SelectContent className="rounded-2xl max-h-60">
@@ -593,7 +596,7 @@ export default function Prescription() {
                             <SelectItem key={c.code} value={c.code} className="rounded-xl">
                               <span className="flex items-center gap-2">
                                 <span className="text-lg">{c.flag}</span>
-                                <span>{c.dialCode}</span>
+                                <span className="font-bold">{c.dialCode}</span>
                               </span>
                             </SelectItem>
                           ))}
@@ -603,43 +606,42 @@ export default function Prescription() {
                         <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
                         <Input
                           placeholder="0701020304"
+                          size={15}
                           value={notifConfig.phone}
                           onChange={(e) => setNotifConfig({ ...notifConfig, phone: e.target.value })}
-                          className="pl-12 h-14 rounded-2xl text-lg font-mono tracking-wider"
+                          className="pl-12 h-14 rounded-2xl text-lg font-mono tracking-widest bg-white border-slate-200 focus-visible:ring-primary w-auto min-w-[15ch] flex-1"
                         />
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-4">
-                  <Label className="text-lg font-bold block text-center mb-4">Type de Notification</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <NotificationOption
-                      selected={notifConfig.type === 'sms'}
-                      onClick={() => setNotifConfig({ ...notifConfig, type: 'sms' })}
-                      icon={<MessageSquare className="w-5 h-5" />}
-                      label="SMS"
-                      color="#10b981"
-                    />
-                    <NotificationOption
-                      selected={notifConfig.type === 'whatsapp'}
-                      onClick={() => setNotifConfig({ ...notifConfig, type: 'whatsapp' })}
-                      icon={<MessageSquare className="w-5 h-5" />}
-                      label="WhatsApp"
-                      color="#25d366"
-                    />
+                  <div className="flex-1 w-full space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <NotificationOption
+                        selected={notifConfig.type === 'sms'}
+                        onClick={() => setNotifConfig({ ...notifConfig, type: 'sms' })}
+                        icon={<MessageSquare className="w-4 h-4" />}
+                        label="SMS"
+                        color="#10b981"
+                      />
+                      <NotificationOption
+                        selected={notifConfig.type === 'whatsapp'}
+                        onClick={() => setNotifConfig({ ...notifConfig, type: 'whatsapp' })}
+                        icon={<MessageSquare className="w-4 h-4" />}
+                        label="WhatsApp"
+                        color="#25d366"
+                      />
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="max-w-md mx-auto p-4 bg-slate-50 rounded-2xl border border-dashed flex items-center gap-3">
-                  <div className="bg-primary/20 p-2 rounded-full">
-                    <CheckCircle2 className="w-4 h-4 text-primary" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Les messages seront jumelés si plusieurs médicaments doivent être pris à la même heure.
-                  </p>
-                </div>
+              <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex gap-3">
+                <Info className="w-5 h-5 text-primary flex-shrink-0" />
+                <p className="text-sm text-primary/80">
+                  Les doses et les heures sont pré-calculées en fonction de vos réglages.
+                  Vous pouvez modifier ces horaires individuellement dans les paramètres de notification.
+                </p>
               </div>
             </div>
 
@@ -734,21 +736,21 @@ function NotificationOption({ selected, onClick, icon, label, color }: { selecte
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center justify-center p-6 rounded-[2rem] border-2 transition-all gap-3 relative overflow-hidden group",
-        selected ? "text-white border-transparent shadow-2xl scale-105" : "bg-white border-slate-100 hover:border-primary/30"
+        "flex items-center justify-center h-14 px-4 rounded-2xl border-2 transition-all gap-2 relative overflow-hidden group w-full",
+        selected ? "text-white border-transparent shadow-lg" : "bg-white border-slate-100 hover:border-primary/30"
       )}
       style={selected ? { background: `linear-gradient(135deg, ${color}, ${color}dd)` } : {}}
     >
       <div
-        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1 z-10 transition-transform group-hover:scale-110"
+        className="w-8 h-8 rounded-xl flex items-center justify-center z-10 transition-transform group-hover:scale-110"
         style={{ background: selected ? 'rgba(255,255,255,0.2)' : `${color}15`, color: selected ? '#fff' : color }}
       >
         {icon}
       </div>
-      <span className="text-[10px] font-black uppercase tracking-widest z-10">{label}</span>
+      <span className="text-sm font-bold z-10">{label}</span>
       {selected && (
-        <div className="absolute top-2 right-2 bg-white/20 rounded-full p-1 z-10">
-          <Check className="w-3 h-3" />
+        <div className="absolute top-1 right-1 bg-white/20 rounded-full p-0.5 z-10">
+          <Check className="w-2.5 h-2.5" />
         </div>
       )}
     </button>

@@ -9,12 +9,22 @@ router.get("/", (_req, res) => {
         // Handle potential different export styles of the library
         const list = (CountryList as any).getAll ? (CountryList as any).getAll() : (CountryList as any).default?.getAll ? (CountryList as any).default.getAll() : [];
 
-        const countries = list.map((c: any) => ({
-            code: c.code,
-            name: c.name,
-            dialCode: c.dial_code,
-            flag: c.flag
-        }));
+        // Remove duplicates by code (keep first occurrence)
+        const seenCodes = new Set<string>();
+        const countries = list
+            .filter((c: any) => {
+                if (seenCodes.has(c.code)) {
+                    return false;
+                }
+                seenCodes.add(c.code);
+                return true;
+            })
+            .map((c: any) => ({
+                code: c.code,
+                name: c.name,
+                dialCode: c.dial_code,
+                flag: c.flag
+            }));
         
         // Sort by name
         countries.sort((a: any, b: any) => a.name.localeCompare(b.name));

@@ -1,17 +1,25 @@
 import { db } from "../db";
 import { notificationProvider } from "../services/notificationProvider";
 
-// Intervalle de vérification des rappels (1 minute)
-const REMINDER_CHECK_INTERVAL = 60 * 1000;
+// Intervalle de vérification des rappels (5 secondes)
+const REMINDER_CHECK_INTERVAL = 5 * 1000;
 
-// Générer le message de rappel
-function generateReminderMessage(medName: string, dose: number, unit: string, time: string): string {
-  return `🔔 RAPPEL TAKYMED: Il est temps de prendre votre ${medName} (${dose} ${unit}) à ${time}. Bonne santé!`;
+// Générer le message de rappel (supporte plusieurs médicaments)
+function generateCombinedReminderMessage(patientName: string, items: any[]): string {
+  const medsList = items.map(item => `- ${item.dose} ${item.nom_unite || 'unité'}(s) de ${item.med_name}`).join("\n");
+  return `🔔 TAKYMED : Rappel pour ${patientName}.\nIl est temps de prendre :\n${medsList}\nBonne santé !`;
 }
+
+/**
+ * Exemples de messages proposés à l'utilisateur :
+ * 1. Standard : "Bonjour [Nom], c'est l'heure de vos médicaments : [Liste]. Prenez soin de vous !"
+ * 2. Empathique : "Petit rappel santé pour [Nom] : il est temps pour [Liste]. N'oubliez pas de boire un verre d'eau !"
+ * 3. Professionnel : "TAKYMED : Rappel de prise pour [Patient]. Médicaments : [Liste]. Heure : [Heure]."
+ */
 
 // Worker de rappels
 export function startReminderWorker() {
-  console.log("🚀 Starting reminder worker...");
+  console.log("🚀 Starting reminder worker (5s interval)...");
 
   setInterval(async () => {
     try {
@@ -23,9 +31,6 @@ export function startReminderWorker() {
 }
 
 async function checkAndSendReminders() {
-  const now = new Date();
-  const nowStr = now.toISOString();
-
   // Trouver les rappels dus (non envoyés, dans les 5 prochaines minutes)
   const dueReminders = db.prepare(`
     SELECT
@@ -49,89 +54,68 @@ async function checkAndSendReminders() {
     LEFT JOIN CanauxNotification cn ON pnu.id_canal = cn.id_canal
     WHERE cp.rappel_envoye = 0
       AND cp.heure_prevue <= datetime('now', '+5 minutes')
-      AND cp.heure_prevue > datetime('now', '-1 hour')  -- Ne pas spammer les anciens rappels
-      AND pnu.est_active = 1
+      AND cp.heure_prevue > datetime('now', '-1 hour')
+      AND (pnu.est_active = 1 OR pnu.est_active IS NULL)
       AND o.est_active = 1
-  `).all();
+  `).all() as any[];
 
-  console.log(`📋 Found ${dueReminders.length} reminders to send`);
+  if (dueReminders.length === 0) return;
 
-  for (const reminder of dueReminders) {
+  // Grouper par contact (numéro de téléphone)
+  const groups: Record<string, any[]> = {};
+  dueReminders.forEach(r => {
+    const contact = r.valeur_contact || r.numero_telephone;
+    if (!groups[contact]) groups[contact] = [];
+    groups[contact].push(r);
+  });
+
+  console.log(`📋 Found ${dueReminders.length} reminders for ${Object.keys(groups).length} recipients`);
+
+  for (const [contact, items] of Object.entries(groups)) {
     try {
-      await sendReminder(reminder);
+      await sendCombinedReminders(contact, items);
     } catch (error) {
-      console.error(`Failed to send reminder ${reminder.id_calendrier_prise}:`, error);
+      console.error(`Failed to send combined reminders to ${contact}:`, error);
     }
   }
 }
 
-async function sendReminder(reminder: any) {
-  const {
-    id_calendrier_prise,
-    heure_prevue,
-    dose,
-    nom_unite,
-    med_name,
-    nom_patient,
-    valeur_contact,
-    nom_canal,
-    numero_telephone,
-    id_utilisateur
-  } = reminder;
+async function sendCombinedReminders(contact: string, items: any[]) {
+  const patientName = items[0].nom_patient;
+  const channel = items[0].nom_canal || "SMS";
+  const userId = items[0].id_utilisateur;
+  const message = generateCombinedReminderMessage(patientName, items);
 
-  // Format de l'heure
-  const timeStr = new Date(heure_prevue).toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
-  // Générer le message
-  const message = generateReminderMessage(med_name, dose, nom_unite, timeStr);
-
-  // Déterminer le contact (préférence utilisateur ou numéro par défaut)
-  const contact = valeur_contact || numero_telephone;
-  const channel = nom_canal || "SMS";
-
-  console.log(`📤 Sending ${channel} reminder to ${contact} for ${med_name}`);
+  console.log(`📤 Sending ${channel} to ${contact} (Combined ${items.length} items)`);
 
   // Créer le job de notification
   const jobId = db.prepare(`
     INSERT INTO NotificationJobs (
       id_utilisateur,
-      id_calendrier_prise,
       channel,
       message,
       contact_value,
       scheduled_at,
       status
-    ) VALUES (?, ?, ?, ?, ?, ?, 'processing')
+    ) VALUES (?, ?, ?, ?, ?, 'processing')
   `).run(
-    id_utilisateur,
-    id_calendrier_prise,
+    userId,
     channel,
     message,
     contact,
     new Date().toISOString()
-  ).lastInsertRowid;
+  ).lastInsertRowid as number;
 
   let result;
-
-  // Envoyer selon le canal
   try {
-    switch (channel) {
-      case "SMS":
-        result = await notificationProvider.sendSMS(contact, message);
-        break;
-      case "WhatsApp":
-        result = await notificationProvider.sendWhatsApp(contact, message);
-        break;
-      case "Voice":
-        result = await notificationProvider.sendVoiceCall(contact, message);
-        break;
-      default:
-        result = { success: false, error: "Unsupported channel" };
+    if (channel === "SMS") {
+      result = await notificationProvider.sendSMS(contact, message);
+    } else if (channel === "WhatsApp") {
+      result = await notificationProvider.sendWhatsApp(contact, message);
+    } else {
+      result = { success: false, error: "Unsupported channel" };
     }
-  } catch (error) {
+  } catch (error: any) {
     result = { success: false, error: error.message };
   }
 
@@ -142,41 +126,35 @@ async function sendReminder(reminder: any) {
     WHERE id_job = ?
   `).run(result.success ? 'sent' : 'failed', jobId);
 
-  // Loguer dans NotificationLogs
+  // Loguer
+  const providerName = (notificationProvider.constructor.name.includes('Orange') ? 'orange' : 'mock');
   db.prepare(`
     INSERT INTO NotificationLogs (
-      id_job,
-      provider,
-      channel,
-      to_contact,
-      message,
-      status,
-      error_message,
-      provider_message_id,
-      cost
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id_job, provider, channel, to_contact, message, status, error_message, provider_message_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     jobId,
-    "mock", // TODO: remplacer par le vrai provider
+    providerName,
     channel,
     contact,
     message,
     result.success ? "sent" : "failed",
     result.error,
-    result.messageId,
-    0.0 // TODO: calculer le coût réel
+    result.messageId
   );
 
-  // Marquer le rappel comme envoyé si succès
   if (result.success) {
+    // Marquer TOUS les rappels du groupe comme envoyés
+    const placeholders = items.map(() => '?').join(',');
+    const ids = items.map(i => i.id_calendrier_prise);
     db.prepare(`
       UPDATE CalendrierPrises
       SET rappel_envoye = 1
-      WHERE id_calendrier_prise = ?
-    `).run(id_calendrier_prise);
+      WHERE id_calendrier_prise IN (${placeholders})
+    `).run(...ids);
 
-    console.log(`✅ Reminder sent for ${med_name} (${id_calendrier_prise})`);
+    console.log(`✅ Reminders sent for ${patientName} (${items.length} meds)`);
   } else {
-    console.log(`❌ Failed to send reminder for ${med_name} (${id_calendrier_prise}): ${result.error}`);
+    console.log(`❌ Failed to send reminders for ${patientName}: ${result.error}`);
   }
 }

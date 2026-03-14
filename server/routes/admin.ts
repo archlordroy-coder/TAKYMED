@@ -171,7 +171,8 @@ router.get("/monthly-activity", (_req, res) => {
 router.get("/users", (_req, res) => {
     try {
         const users = db.prepare(`
-            SELECT u.id_utilisateur as id, u.email, u.numero_telephone as phone, tc.nom_type as type, p.nom_complet as name
+            SELECT u.id_utilisateur as id, u.email, u.numero_telephone as phone, tc.nom_type as type, p.nom_complet as name,
+                   u.pin_hash as pin, u.pin_expires_at as pinExpiresAt, u.pin_updated_at as pinUpdatedAt
             FROM Utilisateurs u
             JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte
             LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur

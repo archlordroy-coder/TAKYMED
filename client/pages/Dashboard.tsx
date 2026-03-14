@@ -14,7 +14,11 @@ import {
    ArrowRight,
    Loader2,
    Crown,
+   Check,
+   Shield,
+   ChevronRight,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DoseSchedule } from "@shared/api";
@@ -56,11 +60,14 @@ export default function Dashboard() {
       fetchPrescriptions();
    }, [user?.id, selectedPatientId]);
 
-   const handleTakeMedication = async (doseId: number) => {
+   const handleToggleMedication = async (doseId: number, isTaken: boolean) => {
       try {
-         const res = await fetch(`/api/prescriptions/doses/${doseId}/take`, { method: "POST" });
-         if (!res.ok) throw new Error("Error marking dose as taken");
-         toast.success("Prise enregistrée !");
+         const endpoint = isTaken ? 'take' : 'untake';
+         const res = await fetch(`/api/prescriptions/doses/${doseId}/${endpoint}`, { method: "POST" });
+         if (!res.ok) throw new Error("Error updating dose status");
+
+         toast.success(isTaken ? "Prise enregistrée !" : "Prise annulée");
+
          // Refresh data
          const url = selectedPatientId
             ? `/api/prescriptions?userId=${user?.id}&patientId=${selectedPatientId}`
@@ -198,6 +205,8 @@ export default function Dashboard() {
                                  color="bg-slate-900"
                               />
                            )}
+
+                           <DashboardSecurityCard user={user} />
                         </div>
                      </div>
 
@@ -236,7 +245,7 @@ export default function Dashboard() {
                                  </p>
                                  {stats?.nextDose && (
                                     <div className="flex gap-4 justify-center md:justify-start pt-2">
-                                       <Button size="sm" className="rounded-xl h-10 px-6 font-bold" onClick={() => handleTakeMedication(stats.nextDose.id)}>
+                                       <Button size="sm" className="rounded-xl h-10 px-6 font-bold" onClick={() => handleToggleMedication(stats.nextDose.id, true)}>
                                           <CheckCircle2 className="w-4 h-4 mr-2" />
                                           Marquer comme pris
                                        </Button>
@@ -324,7 +333,7 @@ export default function Dashboard() {
                </TabsContent>
 
                <TabsContent value="calendar" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <CalendarView doses={doses} isLoading={isLoading} onTakeMed={handleTakeMedication} user={user} patients={patients} />
+                  <CalendarView doses={doses} isLoading={isLoading} onToggleMed={handleToggleMedication} user={user} patients={patients} />
                </TabsContent>
             </Tabs>
          </div>
@@ -343,10 +352,10 @@ const DOSE_COLORS = [
 ];
 
 // ─── Calendar View Component ───────────────────────────────────────────────────
-function CalendarView({ doses, isLoading, onTakeMed, user, patients }: {
+function CalendarView({ doses, isLoading, onToggleMed, user, patients }: {
    doses: DoseSchedule[];
    isLoading: boolean;
-   onTakeMed: (id: number) => void;
+   onToggleMed: (id: number, isTaken: boolean) => void;
    user: any;
    patients: any[];
 }) {
@@ -634,21 +643,24 @@ function CalendarView({ doses, isLoading, onTakeMed, user, patients }: {
                                     <span className="flex items-center gap-1 text-slate-400 text-xs">
                                        <Clock className="w-3 h-3" /> {dose.time}
                                     </span>
-                                    {!dose.statusTaken && dose.scheduledAt && new Date(dose.scheduledAt) <= new Date() ? (
-                                       <Button size="sm" variant="ghost" className="h-6 px-3 text-[10px] rounded-full bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 hover:text-orange-500" onClick={(e) => { e.stopPropagation(); onTakeMed(dose.id); }}>
-                                          Marquer pris
+                                    {dose.statusTaken ? (
+                                       <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-6 px-3 text-[10px] rounded-full bg-green-500/10 text-green-400 hover:bg-red-500/10 hover:text-red-400"
+                                          onClick={(e) => { e.stopPropagation(); onToggleMed(dose.id, false); }}
+                                       >
+                                          ✓ Pris (Annuler)
                                        </Button>
                                     ) : (
-                                       <span
-                                          className={cn(
-                                             "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                                             dose.statusTaken
-                                                ? "bg-green-500/20 text-green-400"
-                                                : "bg-blue-500/10 text-blue-400"
-                                          )}
+                                       <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-6 px-3 text-[10px] rounded-full bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 hover:text-orange-500"
+                                          onClick={(e) => { e.stopPropagation(); onToggleMed(dose.id, true); }}
                                        >
-                                          {dose.statusTaken ? "✓ Pris" : "À prendre"}
-                                       </span>
+                                          Marquer pris
+                                       </Button>
                                     )}
                                  </div>
                               </div>
@@ -707,6 +719,102 @@ function DashboardStat({ label, value, subtext }: { label: string, value: string
    );
 }
 
-function ChevronRight({ className }: { className?: string }) {
-   return <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+function DashboardSecurityCard({ user }: { user: any }) {
+   const [isLoading, setIsLoading] = useState(false);
+   const [pinExpiresAt, setPinExpiresAt] = useState<string | null>(null);
+
+   useEffect(() => {
+      // Fetch PIN expiration info
+      const fetchPinInfo = async () => {
+         try {
+            const res = await fetch('/api/auth/pin-info');
+            if (res.ok) {
+               const data = await res.json();
+               setPinExpiresAt(data.expiresAt);
+            }
+         } catch (error) {
+            console.error('Failed to fetch PIN info:', error);
+         }
+      };
+      fetchPinInfo();
+   }, []);
+
+   const handleRegeneratePin = async () => {
+      if (!confirm('Êtes-vous sûr de vouloir régénérer votre PIN ? Un nouveau PIN de 6 chiffres vous sera envoyé par SMS.')) {
+         return;
+      }
+
+      setIsLoading(true);
+      try {
+         const res = await fetch('/api/auth/regenerate-pin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+         });
+
+         if (res.ok) {
+            const data = await res.json();
+            setPinExpiresAt(data.expiresAt);
+            toast.success('Nouveau PIN envoyé par SMS !');
+         } else {
+            const error = await res.json();
+            toast.error(error.error || 'Erreur lors de la régénération');
+         }
+      } catch (error) {
+         console.error('PIN regeneration error:', error);
+         toast.error('Erreur réseau');
+      } finally {
+         setIsLoading(false);
+      }
+   };
+
+   const formatExpirationDate = (dateString: string) => {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR', {
+         day: 'numeric',
+         month: 'short',
+         year: 'numeric'
+      });
+   };
+
+   return (
+      <div className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-sm hover:shadow-2xl hover:shadow-primary/10 transition-all hover:border-primary/20">
+         <div className="flex items-center gap-4 mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-lg shadow-black/5">
+               <Shield className="w-6 h-6" />
+            </div>
+            <div className="flex-1">
+               <h4 className="font-black text-lg tracking-tight">Sécurité du compte</h4>
+               <p className="text-xs font-medium text-muted-foreground">Gérez votre PIN de connexion</p>
+            </div>
+         </div>
+
+         {pinExpiresAt && (
+            <div className="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+               <p className="text-xs font-bold text-slate-600 mb-1">Expiration PIN</p>
+               <p className="text-sm font-medium text-slate-800">{formatExpirationDate(pinExpiresAt)}</p>
+            </div>
+         )}
+
+         <Button
+            onClick={handleRegeneratePin}
+            disabled={isLoading}
+            className="w-full rounded-xl h-10 font-bold bg-slate-900 hover:bg-slate-800 text-white"
+         >
+            {isLoading ? (
+               <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Envoi en cours...
+               </>
+            ) : (
+               <>
+                  🔄 Régénérer PIN
+               </>
+            )}
+         </Button>
+
+         <p className="text-[10px] text-muted-foreground mt-2 text-center">
+            Nouveau PIN de 6 chiffres envoyé par SMS
+         </p>
+      </div>
+   );
 }

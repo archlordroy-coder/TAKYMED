@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, User, Pill, CheckCircle2, Clock, XCircle, Loader2, ChevronDown, ChevronUp, Pencil, Trash2, Bell, Plus, Minus, Save, X } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FileText, Calendar, User, Pill, CheckCircle2, Clock, XCircle, Loader2, ChevronDown, ChevronUp, Pencil, Trash2, Bell, Plus, Minus, Save, X, RefreshCw, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -15,21 +17,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+interface Medicament {
+  id: number;
+  medicament: string;
+  dose: string | number;
+  type_frequence: string;
+  intervalle_heures: number | null;
+  duree_jours: number;
+}
+
 interface Rappel {
   id: number;
   medicament: string;
   dose: string;
   heure_prevue: string;
   statut_prise: boolean;
-}
-
-interface Medicament {
-  id: number;
-  medicament: string;
-  dose: string;
-  type_frequence: string;
-  intervalle_heures: number | null;
-  duree_jours: number;
 }
 
 interface Ordonnance {
@@ -56,6 +58,23 @@ export default function Ordonnances() {
   const [editForm, setEditForm] = useState<Partial<Ordonnance>>({});
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  
+  // Medicament editing state
+  const [editingMedId, setEditingMedId] = useState<number | null>(null);
+  const [editMedForm, setEditMedForm] = useState<Partial<Medicament>>({});
+  const [showAddMedDialog, setShowAddMedDialog] = useState(false);
+  const [newMedForm, setNewMedForm] = useState({
+    medicamentName: "",
+    dose: 1,
+    type_frequence: "1x",
+    intervalle_heures: null as number | null,
+    duree_jours: 1,
+    times: ["08:00"]
+  });
+  
+  // Rappel editing state
+  const [editingRappelId, setEditingRappelId] = useState<number | null>(null);
+  const [editRappelForm, setEditRappelForm] = useState<{ heure_prevue: string }>({ heure_prevue: "" });
 
   useEffect(() => {
     fetchOrdonnances();
@@ -151,6 +170,173 @@ export default function Ordonnances() {
       }
     } catch (error) {
       toast.error("Erreur lors de l'annulation");
+    }
+  };
+
+  const reactivateOrdonnance = async (id: number) => {
+    try {
+      const res = await fetch(`/api/ordonnances/${id}/reactivate`, {
+        method: "PATCH"
+      });
+      if (res.ok) {
+        toast.success("Ordonnance réactivée");
+        fetchOrdonnances();
+      } else {
+        toast.error("Erreur lors de la réactivation");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la réactivation");
+    }
+  };
+
+  const deleteOrdonnance = async (id: number) => {
+    try {
+      const res = await fetch(`/api/ordonnances/${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        toast.success("Ordonnance supprimée définitivement");
+        setOrdonnances(prev => prev.filter(o => o.id !== id));
+        setShowDeleteDialog(false);
+        setDeleteId(null);
+      } else {
+        toast.error("Erreur lors de la suppression");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  // Medicament functions
+  const startEditMed = (med: Medicament) => {
+    setEditingMedId(med.id);
+    setEditMedForm({
+      dose: med.dose,
+      type_frequence: med.type_frequence,
+      intervalle_heures: med.intervalle_heures,
+      duree_jours: med.duree_jours
+    });
+  };
+
+  const saveEditMed = async (ordonnanceId: number, medId: number) => {
+    try {
+      const res = await fetch(`/api/ordonnances/${ordonnanceId}/medicaments/${medId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editMedForm)
+      });
+      if (res.ok) {
+        toast.success("Médicament mis à jour");
+        fetchOrdonnanceDetails(ordonnanceId);
+        setEditingMedId(null);
+        setEditMedForm({});
+      } else {
+        toast.error("Erreur lors de la mise à jour");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const deleteMedicament = async (ordonnanceId: number, medId: number) => {
+    try {
+      const res = await fetch(`/api/ordonnances/${ordonnanceId}/medicaments/${medId}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        toast.success("Médicament supprimé");
+        fetchOrdonnanceDetails(ordonnanceId);
+      } else {
+        toast.error("Erreur lors de la suppression");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  const addMedicament = async (ordonnanceId: number) => {
+    if (!newMedForm.medicamentName) {
+      toast.error("Le nom du médicament est requis");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/ordonnances/${ordonnanceId}/medicaments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newMedForm)
+      });
+      if (res.ok) {
+        toast.success("Médicament ajouté");
+        fetchOrdonnanceDetails(ordonnanceId);
+        setShowAddMedDialog(false);
+        setNewMedForm({
+          medicamentName: "",
+          dose: 1,
+          type_frequence: "1x",
+          intervalle_heures: null,
+          duree_jours: 1,
+          times: ["08:00"]
+        });
+      } else {
+        toast.error("Erreur lors de l'ajout");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de l'ajout");
+    }
+  };
+
+  // Rappel functions
+  const updateRappelTime = async (rappelId: number, heure_prevue: string, ordonnanceId: number) => {
+    try {
+      const res = await fetch(`/api/ordonnances/prises/${rappelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heure_prevue })
+      });
+      if (res.ok) {
+        toast.success("Rappel mis à jour");
+        fetchOrdonnanceDetails(ordonnanceId);
+        setEditingRappelId(null);
+      } else {
+        toast.error("Erreur lors de la mise à jour");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const togglePriseStatus = async (rappelId: number, currentStatus: boolean, ordonnanceId: number) => {
+    try {
+      const res = await fetch(`/api/ordonnances/prises/${rappelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statut_prise: !currentStatus })
+      });
+      if (res.ok) {
+        fetchOrdonnanceDetails(ordonnanceId);
+      } else {
+        toast.error("Erreur lors de la mise à jour");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const markAllPrisesTaken = async (ordonnanceId: number) => {
+    try {
+      const res = await fetch(`/api/ordonnances/${ordonnanceId}/prises/mark-all-taken`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      if (res.ok) {
+        toast.success("Toutes les prises marquées comme effectuées");
+        fetchOrdonnanceDetails(ordonnanceId);
+      } else {
+        toast.error("Erreur lors de la mise à jour");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la mise à jour");
     }
   };
 
@@ -300,7 +486,7 @@ export default function Ordonnances() {
                       <Pencil className="w-4 h-4 mr-1" />
                       Modifier
                     </Button>
-                    {ord.est_active && (
+                    {ord.est_active ? (
                       <Button 
                         variant="outline" 
                         size="sm" 
@@ -313,6 +499,30 @@ export default function Ordonnances() {
                         <XCircle className="w-4 h-4 mr-1" />
                         Annuler
                       </Button>
+                    ) : (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="rounded-xl text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => reactivateOrdonnance(ord.id)}
+                        >
+                          <RotateCcw className="w-4 h-4 mr-1" />
+                          Réactiver
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setDeleteId(ord.id);
+                            setShowDeleteDialog(true);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Supprimer
+                        </Button>
+                      </>
                     )}
                   </div>
 
@@ -373,18 +583,108 @@ export default function Ordonnances() {
 
                       {/* Medicaments List */}
                       <div>
-                        <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2">
-                          <Pill className="w-5 h-5 text-primary" />
-                          Médicaments
-                        </h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                            <Pill className="w-5 h-5 text-primary" />
+                            Médicaments
+                          </h4>
+                          {ord.est_active && (
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="rounded-xl"
+                              onClick={() => setShowAddMedDialog(true)}
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Ajouter
+                            </Button>
+                          )}
+                        </div>
                         {ord.medicaments && ord.medicaments.length > 0 ? (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {ord.medicaments.map((med) => (
                               <div key={med.id} className="bg-white p-4 rounded-xl border">
-                                <p className="font-bold text-slate-800">{med.medicament}</p>
-                                <p className="text-sm text-slate-500">Dose: {med.dose}</p>
-                                <p className="text-sm text-slate-500">Fréquence: {med.type_frequence}</p>
-                                <p className="text-sm text-slate-500">Durée: {med.duree_jours} jours</p>
+                                {editingMedId === med.id ? (
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <Label className="text-xs">Dose</Label>
+                                        <Input 
+                                          type="number"
+                                          value={editMedForm.dose || ''} 
+                                          onChange={(e) => setEditMedForm(prev => ({ ...prev, dose: parseInt(e.target.value) || 1 }))}
+                                          className="h-8"
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs">Durée (jours)</Label>
+                                        <Input 
+                                          type="number"
+                                          value={editMedForm.duree_jours || ''} 
+                                          onChange={(e) => setEditMedForm(prev => ({ ...prev, duree_jours: parseInt(e.target.value) || 1 }))}
+                                          className="h-8"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">Fréquence</Label>
+                                      <select
+                                        className="w-full h-8 rounded-lg border bg-slate-50 px-2 text-sm"
+                                        value={editMedForm.type_frequence || '1x'}
+                                        onChange={(e) => setEditMedForm(prev => ({ 
+                                          ...prev, 
+                                          type_frequence: e.target.value,
+                                          intervalle_heures: e.target.value === 'interval' ? 8 : null
+                                        }))}
+                                      >
+                                        <option value="1x">1x / jour</option>
+                                        <option value="2x">2x / jour</option>
+                                        <option value="3x">3x / jour</option>
+                                        <option value="interval">Intervalle</option>
+                                        <option value="prn">Si besoin</option>
+                                      </select>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button size="sm" className="rounded-lg h-7 text-xs" onClick={() => saveEditMed(ord.id, med.id)}>
+                                        <Save className="w-3 h-3 mr-1" />
+                                        Sauver
+                                      </Button>
+                                      <Button size="sm" variant="outline" className="rounded-lg h-7 text-xs" onClick={() => setEditingMedId(null)}>
+                                        <X className="w-3 h-3 mr-1" />
+                                        Annuler
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-start justify-between">
+                                      <p className="font-bold text-slate-800">{med.medicament}</p>
+                                      {ord.est_active && (
+                                        <div className="flex gap-1">
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-6 w-6"
+                                            onClick={() => startEditMed(med)}
+                                          >
+                                            <Pencil className="w-3 h-3" />
+                                          </Button>
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-6 w-6 text-red-500 hover:text-red-700"
+                                            onClick={() => deleteMedicament(ord.id, med.id)}
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <p className="text-sm text-slate-500">Dose: {med.dose}</p>
+                                    <p className="text-sm text-slate-500">Fréquence: {med.type_frequence}</p>
+                                    <p className="text-sm text-slate-500">Durée: {med.duree_jours} jours</p>
+                                  </>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -395,36 +695,92 @@ export default function Ordonnances() {
 
                       {/* Rappels List */}
                       <div>
-                        <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2">
-                          <Bell className="w-5 h-5 text-primary" />
-                          Rappels à venir
-                        </h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                            <Bell className="w-5 h-5 text-primary" />
+                            Rappels
+                          </h4>
+                          {ord.est_active && ord.rappels && ord.rappels.some(r => !r.statut_prise) && (
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="rounded-xl text-green-600"
+                              onClick={() => markAllPrisesTaken(ord.id)}
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Tout marquer pris
+                            </Button>
+                          )}
+                        </div>
                         {ord.rappels && ord.rappels.length > 0 ? (
-                          <div className="space-y-2">
-                            {ord.rappels.filter(r => !r.statut_prise).slice(0, 10).map((rappel) => (
-                              <div key={rappel.id} className="flex items-center justify-between bg-white p-3 rounded-xl border">
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {ord.rappels.slice(0, 20).map((rappel) => (
+                              <div key={rappel.id} className={cn(
+                                "flex items-center justify-between bg-white p-3 rounded-xl border",
+                                rappel.statut_prise && "bg-green-50 border-green-200"
+                              )}>
                                 <div className="flex items-center gap-3">
-                                  <div className={cn(
-                                    "w-3 h-3 rounded-full",
-                                    rappel.statut_prise ? "bg-green-500" : "bg-amber-500"
-                                  )} />
+                                  <Checkbox
+                                    checked={rappel.statut_prise}
+                                    onCheckedChange={() => togglePriseStatus(rappel.id, rappel.statut_prise, ord.id)}
+                                    className="rounded-full h-5 w-5"
+                                  />
                                   <div>
-                                    <p className="font-medium text-slate-800">{rappel.medicament}</p>
+                                    <p className={cn(
+                                      "font-medium text-slate-800",
+                                      rappel.statut_prise && "line-through text-slate-400"
+                                    )}>{rappel.medicament}</p>
                                     <p className="text-xs text-slate-500">Dose: {rappel.dose}</p>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-sm font-medium text-slate-700">
-                                    {new Date(rappel.heure_prevue).toLocaleDateString('fr-FR')}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    {new Date(rappel.heure_prevue).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                  </p>
+                                <div className="flex items-center gap-2">
+                                  {editingRappelId === rappel.id ? (
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        type="datetime-local"
+                                        value={editRappelForm.heure_prevue}
+                                        onChange={(e) => setEditRappelForm({ heure_prevue: e.target.value })}
+                                        className="h-8 w-40"
+                                      />
+                                      <Button 
+                                        size="sm" 
+                                        className="h-7"
+                                        onClick={() => updateRappelTime(rappel.id, editRappelForm.heure_prevue, ord.id)}
+                                      >
+                                        <Save className="w-3 h-3" />
+                                      </Button>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="h-7"
+                                        onClick={() => setEditingRappelId(null)}
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div 
+                                      className="text-right cursor-pointer hover:bg-slate-50 p-1 rounded"
+                                      onClick={() => {
+                                        setEditingRappelId(rappel.id);
+                                        setEditRappelForm({ heure_prevue: rappel.heure_prevue });
+                                      }}
+                                    >
+                                      <p className="text-sm font-medium text-slate-700">
+                                        {new Date(rappel.heure_prevue).toLocaleDateString('fr-FR')}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        {new Date(rappel.heure_prevue).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
-                            {ord.rappels.filter(r => !r.statut_prise).length === 0 && (
-                              <p className="text-slate-400 text-sm">Toutes les prises ont été effectuées</p>
+                            {ord.rappels.every(r => r.statut_prise) && (
+                              <p className="text-green-600 text-sm font-medium text-center py-2">
+                                ✓ Toutes les prises ont été effectuées
+                              </p>
                             )}
                           </div>
                         ) : (
@@ -444,16 +800,16 @@ export default function Ordonnances() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Annuler l'ordonnance</DialogTitle>
+            <DialogTitle>Gérer l'ordonnance</DialogTitle>
           </DialogHeader>
-          <p className="text-slate-500">Êtes-vous sûr de vouloir annuler cette ordonnance ? Cette action est irréversible.</p>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-xl" onClick={() => setShowDeleteDialog(false)}>
-              Non, garder
+          <p className="text-slate-500">Que souhaitez-vous faire avec cette ordonnance ?</p>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="rounded-xl w-full sm:w-auto" onClick={() => setShowDeleteDialog(false)}>
+              Annuler
             </Button>
             <Button 
-              variant="destructive" 
-              className="rounded-xl"
+              variant="outline" 
+              className="rounded-xl w-full sm:w-auto text-amber-600"
               onClick={() => {
                 if (deleteId) {
                   cancelOrdonnance(deleteId);
@@ -462,7 +818,96 @@ export default function Ordonnances() {
                 }
               }}
             >
-              Oui, annuler
+              <XCircle className="w-4 h-4 mr-1" />
+              Désactiver
+            </Button>
+            <Button 
+              variant="destructive" 
+              className="rounded-xl w-full sm:w-auto"
+              onClick={() => {
+                if (deleteId) {
+                  deleteOrdonnance(deleteId);
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Supprimer définitivement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Medicament Dialog */}
+      <Dialog open={showAddMedDialog} onOpenChange={setShowAddMedDialog}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Ajouter un médicament</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Nom du médicament</Label>
+              <Input 
+                value={newMedForm.medicamentName}
+                onChange={(e) => setNewMedForm(prev => ({ ...prev, medicamentName: e.target.value }))}
+                placeholder="Ex: Paracétamol"
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Dose</Label>
+                <Input 
+                  type="number"
+                  value={newMedForm.dose}
+                  onChange={(e) => setNewMedForm(prev => ({ ...prev, dose: parseInt(e.target.value) || 1 }))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Durée (jours)</Label>
+                <Input 
+                  type="number"
+                  value={newMedForm.duree_jours}
+                  onChange={(e) => setNewMedForm(prev => ({ ...prev, duree_jours: parseInt(e.target.value) || 1 }))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Fréquence</Label>
+              <select
+                className="w-full h-10 rounded-xl border bg-slate-50 px-3 mt-1"
+                value={newMedForm.type_frequence}
+                onChange={(e) => setNewMedForm(prev => ({ 
+                  ...prev, 
+                  type_frequence: e.target.value,
+                  intervalle_heures: e.target.value === 'interval' ? 8 : null,
+                  times: e.target.value === '1x' ? ['08:00'] 
+                    : e.target.value === '2x' ? ['08:00', '20:00']
+                    : e.target.value === '3x' ? ['08:00', '14:00', '20:00']
+                    : ['08:00']
+                }))}
+              >
+                <option value="1x">1x / jour</option>
+                <option value="2x">2x / jour</option>
+                <option value="3x">3x / jour</option>
+                <option value="interval">Intervalle (6h, 8h, 12h)</option>
+                <option value="prn">Si besoin</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-xl" onClick={() => setShowAddMedDialog(false)}>
+              Annuler
+            </Button>
+            <Button 
+              className="rounded-xl"
+              onClick={() => {
+                if (expandedId) addMedicament(expandedId);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Ajouter
             </Button>
           </DialogFooter>
         </DialogContent>

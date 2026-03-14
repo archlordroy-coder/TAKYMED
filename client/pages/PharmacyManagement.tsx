@@ -349,9 +349,10 @@ export default function PharmacyManagement() {
                     <Label>Téléphone</Label>
                     <Input
                       required
+                      size={15}
                       value={newPharmacy.phone}
                       onChange={e => setNewPharmacy({ ...newPharmacy, phone: e.target.value })}
-                      className="rounded-xl h-10"
+                      className="rounded-xl h-10 w-auto min-w-[15ch]"
                     />
                   </div>
                   <div className="space-y-2">

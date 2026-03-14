@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import {
   ShieldCheck,
   AlertCircle,
   Info,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -23,30 +25,83 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
   const [pin, setPin] = useState("");
   const [selectedType, setSelectedType] = useState<AccountType>("standard");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [countries, setCountries] = useState<{ code: string, name: string, dialCode: string, flag: string }[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState("CM");
 
-  const handleAuth = (e: React.FormEvent) => {
+  useEffect(() => {
+    async function fetchCountries() {
+      try {
+        const res = await fetch('/api/countries');
+        if (res.ok) {
+          const data = await res.json();
+          setCountries(data.countries);
+        }
+      } catch (err) {
+        console.error("Erreur pays:", err);
+      }
+    }
+    fetchCountries();
+  }, []);
+
+  const fullPhone = useMemo(() => {
+    if (phone.trim() === "admin") return "admin";
+    const country = countries.find(c => c.code === selectedCountry);
+    if (!country) return phone.trim();
+    // Prepend dialCode if not already present
+    const cleanPhone = phone.trim().replace(/^\+/, '');
+    const cleanDialCode = country.dialCode.replace(/^\+/, '');
+    if (cleanPhone.startsWith(cleanDialCode)) {
+      return '+' + cleanPhone;
+    }
+    return country.dialCode + cleanPhone;
+  }, [phone, selectedCountry, countries]);
+
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone.trim()) {
       toast.error("Veuillez saisir votre numéro de téléphone.");
       return;
     }
-    // Pour l'inscription, on passe directement au PIN (type forcé à "standard")
-    setStep("pin");
+
+    setIsSubmitting(true);
+    try {
+      if (mode === "login") {
+        // Login: passer directement à l'étape PIN
+        // L'utilisateur entre son PIN existant
+        setStep("pin");
+      } else if (mode === "register") {
+        // Register: créer le compte d'abord, le backend enverra le PIN par SMS
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: fullPhone, type: selectedType }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          toast.error(data?.error || "Erreur lors de la création du compte");
+          setIsSubmitting(false);
+          return;
+        }
+
+        toast.success("Compte créé ! Un PIN de 6 chiffres vous a été envoyé par SMS.");
+        setStep("pin");
+      }
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Une erreur est survenue.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if (mode === "register") {
-      const created = await register(phone.trim(), pin.trim(), selectedType);
-      if (!created) {
-        setIsSubmitting(false);
-        return;
-      }
-    }
-
-    const success = await login(phone.trim(), selectedType, pin.trim());
+    // Connexion avec le PIN entré
+    const success = await login(fullPhone, selectedType, pin.trim());
     setIsSubmitting(false);
     if (success) {
       toast.success(
@@ -92,17 +147,34 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
             <form className="space-y-6" onSubmit={handleAuth}>
               <div className="space-y-2">
                 <Label htmlFor="phone">Numéro de téléphone</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+237 ..."
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="pl-10 h-11 rounded-xl"
-                    required
-                  />
+                <div className="flex gap-2">
+                  <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                    <SelectTrigger className="w-24 h-11 rounded-xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none">
+                      <SelectValue placeholder="Pays" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl max-h-60">
+                      {countries.map((c, idx) => (
+                        <SelectItem key={`country-${idx}`} value={c.code} className="rounded-xl">
+                          <span className="flex items-center gap-2">
+                            <span className="text-lg">{c.flag}</span>
+                            <span className="font-bold">{c.dialCode}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="relative flex-1">
+                    <Smartphone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="6XXXXXXXX"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="pl-10 h-11 rounded-xl w-full"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -135,7 +207,7 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                       ? "text-xl px-4"
                       : "text-3xl font-mono tracking-[1em]",
                   )}
-                  maxLength={phone.trim() === "admin" ? 20 : 4}
+                  maxLength={phone.trim() === "admin" ? 20 : 6}
                   required
                 />
               </div>
@@ -168,14 +240,14 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setTestUser("+237 600000001", "1234")}
+                onClick={() => { setSelectedCountry("CM"); setTestUser("600000001", "1234"); }}
                 className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
               >
                 Standard
               </button>
               <button
                 type="button"
-                onClick={() => setTestUser("+237 612345678", "1234", "professional")}
+                onClick={() => { setSelectedCountry("CM"); setTestUser("612345678", "1234", "professional"); }}
                 className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
               >
                 Pro

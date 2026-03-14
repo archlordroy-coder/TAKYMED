@@ -18,6 +18,7 @@ import {
     Upload,
     Download,
     FileText,
+    ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,9 @@ interface UserRecord {
     phone: string;
     type: string;
     name: string;
+    pin?: string;
+    pinExpiresAt?: string;
+    pinUpdatedAt?: string;
 }
 
 interface AdminPharmacy {
@@ -131,6 +135,9 @@ export default function AdminDashboard() {
 
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
     const [newUser, setNewUser] = useState({ name: "", email: "", phone: "", password: "", type: "standard" });
+    const [changingTypeUserId, setChangingTypeUserId] = useState<number | null>(null);
+    const [selectedTypeId, setSelectedTypeId] = useState<number>(1);
+    const [isChangeTypeOpen, setIsChangeTypeOpen] = useState(false);
 
     const [isAddMedOpen, setIsAddMedOpen] = useState(false);
     const [newMed, setNewMed] = useState<Partial<AdminMedication>>({
@@ -257,6 +264,36 @@ export default function AdminDashboard() {
             const data = await res.json().catch(() => null);
             toast.error(data?.error || "Erreur lors de la création");
         }
+    };
+
+    const handleChangeUserType = async () => {
+        if (!changingTypeUserId) return;
+        const res = await fetch(`/api/admin/users/${changingTypeUserId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_type_compte: selectedTypeId })
+        });
+        if (res.ok) {
+            toast.success("Type de compte modifié avec succès");
+            setIsChangeTypeOpen(false);
+            setChangingTypeUserId(null);
+            refreshData();
+        } else {
+            const data = await res.json().catch(() => null);
+            toast.error(data?.error || "Erreur lors de la modification");
+        }
+    };
+
+    const openChangeTypeDialog = (userId: number, currentType: string) => {
+        const typeMap: Record<string, number> = {
+            'Standard': 1,
+            'Professionnel': 2,
+            'Pharmacien': 3,
+            'Administrateur': 4,
+        };
+        setChangingTypeUserId(userId);
+        setSelectedTypeId(typeMap[currentType] || 1);
+        setIsChangeTypeOpen(true);
     };
 
     const handleAddMed = async () => {
@@ -683,7 +720,7 @@ export default function AdminDashboard() {
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <label className={labelClass}>Téléphone</label>
-                                                    <Input className={inputClass} placeholder="+225..." value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} />
+                                                    <Input className={cn(inputClass, "w-auto min-w-[15ch]")} size={15} placeholder="+225..." value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <label className={labelClass}>Email</label>
@@ -731,47 +768,71 @@ export default function AdminDashboard() {
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Utilisateur</th>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Type</th>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Contact</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">PIN</th>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
                                     {users.map((u) => {
-                                            const displayName = u.name || u.email || u.phone || `User #${u.id}`;
-                                            return (
-                                                <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-white shadow-sm border overflow-hidden">
-                                                                <img
-                                                                    src={`/avatars/${u.type}.svg`}
-                                                                    alt={u.type}
-                                                                    className="w-full h-full object-cover"
-                                                                    onError={(e) => {
-                                                                        (e.target as HTMLImageElement).src = "/avatars/default.png";
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-extrabold text-slate-900 text-sm">{displayName}</p>
-                                                                <p className="text-xs text-slate-500 font-bold">ID #{u.id}</p>
-                                                            </div>
+                                        const displayName = u.name || u.email || u.phone || `User #${u.id}`;
+                                        return (
+                                            <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-white shadow-sm border overflow-hidden">
+                                                            <img
+                                                                src={`/avatars/${u.type}.svg`}
+                                                                alt={u.type}
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLImageElement).src = "/avatars/default.png";
+                                                                }}
+                                                            />
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={cn(
-                                                            "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
-                                                            u.type === 'Standard' ? "text-blue-600 bg-blue-50" :
-                                                                u.type === 'Professionnel' ? "text-emerald-600 bg-emerald-50" :
-                                                                    u.type === 'Pharmacien' ? "text-amber-600 bg-amber-50" :
-                                                                        "text-violet-600 bg-violet-50"
-                                                        )}>
-                                                            {u.type}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-slate-700 font-bold">
-                                                        {u.email || u.phone || "—"}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
+                                                        <div>
+                                                            <p className="font-extrabold text-slate-900 text-sm">{displayName}</p>
+                                                            <p className="text-xs text-slate-500 font-bold">ID #{u.id}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={cn(
+                                                        "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                                        u.type === 'Standard' ? "text-blue-600 bg-blue-50" :
+                                                            u.type === 'Professionnel' ? "text-emerald-600 bg-emerald-50" :
+                                                                u.type === 'Pharmacien' ? "text-amber-600 bg-amber-50" :
+                                                                    "text-violet-600 bg-violet-50"
+                                                    )}>
+                                                        {u.type}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-700 font-bold">
+                                                    {u.email || u.phone || "—"}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-mono font-bold text-slate-800">{u.pin || "—"}</span>
+                                                        {u.pinExpiresAt && (
+                                                            <span className={cn(
+                                                                "text-[10px] font-bold",
+                                                                new Date(u.pinExpiresAt) < new Date() ? "text-red-500" : "text-slate-400"
+                                                            )}>
+                                                                {new Date(u.pinExpiresAt) < new Date() ? "Expiré" : `Expire le ${new Date(u.pinExpiresAt).toLocaleDateString('fr-FR')}`}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="hover:bg-teal-50 hover:text-teal-600 rounded-xl"
+                                                            onClick={() => openChangeTypeDialog(u.id, u.type)}
+                                                            title="Changer le type de compte"
+                                                        >
+                                                            <ArrowRightLeft size={15} />
+                                                        </Button>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
@@ -780,10 +841,11 @@ export default function AdminDashboard() {
                                                         >
                                                             <Trash2 size={15} />
                                                         </Button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -1330,6 +1392,40 @@ export default function AdminDashboard() {
                             onClick={handleUpdateCat}
                         >
                             Sauvegarder
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Change User Type Dialog */}
+            <Dialog open={isChangeTypeOpen} onOpenChange={setIsChangeTypeOpen}>
+                <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-slate-800">Changer le type de compte</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nouveau type de compte</label>
+                            <select
+                                title="Type de compte"
+                                className="flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-teal-400"
+                                value={selectedTypeId}
+                                onChange={e => setSelectedTypeId(Number(e.target.value))}
+                            >
+                                <option value={1}>Standard (Patient)</option>
+                                <option value={2}>Professionnel de santé</option>
+                                <option value={3}>Pharmacien</option>
+                                <option value={4}>Administrateur</option>
+                            </select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            className="w-full h-11 rounded-xl font-bold text-white"
+                            style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
+                            onClick={handleChangeUserType}
+                        >
+                            Confirmer le changement
                         </Button>
                     </DialogFooter>
                 </DialogContent>

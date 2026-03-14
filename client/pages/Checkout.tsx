@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Check, Smartphone, Lock, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 interface AccountType {
@@ -23,6 +30,8 @@ export default function Checkout() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<AccountType | null>(null);
+  const [countries, setCountries] = useState<{ code: string, name: string, dialCode: string, flag: string }[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState("CM");
 
   // Orange Money form state
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -51,6 +60,19 @@ export default function Checkout() {
       }
     }
     fetchAccountTypes();
+
+    async function fetchCountries() {
+      try {
+        const res = await fetch('/api/countries');
+        if (res.ok) {
+          const data = await res.json();
+          setCountries(data.countries || []);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des pays:", err);
+      }
+    }
+    fetchCountries();
   }, [planId]);
 
   const formatPrice = (type: AccountType) => {
@@ -192,17 +214,49 @@ export default function Checkout() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-7 space-y-7">
               {/* Phone Number */}
               <div className="space-y-2">
                 <Label htmlFor="phoneNumber">Numéro Orange Money</Label>
-                <Input
-                  id="phoneNumber"
-                  placeholder="+237 6XX XXX XXX"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="h-12 rounded-xl text-lg"
-                />
+                <div className="flex gap-3">
+                  <Select
+                    value={selectedCountry}
+                    onValueChange={(code) => {
+                      setSelectedCountry(code);
+                      const country = countries.find(c => c.code === code);
+                      if (country) {
+                        const phoneWithoutCode = phoneNumber.replace(/^\+\d+/, '');
+                        setPhoneNumber(country.dialCode + phoneWithoutCode);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-32 h-14 rounded-2xl border bg-white px-3 text-base font-bold focus:ring-2 focus:ring-primary outline-none">
+                      <SelectValue placeholder="Pays" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl max-h-60">
+                      {countries.map(c => (
+                        <SelectItem key={c.code} value={c.code} className="rounded-xl">
+                          <span className="flex items-center gap-2">
+                            <span className="text-lg">{c.flag}</span>
+                            <span className="font-bold">{c.dialCode}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="relative flex-1">
+                    <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="phoneNumber"
+                      placeholder="6XX XXX XXX"
+                      size={15}
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="pl-12 h-14 rounded-2xl text-2xl font-mono tracking-widest bg-white border-slate-200 focus-visible:ring-primary w-auto min-w-[15ch] flex-1"
+                      maxLength={15}
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* OTP Code */}

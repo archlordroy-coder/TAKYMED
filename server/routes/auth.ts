@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db } from "../db";
+import { notificationProvider } from "../services/notificationProvider";
 
 const router = Router();
 
@@ -49,21 +50,14 @@ router.get("/account-types", (_req, res) => {
   }
 });
 
-router.post("/register", (req, res) => {
-  const { phone, pin } = req.body;
+// Register route
+router.post("/register", async (req, res) => {
+  const { phone, type } = req.body;
 
   try {
     const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
-    const normalizedPin = typeof pin === "string" ? pin.trim() : "";
-    // Force Standard account type - upgrades are handled by admin
-    const dbType = "Standard";
-
     if (!normalizedPhone) {
       return res.status(400).json({ error: "Phone is required" });
-    }
-
-    if (!normalizedPin) {
-      return res.status(400).json({ error: "PIN is required" });
     }
 
     const existingUser = db
@@ -76,6 +70,7 @@ router.post("/register", (req, res) => {
       return res.status(409).json({ error: "Ce numéro est déjà utilisé" });
     }
 
+    const dbType = typeMap[type] || "Standard";
     const typeRecord = db
       .prepare(
         "SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = ?",
@@ -86,16 +81,23 @@ router.post("/register", (req, res) => {
       return res.status(400).json({ error: "Invalid account type" });
     }
 
+    // Generate a random PIN for the new user
+    const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
+    const updatedAt = new Date().toISOString();
+
     const info = db
       .prepare(
         `
-          INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO Utilisateurs (numero_telephone, pin_hash, pin_expires_at, pin_updated_at, id_type_compte, est_pharmacien)
+          VALUES (?, ?, ?, ?, ?, ?)
         `,
       )
       .run(
         normalizedPhone,
-        normalizedPin,
+        generatedPin,
+        expiresAt,
+        updatedAt,
         typeRecord.id_type_compte,
         0,
       );
@@ -104,6 +106,17 @@ router.post("/register", (req, res) => {
       "INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)",
     ).run(info.lastInsertRowid, `User ${normalizedPhone.slice(-4)}`);
 
+    // Send the PIN via SMS
+    try {
+      await notificationProvider.sendSMS(
+        normalizedPhone,
+        `Bienvenue sur TAKYMED ! Votre code PIN de connexion est : ${generatedPin}. Gardez-le précieusement.`
+      );
+    } catch (smsError) {
+      console.error("Failed to send registration SMS:", smsError);
+      // We don't block registration if SMS fails, but we log it
+    }
+
     res.status(201).json({ success: true });
   } catch (error) {
     console.error("Register error:", error);
@@ -111,19 +124,100 @@ router.post("/register", (req, res) => {
   }
 });
 
+// Get PIN info endpoint
+router.get("/pin-info", async (req, res) => {
+  const userId = req.headers["x-user-id"];
+
+  if (!userId) {
+    return res.status(401).json({ error: "Non authentifié" });
+  }
+
+  try {
+    const user = db
+      .prepare("SELECT pin_expires_at FROM Utilisateurs WHERE id_utilisateur = ?")
+      .get(userId as string) as { pin_expires_at: string | null } | undefined;
+
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    res.json({
+      expiresAt: user.pin_expires_at
+    });
+  } catch (error) {
+    console.error("PIN info error:", error);
+    res.status(500).json({ error: "Erreur lors de la récupération des informations PIN" });
+  }
+});
+
+// Regenerate PIN endpoint
+router.post("/regenerate-pin", async (req, res) => {
+  const userId = req.headers["x-user-id"];
+
+  if (!userId) {
+    return res.status(401).json({ error: "Non authentifié" });
+  }
+
+  try {
+    // Get user info
+    const user = db
+      .prepare("SELECT numero_telephone, id_utilisateur FROM Utilisateurs WHERE id_utilisateur = ?")
+      .get(userId as string) as { numero_telephone: string; id_utilisateur: number } | undefined;
+
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    // Generate new PIN
+    const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
+    const updatedAt = new Date().toISOString();
+
+    // Update PIN in database
+    db.prepare(`
+      UPDATE Utilisateurs
+      SET pin_hash = ?, pin_expires_at = ?, pin_updated_at = ?
+      WHERE id_utilisateur = ?
+    `).run(newPin, expiresAt, updatedAt, userId);
+
+    // Send SMS with new PIN
+    try {
+      await notificationProvider.sendSMS(
+        user.numero_telephone,
+        `🔐 Nouveau PIN TAKYMED : ${newPin}\nValable 30 jours. Conservez-le précieusement.`
+      );
+    } catch (smsError) {
+      console.error("Failed to send PIN regeneration SMS:", smsError);
+      // Don't block regeneration if SMS fails
+    }
+
+    res.json({
+      success: true,
+      expiresAt: expiresAt,
+      message: "Nouveau PIN généré et envoyé par SMS"
+    });
+  } catch (error) {
+    console.error("PIN regeneration error:", error);
+    res.status(500).json({ error: "Erreur lors de la régénération du PIN" });
+  }
+});
+
 // Login route
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { phone, type, pin } = req.body;
 
   try {
     const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
     if (!normalizedPhone) {
-      return res.status(400).json({ error: "Phone is required" });
+      return res.status(400).json({ error: "Le numéro de téléphone est requis" });
+    }
+
+    if (!pin) {
+      return res.status(400).json({ error: "Le PIN est requis" });
     }
 
     let user: any;
-    let frontendType: "standard" | "professional" | "pharmacist" | "admin" =
-      "standard";
+    let frontendType: "standard" | "professional" | "pharmacist" | "admin" = "standard";
     let typeRecord: { id_type_compte: number; nom_type: string } | undefined;
 
     if (type) {
@@ -137,7 +231,7 @@ router.post("/login", (req, res) => {
         | undefined;
 
       if (!typeRecord) {
-        return res.status(400).json({ error: "Invalid account type" });
+        return res.status(400).json({ error: "Type de compte invalide" });
       }
 
       frontendType = reverseTypeMap[typeRecord.nom_type] || "standard";
@@ -171,52 +265,76 @@ router.post("/login", (req, res) => {
       }
     }
 
-    if (!user && normalizedPhone !== "admin") {
-      // Get the standard type as fallback
-      const standardType = db
-        .prepare(
-          "SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = 'Standard'",
-        )
-        .get() as { id_type_compte: number; nom_type: string } | undefined;
-
-      const accountType = typeRecord || standardType;
-      if (!accountType) {
-        return res.status(500).json({ error: "Missing account type" });
-      }
-
-      const info = db
-        .prepare(
-          `
-            INSERT INTO Utilisateurs (numero_telephone, id_type_compte, est_pharmacien)
-            VALUES (?, ?, ?)
-          `,
-        )
-        .run(normalizedPhone, accountType.id_type_compte, 0);
-
-      db.prepare(
-        `INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)`,
-      ).run(info.lastInsertRowid, `User ${normalizedPhone.slice(-4)}`);
-
-      user = db
+    // Special case for admin login (development/fallback)
+    if (normalizedPhone === "admin") {
+      const adminUser = db
         .prepare(
           `
             SELECT u.*, p.nom_complet, tc.nom_type
             FROM Utilisateurs u
             LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur
             JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte
-            WHERE u.id_utilisateur = ?
+            WHERE u.numero_telephone = 'admin'
           `,
         )
-        .get(info.lastInsertRowid);
+        .get() as any;
 
-      frontendType = reverseTypeMap[user.nom_type] || "standard";
+      if (adminUser && pin === adminUser.pin_hash) {
+        return res.json({
+          id: adminUser.id_utilisateur,
+          email: adminUser.email || "admin@takymed.com",
+          phone: adminUser.numero_telephone,
+          type: "admin",
+          name: adminUser.nom_complet || "Admin",
+        });
+      }
+      
+      return res.status(401).json({ error: "PIN incorrect" });
     }
 
     if (!user) {
-      return res.status(401).json({ error: "Utilisateur non trouvé" });
+      return res.status(401).json({ error: "Aucun compte trouvé avec ce numéro. Veuillez vous inscrire d'abord." });
     }
 
-    if (user.pin_hash && pin !== user.pin_hash) {
+    // Check if PIN is expired - auto-regenerate and send SMS
+    if (user.pin_expires_at) {
+      const expirationDate = new Date(user.pin_expires_at);
+      if (expirationDate < new Date()) {
+        // Generate new PIN
+        const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+        const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const newUpdatedAt = new Date().toISOString();
+
+        // Update in database
+        db.prepare(`
+          UPDATE Utilisateurs
+          SET pin_hash = ?, pin_expires_at = ?, pin_updated_at = ?
+          WHERE id_utilisateur = ?
+        `).run(newPin, newExpiresAt, newUpdatedAt, user.id_utilisateur);
+
+        // Send SMS with new PIN
+        try {
+          await notificationProvider.sendSMS(
+            user.numero_telephone,
+            `🔐 Votre PIN TAKYMED a expiré. Nouveau PIN : ${newPin}\nValable 30 jours. Conservez-le précieusement.`
+          );
+        } catch (smsError) {
+          console.error("Failed to send auto-regenerated PIN SMS:", smsError);
+        }
+
+        return res.status(401).json({ 
+          error: "Votre PIN a expiré. Un nouveau PIN a été envoyé par SMS.",
+          pinRegenerated: true 
+        });
+      }
+    }
+
+    // Validate PIN
+    if (!user.pin_hash || pin !== user.pin_hash) {
+      console.log("🔍 PIN Debug:");
+      console.log("  Sent PIN:", pin, "Type:", typeof pin, "Length:", pin.length);
+      console.log("  Stored PIN:", user.pin_hash, "Type:", typeof user.pin_hash, "Length:", user.pin_hash?.length);
+      console.log("  User ID:", user.id_utilisateur);
       return res.status(401).json({ error: "PIN incorrect" });
     }
 
@@ -229,7 +347,7 @@ router.post("/login", (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Erreur interne du serveur" });
   }
 });
 

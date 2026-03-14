@@ -27,74 +27,64 @@ db.pragma("foreign_keys = ON");
  */
 export function initializeDatabase() {
     try {
-        // Check if a core table like 'Utilisateurs' exists
-        const tableCheck = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='Utilisateurs'");
-        const exists = tableCheck.get();
+        console.log("Applying database schema from bd.sql...");
+        const sqlScript = fs.readFileSync(sqlScriptPath, "utf-8");
+        db.exec(sqlScript);
+        console.log("Database schema applied successfully.");
+        console.log("Database tables already exist. Skipping initialization.");
 
-        if (!exists) {
-            console.log("Database tables not found. Initializing from bd.sql...");
-            const sqlScript = fs.readFileSync(sqlScriptPath, "utf-8");
+        // Check for missing columns in Medicaments (Migration)
+        const medicamentColumns = db.prepare("PRAGMA table_info(Medicaments)").all() as { name: string }[];
+        const hasDateAjout = medicamentColumns.some(c => c.name === 'date_ajout');
+        const hasPrix = medicamentColumns.some(c => c.name === 'prix');
 
-            // better-sqlite3 handles multiple statements using .exec()
-            // Note: SQLite doesn't natively support ENUMs like MySQL/MariaDB, 
-            // but it will accept the syntax and map it to TEXT.
-            db.exec(sqlScript);
-            console.log("Database initialized successfully.");
-        } else {
-            console.log("Database tables already exist. Skipping initialization.");
+        if (!hasDateAjout) {
+            console.log("Adding date_ajout column to Medicaments...");
+            db.exec("ALTER TABLE Medicaments ADD COLUMN date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP");
+        }
+        if (!hasPrix) {
+            console.log("Adding prix column to Medicaments...");
+            db.exec("ALTER TABLE Medicaments ADD COLUMN prix VARCHAR(50)");
+        }
 
-            // Check for missing columns in Medicaments (Migration)
-            const medicamentColumns = db.prepare("PRAGMA table_info(Medicaments)").all() as { name: string }[];
-            const hasDateAjout = medicamentColumns.some(c => c.name === 'date_ajout');
-            const hasPrix = medicamentColumns.some(c => c.name === 'prix');
+        // Check for missing columns in Pharmacies (Migration)
+        const pharmacyColumns = db.prepare("PRAGMA table_info(Pharmacies)").all() as { name: string }[];
+        const hasLat = pharmacyColumns.some(c => c.name === 'latitude');
+        const hasLng = pharmacyColumns.some(c => c.name === 'longitude');
 
-            if (!hasDateAjout) {
-                console.log("Adding date_ajout column to Medicaments...");
-                db.exec("ALTER TABLE Medicaments ADD COLUMN date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP");
-            }
-            if (!hasPrix) {
-                console.log("Adding prix column to Medicaments...");
-                db.exec("ALTER TABLE Medicaments ADD COLUMN prix VARCHAR(50)");
-            }
+        if (!hasLat) {
+            console.log("Adding latitude column to Pharmacies...");
+            db.exec("ALTER TABLE Pharmacies ADD COLUMN latitude REAL");
+        }
+        if (!hasLng) {
+            console.log("Adding longitude column to Pharmacies...");
+            db.exec("ALTER TABLE Pharmacies ADD COLUMN longitude REAL");
+        }
 
-            // Check for missing columns in Pharmacies (Migration)
-            const pharmacyColumns = db.prepare("PRAGMA table_info(Pharmacies)").all() as { name: string }[];
-            const hasLat = pharmacyColumns.some(c => c.name === 'latitude');
-            const hasLng = pharmacyColumns.some(c => c.name === 'longitude');
+        // New Migrations for Phase 8
+        const ordonnanceColumns = db.prepare("PRAGMA table_info(Ordonnances)").all() as { name: string }[];
+        const hasCategorieAge = ordonnanceColumns.some(c => c.name === 'categorie_age');
+        if (!hasCategorieAge) {
+            console.log("Adding categorie_age column to Ordonnances...");
+            db.exec("ALTER TABLE Ordonnances ADD COLUMN categorie_age TEXT DEFAULT 'adulte'");
+        }
 
-            if (!hasLat) {
-                console.log("Adding latitude column to Pharmacies...");
-                db.exec("ALTER TABLE Pharmacies ADD COLUMN latitude REAL");
-            }
-            if (!hasLng) {
-                console.log("Adding longitude column to Pharmacies...");
-                db.exec("ALTER TABLE Pharmacies ADD COLUMN longitude REAL");
-            }
+        // New Migrations for Phase 14
+        const typeComptesColumns = db.prepare("PRAGMA table_info(TypesComptes)").all() as { name: string }[];
+        const hasMaxOrdonnances = typeComptesColumns.some(c => c.name === 'max_ordonnances');
+        const hasMaxRappels = typeComptesColumns.some(c => c.name === 'max_rappels');
 
-            // New Migrations for Phase 8
-            const ordonnanceColumns = db.prepare("PRAGMA table_info(Ordonnances)").all() as { name: string }[];
-            const hasCategorieAge = ordonnanceColumns.some(c => c.name === 'categorie_age');
-            if (!hasCategorieAge) {
-                console.log("Adding categorie_age column to Ordonnances...");
-                db.exec("ALTER TABLE Ordonnances ADD COLUMN categorie_age TEXT DEFAULT 'adulte'");
-            }
+        if (!hasMaxOrdonnances) {
+            console.log("Adding max_ordonnances column to TypesComptes...");
+            db.exec("ALTER TABLE TypesComptes ADD COLUMN max_ordonnances INT DEFAULT -1");
+        }
+        if (!hasMaxRappels) {
+            console.log("Adding max_rappels column to TypesComptes...");
+            db.exec("ALTER TABLE TypesComptes ADD COLUMN max_rappels INT DEFAULT -1");
+        }
 
-            // New Migrations for Phase 14
-            const typeComptesColumns = db.prepare("PRAGMA table_info(TypesComptes)").all() as { name: string }[];
-            const hasMaxOrdonnances = typeComptesColumns.some(c => c.name === 'max_ordonnances');
-            const hasMaxRappels = typeComptesColumns.some(c => c.name === 'max_rappels');
-
-            if (!hasMaxOrdonnances) {
-                console.log("Adding max_ordonnances column to TypesComptes...");
-                db.exec("ALTER TABLE TypesComptes ADD COLUMN max_ordonnances INT DEFAULT -1");
-            }
-            if (!hasMaxRappels) {
-                console.log("Adding max_rappels column to TypesComptes...");
-                db.exec("ALTER TABLE TypesComptes ADD COLUMN max_rappels INT DEFAULT -1");
-            }
-
-            // Create CategoriesAge table
-            db.exec(`
+        // Create CategoriesAge table
+        db.exec(`
                 CREATE TABLE IF NOT EXISTS CategoriesAge (
                     id_categorie INTEGER PRIMARY KEY AUTOINCREMENT,
                     nom_categorie TEXT NOT NULL UNIQUE,
@@ -103,24 +93,24 @@ export function initializeDatabase() {
                 )
             `);
 
-            // Migration: Add considere_poids column if it doesn't exist
-            const catColumns = db.prepare("PRAGMA table_info(CategoriesAge)").all() as { name: string }[];
-            const hasConsiderePoids = catColumns.some(c => c.name === 'considere_poids');
-            if (!hasConsiderePoids) {
-                console.log("Adding considere_poids column to CategoriesAge...");
-                db.exec("ALTER TABLE CategoriesAge ADD COLUMN considere_poids BOOLEAN DEFAULT 0");
-            }
+        // Migration: Add considere_poids column if it doesn't exist
+        const catColumns = db.prepare("PRAGMA table_info(CategoriesAge)").all() as { name: string }[];
+        const hasConsiderePoids = catColumns.some(c => c.name === 'considere_poids');
+        if (!hasConsiderePoids) {
+            console.log("Adding considere_poids column to CategoriesAge...");
+            db.exec("ALTER TABLE CategoriesAge ADD COLUMN considere_poids BOOLEAN DEFAULT 0");
+        }
 
-            const catAgeCount = db.prepare("SELECT COUNT(*) as count FROM CategoriesAge").get() as { count: number };
-            if (catAgeCount.count === 0) {
-                console.log("Adding default age categories...");
-                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('bébé', '0 à 2 ans', 1);
-                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('enfant', '2 à 12 ans', 1);
-                db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('adulte', 'Plus de 12 ans', 0);
-            }
+        const catAgeCount = db.prepare("SELECT COUNT(*) as count FROM CategoriesAge").get() as { count: number };
+        if (catAgeCount.count === 0) {
+            console.log("Adding default age categories...");
+            db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('bébé', '0 à 2 ans', 1);
+            db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('enfant', '2 à 12 ans', 1);
+            db.prepare("INSERT INTO CategoriesAge (nom_categorie, description, considere_poids) VALUES (?, ?, ?)").run('adulte', 'Plus de 12 ans', 0);
+        }
 
-            // Create PosologieDefautMedicaments table if not exists (Updated for dynamic categories)
-            db.exec(`
+        // Create PosologieDefautMedicaments table if not exists (Updated for dynamic categories)
+        db.exec(`
                 CREATE TABLE IF NOT EXISTS PosologieDefautMedicaments (
                     id_posologie INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_medicament INT NOT NULL,
@@ -133,12 +123,12 @@ export function initializeDatabase() {
             `);
 
 
-            // Migration: allow dynamic age categories in PosologieDefautMedicaments
-            const posologyTable = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='PosologieDefautMedicaments'").get() as { sql?: string } | undefined;
-            const hasCategorieAgeCheck = posologyTable?.sql?.includes("CHECK(categorie_age IN") || false;
-            if (hasCategorieAgeCheck) {
-                console.log("Migrating PosologieDefautMedicaments to remove fixed categorie_age CHECK constraint...");
-                db.exec(`
+        // Migration: allow dynamic age categories in PosologieDefautMedicaments
+        const posologyTable = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='PosologieDefautMedicaments'").get() as { sql?: string } | undefined;
+        const hasCategorieAgeCheck = posologyTable?.sql?.includes("CHECK(categorie_age IN") || false;
+        if (hasCategorieAgeCheck) {
+            console.log("Migrating PosologieDefautMedicaments to remove fixed categorie_age CHECK constraint...");
+            db.exec(`
                     BEGIN;
                     CREATE TABLE IF NOT EXISTS PosologieDefautMedicaments_new (
                         id_posologie INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,16 +146,16 @@ export function initializeDatabase() {
                     ALTER TABLE PosologieDefautMedicaments_new RENAME TO PosologieDefautMedicaments;
                     COMMIT;
                 `);
-            }
+        }
 
-            // Migration: allow dynamic age categories and cleanup Ordonnances
-            const ordonnanceSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='Ordonnances'").get() as { sql?: string } | undefined;
-            const hasOrdonnanceCategorieAgeCheck = ordonnanceSchema?.sql?.includes("CHECK(categorie_age IN") || false;
-            const hasAgePatient = ordonnanceSchema?.sql?.includes("age_patient") || false;
+        // Migration: allow dynamic age categories and cleanup Ordonnances
+        const ordonnanceSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='Ordonnances'").get() as { sql?: string } | undefined;
+        const hasOrdonnanceCategorieAgeCheck = ordonnanceSchema?.sql?.includes("CHECK(categorie_age IN") || false;
+        const hasAgePatient = ordonnanceSchema?.sql?.includes("age_patient") || false;
 
-            if (hasOrdonnanceCategorieAgeCheck || hasAgePatient) {
-                console.log("Migrating Ordonnances to remove fixed categorie_age CHECK constraint and cleanup columns...");
-                db.exec(`
+        if (hasOrdonnanceCategorieAgeCheck || hasAgePatient) {
+            console.log("Migrating Ordonnances to remove fixed categorie_age CHECK constraint and cleanup columns...");
+            db.exec(`
                     BEGIN;
                     CREATE TABLE IF NOT EXISTS Ordonnances_new (
                         id_ordonnance INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -187,53 +177,53 @@ export function initializeDatabase() {
                     ALTER TABLE Ordonnances_new RENAME TO Ordonnances;
                     COMMIT;
                 `);
-            }
+        }
 
-            // Migration for Phase 2: date_debut
-            const ordonnanceCols = db.prepare("PRAGMA table_info(Ordonnances)").all() as { name: string }[];
-            if (!ordonnanceCols.some(c => c.name === 'date_debut')) {
-                console.log("Adding date_debut column to Ordonnances...");
-                db.exec("ALTER TABLE Ordonnances ADD COLUMN date_debut DATE");
-                // Initialize date_debut with date_ordonnance for existing records
-                db.exec("UPDATE Ordonnances SET date_debut = date_ordonnance WHERE date_debut IS NULL");
-            }
+        // Migration for Phase 2: date_debut
+        const ordonnanceCols = db.prepare("PRAGMA table_info(Ordonnances)").all() as { name: string }[];
+        if (!ordonnanceCols.some(c => c.name === 'date_debut')) {
+            console.log("Adding date_debut column to Ordonnances...");
+            db.exec("ALTER TABLE Ordonnances ADD COLUMN date_debut DATE");
+            // Initialize date_debut with date_ordonnance for existing records
+            db.exec("UPDATE Ordonnances SET date_debut = date_ordonnance WHERE date_debut IS NULL");
+        }
 
-            // Phase 9: Admin Account Initialization
-            const adminType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get();
-            if (!adminType) {
-                console.log("Adding 'Administrateur' account type...");
-                db.prepare("INSERT INTO TypesComptes (nom_type, description, max_ordonnances_actives, limite_notifications, necessite_paiement, max_pharmacies) VALUES (?, ?, ?, ?, ?, ?)")
-                    .run('Administrateur', 'Accès complet au système', null, null, 0, null);
-            }
+        // Phase 9: Admin Account Initialization
+        const adminType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get();
+        if (!adminType) {
+            console.log("Adding 'Administrateur' account type...");
+            db.prepare("INSERT INTO TypesComptes (nom_type, description, max_ordonnances_actives, limite_notifications, necessite_paiement, max_pharmacies) VALUES (?, ?, ?, ?, ?, ?)")
+                .run('Administrateur', 'Accès complet au système', null, null, 0, null);
+        }
 
-            // Migration: Update Professionnel to have max_pharmacies = 5 (Pro accounts can manage pharmacies)
-            const proTypeForMigration = db.prepare("SELECT id_type_compte, max_pharmacies FROM TypesComptes WHERE nom_type = 'Professionnel'").get() as { id_type_compte: number; max_pharmacies: number | null } | undefined;
-            if (proTypeForMigration && proTypeForMigration.max_pharmacies === null) {
-                console.log("Updating Professionnel account type to allow pharmacy management (max 5)...");
-                db.prepare("UPDATE TypesComptes SET max_pharmacies = 5, description = 'Compte Pro avancé' WHERE nom_type = 'Professionnel'").run();
-            }
+        // Migration: Update Professionnel to have max_pharmacies = 5 (Pro accounts can manage pharmacies)
+        const proTypeForMigration = db.prepare("SELECT id_type_compte, max_pharmacies FROM TypesComptes WHERE nom_type = 'Professionnel'").get() as { id_type_compte: number; max_pharmacies: number | null } | undefined;
+        if (proTypeForMigration && proTypeForMigration.max_pharmacies === null) {
+            console.log("Updating Professionnel account type to allow pharmacy management (max 5)...");
+            db.prepare("UPDATE TypesComptes SET max_pharmacies = 5, description = 'Compte Pro avancé' WHERE nom_type = 'Professionnel'").run();
+        }
 
-            const getAdminTypeId = () => db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get() as { id_type_compte: number };
-            const adminPhone = process.env.ADMIN_PHONE || 'admin';
-            const adminPin = process.env.ADMIN_PIN || 'admin';
-            const adminUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = ?").get(adminPhone);
+        const getAdminTypeId = () => db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get() as { id_type_compte: number };
+        const adminPhone = process.env.ADMIN_PHONE || 'admin';
+        const adminPin = process.env.ADMIN_PIN || 'admin';
+        const adminUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = ?").get(adminPhone);
 
-            if (!adminUser) {
-                console.log("Creating default admin user (admin/admin)...");
-                const adminTypeId = getAdminTypeId().id_type_compte;
-                const info = db.prepare("INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien) VALUES (?, ?, ?, 1)")
-                    .run(adminPhone, adminPin, adminTypeId);
+        if (!adminUser) {
+            console.log("Creating default admin user (admin/admin)...");
+            const adminTypeId = getAdminTypeId().id_type_compte;
+            const info = db.prepare("INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien) VALUES (?, ?, ?, 1)")
+                .run(adminPhone, adminPin, adminTypeId);
 
-                db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
-                    .run(info.lastInsertRowid, 'Administrateur Système');
-            }
+            db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
+                .run(info.lastInsertRowid, 'Administrateur Système');
+        }
 
-            // Create test users for Professional and Pharmacist accounts
-            const proType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Professionnel'").get() as { id_type_compte: number };
+        // Create test users for Professional and Pharmacist accounts
+        const proType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Professionnel'").get() as { id_type_compte: number };
 
 
-            // Create UpgradeRequests table for account upgrade requests
-            db.exec(`
+        // Create UpgradeRequests table for account upgrade requests
+        db.exec(`
                 CREATE TABLE IF NOT EXISTS UpgradeRequests (
                     id_request INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_utilisateur INTEGER NOT NULL,
@@ -248,8 +238,39 @@ export function initializeDatabase() {
                 )
             `);
 
-            // Create Paiements table for payment tracking
-            db.exec(`
+        // Create FraisComptesProfessionnels table if missing
+        db.exec(`
+                CREATE TABLE IF NOT EXISTS FraisComptesProfessionnels (
+                    id_frais INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_type_compte INTEGER UNIQUE NOT NULL,
+                    montant DECIMAL(10,2) NOT NULL,
+                    devise VARCHAR(10) DEFAULT 'FCFA',
+                    FOREIGN KEY (id_type_compte) REFERENCES TypesComptes(id_type_compte) ON DELETE CASCADE
+                )
+            `);
+
+        // Migration: ensure TypesComptes has correct column names
+        const tcCols = db.prepare("PRAGMA table_info(TypesComptes)").all() as { name: string }[];
+        if (!tcCols.some(c => c.name === 'max_ordonnances')) {
+            console.log("Migrating TypesComptes columns...");
+            const hasOldOrdonnances = tcCols.some(c => c.name === 'max_ordonnances_actives');
+            const hasOldRappels = tcCols.some(c => c.name === 'limite_notifications');
+
+            if (hasOldOrdonnances) {
+                db.exec("ALTER TABLE TypesComptes RENAME COLUMN max_ordonnances_actives TO max_ordonnances");
+            } else {
+                db.exec("ALTER TABLE TypesComptes ADD COLUMN max_ordonnances INT");
+            }
+
+            if (hasOldRappels) {
+                db.exec("ALTER TABLE TypesComptes RENAME COLUMN limite_notifications TO max_rappels");
+            } else {
+                db.exec("ALTER TABLE TypesComptes ADD COLUMN max_rappels INT");
+            }
+        }
+
+        // Create Paiements table for payment tracking
+        db.exec(`
                 CREATE TABLE IF NOT EXISTS Paiements (
                     id_paiement INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_utilisateur INTEGER NOT NULL,
@@ -261,7 +282,6 @@ export function initializeDatabase() {
                     FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE
                 )
             `);
-        }
     } catch (error) {
         console.error("Failed to initialize database:", error);
         throw error;

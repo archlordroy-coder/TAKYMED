@@ -93,7 +93,7 @@ export default function Index() {
               </p>
             )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <FeatureCard
               icon={<BellRing className="w-8 h-8 text-primary" />}
               title="Rappels d'Ordonnance"
@@ -105,12 +105,6 @@ export default function Index() {
               title="Disponibilité Stocks"
               description="Vérifiez si vos médicaments sont disponibles dans les pharmacies proches de vous."
               link={user ? "/search" : "/login"}
-            />
-            <FeatureCard
-              icon={<Store className="w-8 h-8 text-primary" />}
-              title="Mes Pharmacies"
-              description="Espace dédié aux pharmaciens pour gérer leurs officines et stocks."
-              link={user?.type === 'pharmacist' || user?.type === 'professional' ? "/pharmacy-mgmt" : "/login"}
             />
             <FeatureCard
               icon={<LayoutDashboard className="w-8 h-8 text-secondary" />}
@@ -167,9 +161,9 @@ export default function Index() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Choisissez votre compte</h2>
-            <p className="text-muted-foreground">Des options adaptées à vos besoins, particuliers ou professionnels.</p>
+            <p className="text-muted-foreground">Des options adaptées à vos besoins pour un meilleur suivi de votre santé.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {/* Standard Account */}
             <div className="relative group border rounded-3xl p-8 hover:border-primary/50 transition-all hover:shadow-xl bg-white flex flex-col">
               <div className="bg-primary/10 w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-primary font-bold">S</div>
@@ -197,8 +191,8 @@ export default function Index() {
             </div>
 
             {/* Professional Account */}
-            <div className="relative group border rounded-3xl p-8 border-primary shadow-lg bg-primary/5 flex flex-col scale-105 z-10">
-              <div className="absolute -top-4 right-8 bg-primary text-white text-[10px] font-bold py-1 px-3 rounded-full uppercase">Populaire</div>
+            <div className="relative group border rounded-3xl p-8 border-primary shadow-lg bg-primary/5 flex flex-col transition-all hover:shadow-2xl z-10">
+              <div className="absolute -top-4 right-8 bg-primary text-white text-[10px] font-bold py-1 px-3 rounded-full uppercase">Recommandé</div>
               <div className="bg-primary w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-white font-bold">P</div>
               <h3 className="text-xl font-bold mb-2">Compte Professionnel</h3>
               <p className="text-muted-foreground mb-6 text-sm flex-grow">Pour les patients chroniques et suivis complexes.</p>
@@ -219,32 +213,6 @@ export default function Index() {
               <Link to={user ? "/dashboard" : "/register"} className="w-full">
                 <Button className="w-full shadow-lg shadow-primary/20">
                   {user ? "Voir mon compte" : "Passer au Pro"}
-                </Button>
-              </Link>
-            </div>
-
-            {/* Pharmacist Account */}
-            <div className="relative group border rounded-3xl p-8 hover:border-slate-900 transition-all hover:shadow-xl bg-white flex flex-col">
-              <div className="bg-slate-900 w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-white font-bold">D</div>
-              <h3 className="text-xl font-bold mb-2">Compte Pharmacien</h3>
-              <p className="text-muted-foreground mb-6 text-sm flex-grow">Gérez votre officine et facilitez la vie de vos patients.</p>
-              <ul className="space-y-3 mb-8 text-xs">
-                <li className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-slate-900" />
-                  <span>Interface de gestion officine</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-slate-900" />
-                  <span>Référencement de stock réel</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-slate-900" />
-                  <span>Jusqu'à 5 pharmacies</span>
-                </li>
-              </ul>
-              <Link to={user ? (user.type === 'pharmacist' || user.type === 'professional' ? "/pharmacy-mgmt" : "/dashboard") : "/login"} className="w-full">
-                <Button variant="outline" className="w-full border-slate-900 text-slate-900 hover:bg-slate-900 hover:text-white">
-                  {user ? "Mon Espace" : "Accès Pharmacie"}
                 </Button>
               </Link>
             </div>

@@ -143,4 +143,287 @@ router.patch("/:id/cancel", (req, res) => {
     }
 });
 
+// Reactivate an ordonnance
+router.patch("/:id/reactivate", (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = db.prepare(`
+            UPDATE Ordonnances 
+            SET est_active = 1 
+            WHERE id_ordonnance = ?
+        `).run(id);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: "Ordonnance not found" });
+        }
+
+        res.json({ success: true, message: "Ordonnance réactivée" });
+    } catch (error) {
+        console.error("Failed to reactivate ordonnance:", error);
+        res.status(500).json({ error: "Failed to reactivate ordonnance" });
+    }
+});
+
+// Delete an ordonnance permanently
+router.delete("/:id", (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Delete in cascade: CalendrierPrises -> ElementsOrdonnance -> Ordonnance
+        db.prepare(`
+            DELETE FROM CalendrierPrises 
+            WHERE id_element_ordonnance IN (
+                SELECT id_element_ordonnance FROM ElementsOrdonnance WHERE id_ordonnance = ?
+            )
+        `).run(id);
+
+        db.prepare(`DELETE FROM ElementsOrdonnance WHERE id_ordonnance = ?`).run(id);
+        
+        const result = db.prepare(`DELETE FROM Ordonnances WHERE id_ordonnance = ?`).run(id);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: "Ordonnance not found" });
+        }
+
+        res.json({ success: true, message: "Ordonnance supprimée définitivement" });
+    } catch (error) {
+        console.error("Failed to delete ordonnance:", error);
+        res.status(500).json({ error: "Failed to delete ordonnance" });
+    }
+});
+
+// === MEDICAMENT ROUTES ===
+
+// Add a medicament to an ordonnance
+router.post("/:id/medicaments", (req, res) => {
+    const { id } = req.params;
+    const { medicamentName, dose, type_frequence, intervalle_heures, duree_jours, times } = req.body;
+
+    if (!medicamentName) {
+        return res.status(400).json({ error: "Le nom du médicament est requis" });
+    }
+
+    try {
+        // Find or create medicament
+        let med = db.prepare(`SELECT id_medicament FROM Medicaments WHERE nom = ?`).get(medicamentName);
+        if (!med) {
+            const result = db.prepare(`INSERT INTO Medicaments (nom) VALUES (?)`).run(medicamentName);
+            med = { id_medicament: result.lastInsertRowid };
+        }
+
+        // Add to ElementsOrdonnance
+        const elementResult = db.prepare(`
+            INSERT INTO ElementsOrdonnance (id_ordonnance, id_medicament, dose_personnalisee, type_frequence, intervalle_heures, duree_jours)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).run(id, (med as any).id_medicament, dose || 1, type_frequence || '1x', intervalle_heures || null, duree_jours || 1);
+
+        const elementId = elementResult.lastInsertRowid;
+
+        // Generate CalendrierPrises based on frequency
+        const ordonnance = db.prepare(`SELECT date_ordonnance FROM Ordonnances WHERE id_ordonnance = ?`).get(id) as any;
+        const startDate = new Date(ordonnance.date_ordonnance);
+
+        const parseTime = (timeStr: string): [number, number] => {
+            const [h, m] = timeStr.split(':').map(Number);
+            return [h || 8, m || 0];
+        };
+
+        const insertPrise = db.prepare(`
+            INSERT INTO CalendrierPrises (id_element_ordonnance, heure_prevue, dose, id_unite, rappel_envoye, statut_prise)
+            VALUES (?, ?, ?, ?, 0, 0)
+        `);
+
+        for (let day = 0; day < (duree_jours || 1); day++) {
+            const dayDate = new Date(startDate);
+            dayDate.setDate(dayDate.getDate() + day);
+
+            if (type_frequence === 'interval' && intervalle_heures) {
+                let hour = 8;
+                while (hour < 24) {
+                    const priseDate = new Date(dayDate);
+                    priseDate.setHours(hour, 0, 0, 0);
+                    insertPrise.run(elementId, priseDate.toISOString(), dose || 1, 1);
+                    hour += intervalle_heures;
+                }
+            } else {
+                const timesArray = times || ['08:00'];
+                timesArray.forEach((timeStr: string) => {
+                    const [h, m] = parseTime(timeStr);
+                    const priseDate = new Date(dayDate);
+                    priseDate.setHours(h, m, 0, 0);
+                    insertPrise.run(elementId, priseDate.toISOString(), dose || 1, 1);
+                });
+            }
+        }
+
+        res.json({ 
+            success: true, 
+            message: "Médicament ajouté",
+            elementId 
+        });
+    } catch (error) {
+        console.error("Failed to add medicament:", error);
+        res.status(500).json({ error: "Failed to add medicament" });
+    }
+});
+
+// Update a medicament
+router.put("/:id/medicaments/:elementId", (req, res) => {
+    const { id, elementId } = req.params;
+    const { dose, type_frequence, intervalle_heures, duree_jours, times } = req.body;
+
+    try {
+        // Update element
+        db.prepare(`
+            UPDATE ElementsOrdonnance 
+            SET dose_personnalisee = ?, type_frequence = ?, intervalle_heures = ?, duree_jours = ?
+            WHERE id_element_ordonnance = ? AND id_ordonnance = ?
+        `).run(dose, type_frequence, intervalle_heures || null, duree_jours, elementId, id);
+
+        // Regenerate CalendrierPrises
+        // First delete existing prises
+        db.prepare(`DELETE FROM CalendrierPrises WHERE id_element_ordonnance = ?`).run(elementId);
+
+        // Get ordonnance start date
+        const ordonnance = db.prepare(`SELECT date_ordonnance FROM Ordonnances WHERE id_ordonnance = ?`).get(id) as any;
+        const startDate = new Date(ordonnance.date_ordonnance);
+
+        const parseTime = (timeStr: string): [number, number] => {
+            const [h, m] = timeStr.split(':').map(Number);
+            return [h || 8, m || 0];
+        };
+
+        const insertPrise = db.prepare(`
+            INSERT INTO CalendrierPrises (id_element_ordonnance, heure_prevue, dose, id_unite, rappel_envoye, statut_prise)
+            VALUES (?, ?, ?, ?, 0, 0)
+        `);
+
+        for (let day = 0; day < (duree_jours || 1); day++) {
+            const dayDate = new Date(startDate);
+            dayDate.setDate(dayDate.getDate() + day);
+
+            if (type_frequence === 'interval' && intervalle_heures) {
+                let hour = 8;
+                while (hour < 24) {
+                    const priseDate = new Date(dayDate);
+                    priseDate.setHours(hour, 0, 0, 0);
+                    insertPrise.run(elementId, priseDate.toISOString(), dose || 1, 1);
+                    hour += intervalle_heures;
+                }
+            } else {
+                const timesArray = times || ['08:00'];
+                timesArray.forEach((timeStr: string) => {
+                    const [h, m] = parseTime(timeStr);
+                    const priseDate = new Date(dayDate);
+                    priseDate.setHours(h, m, 0, 0);
+                    insertPrise.run(elementId, priseDate.toISOString(), dose || 1, 1);
+                });
+            }
+        }
+
+        res.json({ success: true, message: "Médicament mis à jour" });
+    } catch (error) {
+        console.error("Failed to update medicament:", error);
+        res.status(500).json({ error: "Failed to update medicament" });
+    }
+});
+
+// Delete a medicament from ordonnance
+router.delete("/:id/medicaments/:elementId", (req, res) => {
+    const { elementId } = req.params;
+
+    try {
+        // Delete prises first
+        db.prepare(`DELETE FROM CalendrierPrises WHERE id_element_ordonnance = ?`).run(elementId);
+        
+        // Delete element
+        const result = db.prepare(`DELETE FROM ElementsOrdonnance WHERE id_element_ordonnance = ?`).run(elementId);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: "Medicament not found" });
+        }
+
+        res.json({ success: true, message: "Médicament supprimé" });
+    } catch (error) {
+        console.error("Failed to delete medicament:", error);
+        res.status(500).json({ error: "Failed to delete medicament" });
+    }
+});
+
+// === RAPPEL ROUTES ===
+
+// Update a single prise (rappel)
+router.patch("/prises/:priseId", (req, res) => {
+    const { priseId } = req.params;
+    const { heure_prevue, statut_prise } = req.body;
+
+    try {
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (heure_prevue !== undefined) {
+            updates.push("heure_prevue = ?");
+            values.push(heure_prevue);
+        }
+        if (statut_prise !== undefined) {
+            updates.push("statut_prise = ?");
+            values.push(statut_prise ? 1 : 0);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: "No updates provided" });
+        }
+
+        values.push(priseId);
+        
+        const result = db.prepare(`
+            UPDATE CalendrierPrises 
+            SET ${updates.join(", ")}
+            WHERE id_calendrier_prise = ?
+        `).run(...values);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: "Prise not found" });
+        }
+
+        res.json({ success: true, message: "Prise mise à jour" });
+    } catch (error) {
+        console.error("Failed to update prise:", error);
+        res.status(500).json({ error: "Failed to update prise" });
+    }
+});
+
+// Mark all prises as taken for a day
+router.patch("/:id/prises/mark-all-taken", (req, res) => {
+    const { id } = req.params;
+    const { date } = req.body; // Optional: specific date
+
+    try {
+        let query = `
+            UPDATE CalendrierPrises 
+            SET statut_prise = 1 
+            WHERE id_element_ordonnance IN (
+                SELECT id_element_ordonnance FROM ElementsOrdonnance WHERE id_ordonnance = ?
+            )
+        `;
+        const params: any[] = [id];
+
+        if (date) {
+            query += " AND date(heure_prevue) = date(?)";
+            params.push(date);
+        }
+
+        const result = db.prepare(query).run(...params);
+
+        res.json({ 
+            success: true, 
+            message: `${result.changes} prise(s) marquée(s) comme effectuée(s)` 
+        });
+    } catch (error) {
+        console.error("Failed to mark prises as taken:", error);
+        res.status(500).json({ error: "Failed to mark prises as taken" });
+    }
+});
+
 export const ordonnanceRouter = router;

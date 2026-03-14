@@ -4,54 +4,85 @@
 -- ===============================
 -- HEURES REPAS
 -- ===============================
-CREATE TABLE HeurespriseDefaut (
+CREATE TABLE IF NOT EXISTS HeurespriseDefaut (
     id_heure_repas INTEGER PRIMARY KEY AUTOINCREMENT,
     nom_repas VARCHAR(50) UNIQUE NOT NULL,
     heure_par_defaut TIME NOT NULL
 );
-INSERT INTO HeurespriseDefaut (nom_repas, heure_par_defaut)
+INSERT
+    OR IGNORE INTO HeurespriseDefaut (nom_repas, heure_par_defaut)
 VALUES ('matin', '08:00:00'),
     ('midi', '12:00:00'),
     ('soir', '18:00:00');
 -- ===============================
 -- UNITES
 -- ===============================
-CREATE TABLE Unites (
+CREATE TABLE IF NOT EXISTS Unites (
     id_unite INTEGER PRIMARY KEY AUTOINCREMENT,
     nom_unite VARCHAR(50) UNIQUE NOT NULL
 );
-INSERT INTO Unites (nom_unite)
+INSERT
+    OR IGNORE INTO Unites (nom_unite)
 VALUES ('mg'),
-('ml'),
-('comprimé'),
-('goutte'),
-('unité');
+    ('ml'),
+    ('comprimé'),
+    ('goutte'),
+    ('unité');
 -- ===============================
 -- TYPES COMPTES
 -- ===============================
-CREATE TABLE TypesComptes (
+CREATE TABLE IF NOT EXISTS TypesComptes (
     id_type_compte INTEGER PRIMARY KEY AUTOINCREMENT,
     nom_type VARCHAR(50) UNIQUE NOT NULL,
     description TEXT,
-    max_ordonnances_actives INT,
-    limite_notifications INT,
+    max_ordonnances INT,
+    max_rappels INT,
     necessite_paiement BOOLEAN DEFAULT FALSE,
     max_pharmacies INT
 );
-INSERT INTO TypesComptes (
+INSERT
+    OR IGNORE INTO TypesComptes (
         nom_type,
         description,
-        max_ordonnances_actives,
-        limite_notifications,
+        max_ordonnances,
+        max_rappels,
         necessite_paiement,
         max_pharmacies
     )
 VALUES ('Standard', 'Compte limité', 1, 3, 0, NULL),
-    ('Professionnel', 'Compte Pro avancé', NULL, NULL, 1, 5),
+    (
+        'Professionnel',
+        'Compte Pro avancé',
+        NULL,
+        NULL,
+        1,
+        5
+    ),
+    (
+        'Administrateur',
+        'Accès complet au système',
+        NULL,
+        NULL,
+        0,
+        NULL
+    );
+-- ===============================
+-- FRAIS COMPTES
+-- ===============================
+CREATE TABLE IF NOT EXISTS FraisComptesProfessionnels (
+    id_frais INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_type_compte INTEGER UNIQUE NOT NULL,
+    montant DECIMAL(10, 2) NOT NULL,
+    devise VARCHAR(10) DEFAULT 'FCFA',
+    FOREIGN KEY (id_type_compte) REFERENCES TypesComptes(id_type_compte) ON DELETE CASCADE
+);
+INSERT
+    OR IGNORE INTO FraisComptesProfessionnels (id_type_compte, montant, devise)
+VALUES (2, 5000, 'FCFA');
 -- ===============================
 -- UTILISATEURS
 -- ===============================
-CREATE TABLE Utilisateurs (
+CREATE TABLE IF NOT EXISTS Utilisateurs (
     id_utilisateur INTEGER PRIMARY KEY AUTOINCREMENT,
     email VARCHAR(255) UNIQUE,
     mot_de_passe_hash VARCHAR(255),
@@ -67,69 +98,32 @@ CREATE TABLE Utilisateurs (
 -- ===============================
 -- PROFIL
 -- ===============================
-CREATE TABLE ProfilsUtilisateurs (
+CREATE TABLE IF NOT EXISTS ProfilsUtilisateurs (
     id_profil INTEGER PRIMARY KEY AUTOINCREMENT,
     id_utilisateur INT UNIQUE NOT NULL,
     nom_complet VARCHAR(255),
     FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE
 );
 -- ===============================
--- MEDICAMENTS (AVEC POSOLOGIE ENUM)
+-- MEDICAMENTS
 -- ===============================
-CREATE TABLE Medicaments (
+CREATE TABLE IF NOT EXISTS Medicaments (
     id_medicament INTEGER PRIMARY KEY AUTOINCREMENT,
     nom VARCHAR(255) UNIQUE NOT NULL,
     dose_par_defaut DECIMAL(10, 2),
     id_unite_par_defaut INT,
     description TEXT,
     photo_url TEXT,
-    mode_administration TEXT CHECK(
-        mode_administration IN (
-            'orale',
-            'buvable',
-            'injectable',
-            'cutanee',
-            'inhalation',
-            'sublinguale',
-            'oculaire',
-            'nasale'
-        )
-    ) DEFAULT 'orale',
-    moment_repas TEXT CHECK(
-        moment_repas IN (
-            'avant_repas',
-            'pendant_repas',
-            'apres_repas',
-            'a_jeun',
-            'indifferent'
-        )
-    ) DEFAULT 'indifferent',
-    precaution_alimentaire TEXT CHECK(
-        precaution_alimentaire IN (
-            'aucune',
-            'eviter_alcool',
-            'boire_beaucoup_eau',
-            'eviter_produits_laitiers',
-            'eviter_pamplemousse'
-        )
-    ) DEFAULT 'aucune',
-    type_utilisation TEXT CHECK(
-        type_utilisation IN (
-            'comprime',
-            'sirop',
-            'gelule',
-            'pommade',
-            'goutte',
-            'spray',
-            'injection'
-        )
-    ),
+    mode_administration TEXT DEFAULT 'orale',
+    moment_repas TEXT DEFAULT 'indifferent',
+    precaution_alimentaire TEXT DEFAULT 'aucune',
+    type_utilisation TEXT,
     FOREIGN KEY (id_unite_par_defaut) REFERENCES Unites(id_unite)
 );
 -- ===============================
--- POSOLOGIE PAR DEFAUT PAR AGE
+-- POSOLOGIE DEFAUT
 -- ===============================
-CREATE TABLE PosologieDefautMedicaments (
+CREATE TABLE IF NOT EXISTS PosologieDefautMedicaments (
     id_posologie INTEGER PRIMARY KEY AUTOINCREMENT,
     id_medicament INT NOT NULL,
     categorie_age TEXT,
@@ -139,43 +133,17 @@ CREATE TABLE PosologieDefautMedicaments (
     FOREIGN KEY (id_unite) REFERENCES Unites(id_unite)
 );
 -- ===============================
--- INTERACTIONS MEDICAMENTEUSES
--- ===============================
-CREATE TABLE InteractionsMedicaments (
-    id_interaction INTEGER PRIMARY KEY AUTOINCREMENT,
-    medicament_source INT NOT NULL,
-    medicament_interdit INT NOT NULL,
-    niveau_risque TEXT CHECK(
-        niveau_risque IN ('faible', 'modere', 'eleve', 'critique')
-    ) DEFAULT 'modere',
-    description TEXT,
-    FOREIGN KEY (medicament_source) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE,
-    FOREIGN KEY (medicament_interdit) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE
-);
--- ===============================
--- PUBLICITES
--- ===============================
-CREATE TABLE Publicites (
-    id_publicite INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_medicament INT NOT NULL,
-    date_debut DATE,
-    date_fin DATE,
-    texte_publicite TEXT,
-    FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE
-);
--- ===============================
 -- ORDONNANCES
 -- ===============================
-CREATE TABLE Ordonnances (
+CREATE TABLE IF NOT EXISTS Ordonnances (
     id_ordonnance INTEGER PRIMARY KEY AUTOINCREMENT,
     id_utilisateur INT NOT NULL,
     titre VARCHAR(255),
     nom_patient VARCHAR(255),
-    categorie_age TEXT CHECK(categorie_age IN ('bébé', 'enfant', 'adulte')) DEFAULT 'adulte',
+    categorie_age TEXT DEFAULT 'adulte',
     poids_patient DECIMAL(5, 2),
     date_ordonnance DATE DEFAULT CURRENT_DATE,
     date_debut DATE,
-    -- Custom start date for treatment
     est_active BOOLEAN DEFAULT TRUE,
     cree_le DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE
@@ -183,13 +151,11 @@ CREATE TABLE Ordonnances (
 -- ===============================
 -- ELEMENTS ORDONNANCE
 -- ===============================
-CREATE TABLE ElementsOrdonnance (
+CREATE TABLE IF NOT EXISTS ElementsOrdonnance (
     id_element_ordonnance INTEGER PRIMARY KEY AUTOINCREMENT,
     id_ordonnance INT NOT NULL,
     id_medicament INT NOT NULL,
-    type_frequence TEXT CHECK(
-        type_frequence IN ('matin', 'midi', 'soir', 'personnalise')
-    ) NOT NULL,
+    type_frequence TEXT NOT NULL,
     intervalle_heures INT,
     duree_jours INT NOT NULL,
     dose_personnalisee DECIMAL(10, 2),
@@ -202,7 +168,7 @@ CREATE TABLE ElementsOrdonnance (
 -- ===============================
 -- CALENDRIER PRISES
 -- ===============================
-CREATE TABLE CalendrierPrises (
+CREATE TABLE IF NOT EXISTS CalendrierPrises (
     id_calendrier_prise INTEGER PRIMARY KEY AUTOINCREMENT,
     id_element_ordonnance INT NOT NULL,
     heure_prevue DATETIME NOT NULL,
@@ -216,19 +182,20 @@ CREATE TABLE CalendrierPrises (
 -- ===============================
 -- CANAUX NOTIFICATION
 -- ===============================
-CREATE TABLE CanauxNotification (
+CREATE TABLE IF NOT EXISTS CanauxNotification (
     id_canal INTEGER PRIMARY KEY AUTOINCREMENT,
     nom_canal VARCHAR(50) UNIQUE
 );
-INSERT INTO CanauxNotification (nom_canal)
+INSERT
+    OR IGNORE INTO CanauxNotification (nom_canal)
 VALUES ('SMS'),
-('WhatsApp'),
-('Appel'),
-('Push');
+    ('WhatsApp'),
+    ('Appel'),
+    ('Push');
 -- ===============================
 -- PREFERENCES NOTIFICATION
 -- ===============================
-CREATE TABLE PreferencesNotificationUtilisateurs (
+CREATE TABLE IF NOT EXISTS PreferencesNotificationUtilisateurs (
     id_preference INTEGER PRIMARY KEY AUTOINCREMENT,
     id_utilisateur INT,
     id_canal INT,
@@ -240,7 +207,7 @@ CREATE TABLE PreferencesNotificationUtilisateurs (
 -- ===============================
 -- PHARMACIES
 -- ===============================
-CREATE TABLE Pharmacies (
+CREATE TABLE IF NOT EXISTS Pharmacies (
     id_pharmacie INTEGER PRIMARY KEY AUTOINCREMENT,
     id_pharmacien INT NOT NULL,
     nom_pharmacie VARCHAR(255),
@@ -254,7 +221,7 @@ CREATE TABLE Pharmacies (
 -- ===============================
 -- STOCK PHARMACIE
 -- ===============================
-CREATE TABLE StockMedicamentsPharmacie (
+CREATE TABLE IF NOT EXISTS StockMedicamentsPharmacie (
     id_stock INTEGER PRIMARY KEY AUTOINCREMENT,
     id_pharmacie INT,
     id_medicament INT,
@@ -264,35 +231,31 @@ CREATE TABLE StockMedicamentsPharmacie (
     FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament)
 );
 -- ===============================
--- OTP REQUESTS (PIN SECURISE)
+-- OTP REQUESTS
 -- ===============================
-CREATE TABLE OtpRequests (
+CREATE TABLE IF NOT EXISTS OtpRequests (
     id_otp INTEGER PRIMARY KEY AUTOINCREMENT,
     phone VARCHAR(20) NOT NULL,
     otp_hash VARCHAR(255) NOT NULL,
-    channel VARCHAR(20) NOT NULL CHECK(channel IN ('SMS', 'WhatsApp', 'Voice')),
+    channel VARCHAR(20) NOT NULL,
     expires_at DATETIME NOT NULL,
     attempts INT DEFAULT 0,
-    status TEXT CHECK(
-        status IN ('pending', 'verified', 'expired', 'failed')
-    ) DEFAULT 'pending',
+    status TEXT DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     verified_at DATETIME
 );
 -- ===============================
--- NOTIFICATION JOBS (FILE D'ATTENTE)
+-- NOTIFICATION JOBS
 -- ===============================
-CREATE TABLE NotificationJobs (
+CREATE TABLE IF NOT EXISTS NotificationJobs (
     id_job INTEGER PRIMARY KEY AUTOINCREMENT,
     id_utilisateur INT,
     id_calendrier_prise INT,
-    channel VARCHAR(20) NOT NULL CHECK(channel IN ('SMS', 'WhatsApp', 'Voice', 'Push')),
+    channel VARCHAR(20) NOT NULL,
     message TEXT NOT NULL,
     contact_value VARCHAR(255) NOT NULL,
     scheduled_at DATETIME NOT NULL,
-    status TEXT CHECK(
-        status IN ('pending', 'processing', 'sent', 'failed')
-    ) DEFAULT 'pending',
+    status TEXT DEFAULT 'pending',
     retry_count INT DEFAULT 0,
     max_retries INT DEFAULT 3,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -301,30 +264,30 @@ CREATE TABLE NotificationJobs (
     FOREIGN KEY (id_calendrier_prise) REFERENCES CalendrierPrises(id_calendrier_prise)
 );
 -- ===============================
--- NOTIFICATION LOGS (AUDIT)
+-- NOTIFICATION LOGS
 -- ===============================
-CREATE TABLE NotificationLogs (
+CREATE TABLE IF NOT EXISTS NotificationLogs (
     id_log INTEGER PRIMARY KEY AUTOINCREMENT,
     id_job INT,
     provider VARCHAR(50),
     channel VARCHAR(20),
     to_contact VARCHAR(255),
     message TEXT,
-    status TEXT CHECK(status IN ('sent', 'failed', 'delivered')),
+    status TEXT,
     error_message TEXT,
     provider_message_id VARCHAR(255),
     cost DECIMAL(5, 3),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_job) REFERENCES NotificationJobs(id_job)
 );
--- Table des demandes d'upgrade de compte
+-- ===============================
+-- UPGRADE REQUESTS
+-- ===============================
 CREATE TABLE IF NOT EXISTS UpgradeRequests (
     id_request INTEGER PRIMARY KEY AUTOINCREMENT,
     id_utilisateur INTEGER NOT NULL,
-    requested_type TEXT NOT NULL CHECK(
-        requested_type IN ('Professionnel')
-    ),
-    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+    requested_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
     admin_notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     processed_at DATETIME,

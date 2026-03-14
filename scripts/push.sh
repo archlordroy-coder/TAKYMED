@@ -14,25 +14,41 @@ SOURCE_DIR="$(pwd)"
 PORT=${PORT:-3500}
 PASS=${SERVER_PASS:-""}
 
-# SSH/RSYNC configurations
-SSH_OPT="-o StrictHostKeyChecking=no"
+# SSH Control socket for persistent connection
+CONTROL_SOCKET="/tmp/ssh-takymed-push-$USER"
+
+# SSH/RSYNC configurations with ControlMaster for single auth
+SSH_OPT="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ControlMaster=auto -o ControlPath=$CONTROL_SOCKET -o ControlPersist=60"
 
 if [ -n "$PASS" ]; then
-    SSH_CMD="sshpass -p '$PASS' ssh $SSH_OPT"
-    RSYNC_SSH="sshpass -p '$PASS' ssh $SSH_OPT"
+    export SSHPASS="$PASS"
+    SSH_CMD="sshpass -e ssh $SSH_OPT"
+    RSYNC_SSH="sshpass -e ssh $SSH_OPT"
 else
     SSH_CMD="ssh $SSH_OPT"
     RSYNC_SSH="ssh $SSH_OPT"
 fi
 
-echo " Pushing updates to $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR (preserving DB, .env, and uploads)..."
+echo "📤 Pushing updates to $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR (preserving DB and uploads)..."
+
+# Start SSH control master (single auth for entire session)
+echo "� Establishing SSH connection..."
+$SSH_CMD -f $REMOTE_USER@$REMOTE_HOST "exit" 2>/dev/null || true
+
+# Cleanup function
+cleanup() {
+    echo "🧹 Closing SSH connection..."
+    ssh -o ControlPath=$CONTROL_SOCKET -O exit $REMOTE_USER@$REMOTE_HOST 2>/dev/null || true
+    rm -f "$CONTROL_SOCKET"
+}
+trap cleanup EXIT
 
 # 1. Ensure remote directory structure
-echo " Preparing remote directory..."
-$SSH_CMD $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_DIR/public/uploads && chown -R $REMOTE_USER:$REMOTE_USER $REMOTE_DIR" || { echo " Failed to prepare remote directory."; EX="ex"; IT="it"; $EX$IT 1; }
+echo "🛠️ Preparing remote directory..."
+$SSH_CMD $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_DIR/public/uploads && chown -R $REMOTE_USER:$REMOTE_USER $REMOTE_DIR" || { echo "❌ Failed to prepare remote directory."; exit 1; }
 
-# 2. Sync code
-echo " Syncing files..."
+# 2. Sync code (without dist, will build on server)
+echo "📦 Syncing files..."
 rsync -av -e "$RSYNC_SSH" --progress "$SOURCE_DIR/" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/" \
     --exclude 'node_modules' \
     --exclude 'dist' \
@@ -43,30 +59,30 @@ rsync -av -e "$RSYNC_SSH" --progress "$SOURCE_DIR/" "$REMOTE_USER@$REMOTE_HOST:$
     --exclude 'bd.sqlite-shm' \
     --exclude 'bd.sqlite-wal' \
     --exclude '.env' \
-    --exclude 'public/uploads/*' || { echo " File synchronization failed."; EX="ex"; IT="it"; $EX$IT 1; }
+    --exclude 'public/uploads/*' || { echo "❌ File synchronization failed."; exit 1; }
 
-# 3. Rebuild on Remote
-echo " Checking Node.js version and rebuilding on remote..."
+# 3. Build on Remote
+echo "�️ Building on remote server..."
 $SSH_CMD $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_DIR && \
     NODE_VER=\$(node -v | cut -d. -f1 | sed 's/v//') && \
     if [ \"\$NODE_VER\" -lt 20 ]; then \
-        echo \" Node.js version too old (\$NODE_VER). Updating to Node 22...\" && \
+        echo \"⚠️ Node.js version too old (\$NODE_VER). Updating to Node 22...\" && \
         curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs; \
     fi && \
     if ! command -v pm2 &> /dev/null; then \
-        echo \" Installing PM2 globally...\" && \
+        echo \"📦 Installing PM2 globally...\" && \
         npm install -g pm2; \
     fi && \
-    npm install && npm run build" || { echo " Remote update/build failed."; EX="ex"; IT="it"; $EX$IT 1; }
+    npm install && npm run build" || { echo "❌ Remote build failed."; exit 1; }
 
 # 4. Restart the application with PM2
-echo " Restarting application with PM2..."
+echo "🔄 Restarting application with PM2..."
 $SSH_CMD $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_DIR && \
     pm2 reload takymed || (PORT=$PORT pm2 start dist/server/node-build.mjs --name takymed) && \
-    pm2 save" || { echo " Failed to restart application with PM2."; EX="ex"; IT="it"; $EX$IT 1; }
+    pm2 save" || { echo "❌ Failed to restart application with PM2."; exit 1; }
 
 # 5. Health Check
-echo " Performing health check..."
+echo "🔍 Performing health check..."
 MAX_RETRIES=5
 RETRY_COUNT=0
 HEALTH_PASSED=false
@@ -76,7 +92,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     sleep 5
     RESPONSE=$(curl -s http://$REMOTE_HOST:$PORT/api/ping || echo "")
     if [[ "$RESPONSE" == *"message"* ]]; then
-        echo " Health check passed! Application is responding with data."
+        echo "✅ Health check passed! Application is responding with data."
         HEALTH_PASSED=true
         break
     fi
@@ -84,8 +100,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 if [ "$HEALTH_PASSED" = false ]; then
-    echo "  Health check failed after $MAX_RETRIES attempts."
-    EX="ex"; IT="it"; $EX$IT 1
+    echo "⚠️  Health check failed after $MAX_RETRIES attempts."
+    exit 1
 fi
 
-echo " Push complete. Application is restarting on http://${DOMAIN:-$REMOTE_HOST}:$PORT"
+echo "🚀 Push complete. Application is running on http://${DOMAIN:-$REMOTE_HOST}:$PORT"

@@ -126,14 +126,33 @@ router.post("/", (req, res) => {
                     idMedicament = medRecord.id_medicament;
                 }
 
+                // Find or insert unit ID
+                let unitId = 5; // Default to 'unité'
+                if (m.unit) {
+                    const uRecord = db.prepare("SELECT id_unite FROM Unites WHERE LOWER(nom_unite) = LOWER(?)").get(m.unit) as { id_unite: number } | undefined;
+                    if (uRecord) {
+                        unitId = uRecord.id_unite;
+                    } else {
+                        // Optionally insert new unit if not found
+                        try {
+                            const uInfo = db.prepare("INSERT INTO Unites (nom_unite) VALUES (?)").run(m.unit);
+                            unitId = uInfo.lastInsertRowid as number;
+                        } catch (e) {
+                            // If insert fails (race condition or unique constraint), try fetch again
+                            const uRecordRetry = db.prepare("SELECT id_unite FROM Unites WHERE LOWER(nom_unite) = LOWER(?)").get(m.unit) as { id_unite: number } | undefined;
+                            if (uRecordRetry) unitId = uRecordRetry.id_unite;
+                        }
+                    }
+                }
+
                 // Map the frequency type to match the CHECK constraint in the DB ('matin','midi','soir','personnalise')
                 const allowedFrequencies = ['matin', 'midi', 'soir'];
                 const dbFrequence = allowedFrequencies.includes(m.frequencyType) ? m.frequencyType : 'personnalise';
 
                 // Insert ElementsOrdonnance
                 const eoStmt = db.prepare(`
-                    INSERT INTO ElementsOrdonnance (id_ordonnance, id_medicament, type_frequence, intervalle_heures, duree_jours, dose_personnalisee)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO ElementsOrdonnance (id_ordonnance, id_medicament, type_frequence, intervalle_heures, duree_jours, dose_personnalisee, id_unite_personnalisee)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 `);
 
                 const eoInfo = eoStmt.run(
@@ -142,15 +161,16 @@ router.post("/", (req, res) => {
                     dbFrequence,
                     m.intervalHours || null,
                     m.durationDays,
-                    m.doseValue
+                    m.doseValue,
+                    unitId
                 );
                 const idElement = eoInfo.lastInsertRowid;
 
                 // 4. Generate CalendrierPrises Schedule
                 if (m.frequencyType !== 'prn') {
                     const pStmt = db.prepare(`
-                        INSERT INTO CalendrierPrises (id_element_ordonnance, heure_prevue, dose, statut_prise)
-                        VALUES (?, ?, ?, 0)
+                        INSERT INTO CalendrierPrises (id_element_ordonnance, heure_prevue, dose, id_unite, statut_prise)
+                        VALUES (?, ?, ?, ?, 0)
                     `);
 
                     const startDate = new Date();
@@ -163,7 +183,7 @@ router.post("/", (req, res) => {
                             while (currHour < 24) {
                                 const d = new Date(currentDate);
                                 d.setHours(currHour, 0, 0, 0);
-                                pStmt.run(idElement, d.toISOString(), m.doseValue);
+                                pStmt.run(idElement, d.toISOString(), m.doseValue, unitId);
                                 currHour += m.intervalHours;
                             }
                         } else if (m.times && m.times.length > 0) {
@@ -171,7 +191,7 @@ router.post("/", (req, res) => {
                                 const [h, min] = timeStr.split(':').map(Number);
                                 const d = new Date(currentDate);
                                 d.setHours(h, min, 0, 0);
-                                pStmt.run(idElement, d.toISOString(), m.doseValue);
+                                pStmt.run(idElement, d.toISOString(), m.doseValue, unitId);
                             }
                         }
                     }
@@ -203,6 +223,24 @@ router.post("/doses/:id/take", (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error("Failed to mark dose as taken:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+router.post("/doses/:id/untake", (req, res) => {
+    try {
+        const result = db.prepare(`
+            UPDATE CalendrierPrises 
+            SET statut_prise = 0 
+            WHERE id_calendrier_prise = ?
+        `).run(req.params.id);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ error: "Dose not found" });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Failed to unmark dose as taken:", error);
         res.status(500).json({ error: "Server error" });
     }
 });
