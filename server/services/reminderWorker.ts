@@ -4,79 +4,143 @@ import { notificationProvider } from "../services/notificationProvider";
 // Intervalle de vérification des rappels (5 secondes)
 const REMINDER_CHECK_INTERVAL = 5 * 1000;
 
-// Générer le message de rappel (supporte plusieurs médicaments)
+// Flag pour éviter les exécutions concurrentes
+let isChecking = false;
+
+// Générer le message de rappel (supporte plusieurs médicaments à la même heure)
 function generateCombinedReminderMessage(patientName: string, items: any[]): string {
-  const medsList = items.map(item => `- ${item.dose} ${item.nom_unite || 'unité'}(s) de ${item.med_name}`).join("\n");
-  return `🔔 TAKYMED : Rappel pour ${patientName}.\nIl est temps de prendre :\n${medsList}\nBonne santé !`;
+  if (items.length === 0) return "";
+  
+  // Dédupliquer les items physiques par id_calendrier_prise
+  const uniqueItemsMap = new Map();
+  items.forEach(item => {
+    if (!uniqueItemsMap.has(item.id_calendrier_prise)) {
+      uniqueItemsMap.set(item.id_calendrier_prise, item);
+    }
+  });
+  const uniqueItems = Array.from(uniqueItemsMap.values());
+
+  const firstItem = uniqueItems[0];
+  const scheduledTime = new Date(firstItem.heure_prevue);
+  
+  const hour = scheduledTime.getHours();
+  const greeting = (hour >= 18 || hour < 6) ? "Bonsoir" : "Bonjour";
+  const timeStr = scheduledTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+  
+  // Grouper par nom de médicament pour éviter les répétitions (ex: "doliprane : 1" x 4 -> "doliprane : 4")
+  const groupedMeds = new Map<string, { dose: number, unite: string }>();
+  uniqueItems.forEach(item => {
+    const key = item.med_name;
+    const current = groupedMeds.get(key) || { dose: 0, unite: item.nom_unite || "" };
+    
+    // Essayer de parser la dose en nombre
+    const doseNum = parseFloat(String(item.dose).replace(',', '.'));
+    if (!isNaN(doseNum)) {
+      current.dose += doseNum;
+    } else {
+      // Si ce n'est pas un nombre, on concatène ou on ignore? 
+      // Pour l'instant on garde la première valeur si non numérique
+      if (current.dose === 0) (current as any).rawDose = item.dose;
+    }
+    groupedMeds.set(key, current);
+  });
+
+  const medsList = Array.from(groupedMeds.entries()).map(([name, info]) => {
+    const doseDisplay = (info as any).rawDose || info.dose;
+    return `${name} : ${doseDisplay} ${info.unite}`.trim();
+  }).join("\n");
+  
+  return `${greeting} MR/Mme ${patientName} ; c'est l'heure de prendre vos médicaments de ${timeStr} :\n${medsList}`;
 }
 
 /**
- * Exemples de messages proposés à l'utilisateur :
- * 1. Standard : "Bonjour [Nom], c'est l'heure de vos médicaments : [Liste]. Prenez soin de vous !"
- * 2. Empathique : "Petit rappel santé pour [Nom] : il est temps pour [Liste]. N'oubliez pas de boire un verre d'eau !"
- * 3. Professionnel : "TAKYMED : Rappel de prise pour [Patient]. Médicaments : [Liste]. Heure : [Heure]."
+ * Worker de rappels
  */
+let workerTimeout: NodeJS.Timeout | null = null;
 
-// Worker de rappels
 export function startReminderWorker() {
-  console.log("🚀 Starting reminder worker (5s interval)...");
+  if (workerTimeout) {
+    console.log("ℹ️ Reminder worker already running.");
+    return;
+  }
 
-  setInterval(async () => {
+  console.log("🚀 Starting reminder worker (5s interval)...");
+  
+  const runWorker = async () => {
     try {
       await checkAndSendReminders();
-    } catch (error) {
-      console.error("Reminder worker error:", error);
+    } catch (err) {
+      console.error("Error in reminder worker loop:", err);
     }
-  }, REMINDER_CHECK_INTERVAL);
+    workerTimeout = setTimeout(runWorker, REMINDER_CHECK_INTERVAL);
+  };
+
+  runWorker();
 }
 
 async function checkAndSendReminders() {
-  // Trouver les rappels dus (non envoyés, dans les 5 prochaines minutes)
-  const dueReminders = db.prepare(`
-    SELECT
-      cp.id_calendrier_prise,
-      cp.heure_prevue,
-      cp.dose,
-      u.nom_unite,
-      m.nom as med_name,
-      o.nom_patient,
-      pnu.valeur_contact,
-      cn.nom_canal,
-      u2.numero_telephone,
-      u2.id_utilisateur
-    FROM CalendrierPrises cp
-    JOIN ElementsOrdonnance eo ON cp.id_element_ordonnance = eo.id_element_ordonnance
-    JOIN Ordonnances o ON eo.id_ordonnance = o.id_ordonnance
-    JOIN Medicaments m ON eo.id_medicament = m.id_medicament
-    JOIN Unites u ON cp.id_unite = u.id_unite
-    JOIN Utilisateurs u2 ON o.id_utilisateur = u2.id_utilisateur
-    LEFT JOIN PreferencesNotificationUtilisateurs pnu ON u2.id_utilisateur = pnu.id_utilisateur
-    LEFT JOIN CanauxNotification cn ON pnu.id_canal = cn.id_canal
-    WHERE cp.rappel_envoye = 0
-      AND cp.heure_prevue <= datetime('now', '+5 minutes')
-      AND cp.heure_prevue > datetime('now', '-1 hour')
-      AND (pnu.est_active = 1 OR pnu.est_active IS NULL)
-      AND o.est_active = 1
-  `).all() as any[];
+  if (isChecking) return;
+  
+  isChecking = true;
+  try {
+    const now = new Date();
+    const plus5Str = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
+    const minus1HourStr = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
 
-  if (dueReminders.length === 0) return;
+    const dueReminders = db.prepare(`
+      SELECT
+        cp.id_calendrier_prise,
+        cp.heure_prevue,
+        cp.dose,
+        u.nom_unite,
+        m.nom as med_name,
+        o.nom_patient,
+        pnu.valeur_contact,
+        cn.nom_canal,
+        u2.numero_telephone,
+        u2.id_utilisateur
+      FROM CalendrierPrises cp
+      JOIN ElementsOrdonnance eo ON cp.id_element_ordonnance = eo.id_element_ordonnance
+      JOIN Ordonnances o ON eo.id_ordonnance = o.id_ordonnance
+      JOIN Medicaments m ON eo.id_medicament = m.id_medicament
+      JOIN Unites u ON cp.id_unite = u.id_unite
+      JOIN Utilisateurs u2 ON o.id_utilisateur = u2.id_utilisateur
+      LEFT JOIN PreferencesNotificationUtilisateurs pnu ON u2.id_utilisateur = pnu.id_utilisateur
+      LEFT JOIN CanauxNotification cn ON pnu.id_canal = cn.id_canal
+      WHERE cp.rappel_envoye = 0
+        AND cp.heure_prevue <= ?
+        AND cp.heure_prevue >= ?
+        AND (pnu.est_active = 1 OR pnu.est_active IS NULL)
+        AND o.est_active = 1
+    `).all(plus5Str, minus1HourStr) as any[];
 
-  // Grouper par contact (numéro de téléphone)
-  const groups: Record<string, any[]> = {};
-  dueReminders.forEach(r => {
-    const contact = r.valeur_contact || r.numero_telephone;
-    if (!groups[contact]) groups[contact] = [];
-    groups[contact].push(r);
-  });
-
-  console.log(`📋 Found ${dueReminders.length} reminders for ${Object.keys(groups).length} recipients`);
-
-  for (const [contact, items] of Object.entries(groups)) {
-    try {
-      await sendCombinedReminders(contact, items);
-    } catch (error) {
-      console.error(`Failed to send combined reminders to ${contact}:`, error);
+    if (dueReminders.length === 0) {
+      if (now.getSeconds() < 10) { 
+         // console.log(`⏱️ Reminder worker checking...`);
+      }
+      return;
     }
+
+    const groups: Record<string, any[]> = {};
+    dueReminders.forEach(r => {
+      const contact = r.valeur_contact || r.numero_telephone;
+      const key = `${contact}_${r.nom_patient}_${r.heure_prevue}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    });
+
+    for (const [key, items] of Object.entries(groups)) {
+      const contact = items[0].valeur_contact || items[0].numero_telephone;
+      try {
+        await sendCombinedReminders(contact, items);
+      } catch (error) {
+        console.error(`Failed to send combined reminders to ${contact}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("Critical error in reminder worker:", error);
+  } finally {
+    isChecking = false;
   }
 }
 
@@ -86,25 +150,18 @@ async function sendCombinedReminders(contact: string, items: any[]) {
   const userId = items[0].id_utilisateur;
   const message = generateCombinedReminderMessage(patientName, items);
 
-  console.log(`📤 Sending ${channel} to ${contact} (Combined ${items.length} items)`);
+  const ids = items.map(i => i.id_calendrier_prise);
+  const placeholders = ids.map(() => '?').join(',');
 
-  // Créer le job de notification
+  // Marquage immédiat comme envoyé (optimiste) pour éviter les doublons par d'autres instances/runs
+  db.prepare(`UPDATE CalendrierPrises SET rappel_envoye = 1 WHERE id_calendrier_prise IN (${placeholders})`).run(...ids);
+
+  console.log(`📤 Sending ${channel} to ${contact} (${items.length} items grouped)`);
+
   const jobId = db.prepare(`
-    INSERT INTO NotificationJobs (
-      id_utilisateur,
-      channel,
-      message,
-      contact_value,
-      scheduled_at,
-      status
-    ) VALUES (?, ?, ?, ?, ?, 'processing')
-  `).run(
-    userId,
-    channel,
-    message,
-    contact,
-    new Date().toISOString()
-  ).lastInsertRowid as number;
+    INSERT INTO NotificationJobs (id_utilisateur, channel, message, contact_value, scheduled_at, status)
+    VALUES (?, ?, ?, ?, ?, 'processing')
+  `).run(userId, channel, message, contact, new Date().toISOString()).lastInsertRowid as number;
 
   let result;
   try {
@@ -119,42 +176,20 @@ async function sendCombinedReminders(contact: string, items: any[]) {
     result = { success: false, error: error.message };
   }
 
-  // Mettre à jour le job
-  db.prepare(`
-    UPDATE NotificationJobs
-    SET status = ?, processed_at = datetime('now')
-    WHERE id_job = ?
-  `).run(result.success ? 'sent' : 'failed', jobId);
+  // Mettre à jour le job et les logs
+  db.prepare(`UPDATE NotificationJobs SET status = ?, processed_at = datetime('now') WHERE id_job = ?`).run(result.success ? 'sent' : 'failed', jobId);
 
-  // Loguer
   const providerName = (notificationProvider.constructor.name.includes('Orange') ? 'orange' : 'mock');
   db.prepare(`
-    INSERT INTO NotificationLogs (
-      id_job, provider, channel, to_contact, message, status, error_message, provider_message_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    jobId,
-    providerName,
-    channel,
-    contact,
-    message,
-    result.success ? "sent" : "failed",
-    result.error,
-    result.messageId
-  );
+    INSERT INTO NotificationLogs (id_job, provider, channel, to_contact, message, status, error_message, provider_message_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(jobId, providerName, channel, contact, message, result.success ? "sent" : "failed", result.error, result.messageId);
 
-  if (result.success) {
-    // Marquer TOUS les rappels du groupe comme envoyés
-    const placeholders = items.map(() => '?').join(',');
-    const ids = items.map(i => i.id_calendrier_prise);
-    db.prepare(`
-      UPDATE CalendrierPrises
-      SET rappel_envoye = 1
-      WHERE id_calendrier_prise IN (${placeholders})
-    `).run(...ids);
-
-    console.log(`✅ Reminders sent for ${patientName} (${items.length} meds)`);
+  if (!result.success) {
+    // Revenir à 0 si échec pour permettre un retry
+    db.prepare(`UPDATE CalendrierPrises SET rappel_envoye = 0 WHERE id_calendrier_prise IN (${placeholders})`).run(...ids);
+    console.log(`❌ Failed: ${result.error}`);
   } else {
-    console.log(`❌ Failed to send reminders for ${patientName}: ${result.error}`);
+    console.log(`✅ Sent to ${patientName}`);
   }
 }

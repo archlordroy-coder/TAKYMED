@@ -75,7 +75,10 @@ export default function InteractionsManagement() {
         try {
             const res = await fetch('/api/medications/interactions', {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "x-user-id": user?.id.toString() || ""
+                },
                 body: JSON.stringify(newInteraction)
             });
             if (res.ok) {

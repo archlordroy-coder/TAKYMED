@@ -87,17 +87,23 @@ router.get("/", (req, res) => {
 
 // Create a new prescription
 router.post("/", (req, res) => {
-    const { userId, title, weight, categorieAge, medications, notifConfig } = req.body;
+    const { userId, title, weight, categorieAge, medications, notifConfig, startDate } = req.body;
     if (!userId) return res.status(400).json({ error: "User ID required" });
+
+    // Header validation (consistent with Dashboard)
+    const headerUserId = req.headers['x-user-id'];
+    if (headerUserId && headerUserId.toString() !== userId.toString()) {
+        return res.status(403).json({ error: "User ID mismatch" });
+    }
 
     try {
         const insertTransaction = db.transaction(() => {
             // 1. Create Ordonnance
             const ordStmt = db.prepare(`
-                INSERT INTO Ordonnances (id_utilisateur, titre, nom_patient, poids_patient, categorie_age, date_ordonnance) 
-                VALUES (?, ?, ?, ?, ?, CURRENT_DATE)
+                INSERT INTO Ordonnances (id_utilisateur, titre, nom_patient, poids_patient, categorie_age, date_ordonnance, date_debut) 
+                VALUES (?, ?, ?, ?, ?, CURRENT_DATE, ?)
             `);
-            const ordInfo = ordStmt.run(userId, title, title, weight || 0, categorieAge || 'adulte');
+            const ordInfo = ordStmt.run(userId, title, title, weight || 0, categorieAge || 'adulte', startDate || null);
             const idOrdonnance = ordInfo.lastInsertRowid;
 
             // 2. Save Notification Preferences
@@ -173,10 +179,20 @@ router.post("/", (req, res) => {
                         VALUES (?, ?, ?, ?, 0)
                     `);
 
-                    const startDate = new Date();
-                    for (let day = 0; day < m.durationDays; day++) {
-                        const currentDate = new Date(startDate);
-                        currentDate.setDate(startDate.getDate() + day);
+                    // Use the startDate from the request if provided, otherwise default to today
+                    let baseDate: Date;
+                    if (startDate && typeof startDate === 'string') {
+                        // Parse YYYY-MM-DD safely as local date (noon to avoid TZ issues)
+                        const [y, mm, dd] = startDate.split('-').map(Number);
+                        baseDate = new Date(y, mm - 1, dd, 12, 0, 0);
+                    } else {
+                        baseDate = new Date();
+                        baseDate.setHours(12, 0, 0, 0);
+                    }
+
+                    for (let dayOffset = 0; dayOffset < m.durationDays; dayOffset++) {
+                        const currentDate = new Date(baseDate);
+                        currentDate.setDate(baseDate.getDate() + dayOffset);
 
                         if (m.frequencyType === 'interval' && m.intervalHours) {
                             let currHour = 8; // Start at 8 AM

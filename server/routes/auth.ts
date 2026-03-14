@@ -7,13 +7,15 @@ const router = Router();
 const typeMap: Record<string, string> = {
   standard: "Standard",
   professional: "Professionnel",
+  pro: "Professionnel",
   pharmacist: "Professionnel",
+  pharmacy: "Professionnel",
   admin: "Administrateur",
 };
 
 const reverseTypeMap: Record<
   string,
-  "standard" | "professional" | "pharmacist" | "admin"
+  "standard" | "professional" | "admin"
 > = {
   Standard: "standard",
   Professionnel: "professional",
@@ -55,7 +57,7 @@ router.post("/register", async (req, res) => {
   const { phone, type } = req.body;
 
   try {
-    const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
+    const normalizedPhone = typeof phone === "string" ? phone.replace(/\s+/g, '') : "";
     if (!normalizedPhone) {
       return res.status(400).json({ error: "Phone is required" });
     }
@@ -119,7 +121,7 @@ router.post("/register", async (req, res) => {
 
     res.status(201).json({ success: true });
   } catch (error) {
-    console.error("Register error:", error);
+    console.error("❌ Register error for phone:", phone, error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -207,7 +209,7 @@ router.post("/login", async (req, res) => {
   const { phone, type, pin } = req.body;
 
   try {
-    const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
+    const normalizedPhone = typeof phone === "string" ? phone.replace(/\s+/g, '') : "";
     if (!normalizedPhone) {
       return res.status(400).json({ error: "Le numéro de téléphone est requis" });
     }
@@ -218,51 +220,22 @@ router.post("/login", async (req, res) => {
 
     let user: any;
     let frontendType: "standard" | "professional" | "pharmacist" | "admin" = "standard";
-    let typeRecord: { id_type_compte: number; nom_type: string } | undefined;
 
-    if (type) {
-      const dbType = typeMap[type] || "Standard";
-      typeRecord = db
-        .prepare(
-          "SELECT id_type_compte, nom_type FROM TypesComptes WHERE nom_type = ?",
-        )
-        .get(dbType) as
-        | { id_type_compte: number; nom_type: string }
-        | undefined;
+    // Find user by phone first to be flexible with account type changes
+    user = db
+      .prepare(
+        `
+          SELECT u.*, p.nom_complet, tc.nom_type
+          FROM Utilisateurs u
+          LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur
+          JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte
+          WHERE u.numero_telephone = ?
+        `,
+      )
+      .get(normalizedPhone);
 
-      if (!typeRecord) {
-        return res.status(400).json({ error: "Type de compte invalide" });
-      }
-
-      frontendType = reverseTypeMap[typeRecord.nom_type] || "standard";
-
-      user = db
-        .prepare(
-          `
-            SELECT u.*, p.nom_complet, tc.nom_type
-            FROM Utilisateurs u
-            LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur
-            JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte
-            WHERE u.numero_telephone = ? AND u.id_type_compte = ?
-          `,
-        )
-        .get(normalizedPhone, typeRecord.id_type_compte);
-    } else {
-      user = db
-        .prepare(
-          `
-            SELECT u.*, p.nom_complet, tc.nom_type
-            FROM Utilisateurs u
-            LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur
-            JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte
-            WHERE u.numero_telephone = ?
-          `,
-        )
-        .get(normalizedPhone);
-
-      if (user?.nom_type) {
-        frontendType = reverseTypeMap[user.nom_type] || "standard";
-      }
+    if (user?.nom_type) {
+      frontendType = reverseTypeMap[user.nom_type] || "standard";
     }
 
     // Special case for admin login (development/fallback)
@@ -293,6 +266,13 @@ router.post("/login", async (req, res) => {
     }
 
     if (!user) {
+      // Check if user exists but with different type
+      if (normalizedPhone) {
+        const anyUser = db.prepare("SELECT tc.nom_type FROM Utilisateurs u JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte WHERE u.numero_telephone = ?").get(normalizedPhone) as { nom_type: string } | undefined;
+        if (anyUser) {
+          return res.status(401).json({ error: `Ce numéro est associé à un compte ${anyUser.nom_type}. Veuillez vous connecter avec le bon type.` });
+        }
+      }
       return res.status(401).json({ error: "Aucun compte trouvé avec ce numéro. Veuillez vous inscrire d'abord." });
     }
 
@@ -331,10 +311,6 @@ router.post("/login", async (req, res) => {
 
     // Validate PIN
     if (!user.pin_hash || pin !== user.pin_hash) {
-      console.log("🔍 PIN Debug:");
-      console.log("  Sent PIN:", pin, "Type:", typeof pin, "Length:", pin.length);
-      console.log("  Stored PIN:", user.pin_hash, "Type:", typeof user.pin_hash, "Length:", user.pin_hash?.length);
-      console.log("  User ID:", user.id_utilisateur);
       return res.status(401).json({ error: "PIN incorrect" });
     }
 

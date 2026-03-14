@@ -288,7 +288,6 @@ export default function AdminDashboard() {
         const typeMap: Record<string, number> = {
             'Standard': 1,
             'Professionnel': 2,
-            'Pharmacien': 3,
             'Administrateur': 4,
         };
         setChangingTypeUserId(userId);
@@ -741,8 +740,7 @@ export default function AdminDashboard() {
                                                         onChange={e => setNewUser({ ...newUser, type: e.target.value })}
                                                     >
                                                         <option value="standard">Standard (Patient)</option>
-                                                        <option value="professionnel">Professionnel de santé</option>
-                                                        <option value="pharmacien">Pharmacien</option>
+                                                        <option value="professionnel">Professionnel / Pharmacien</option>
                                                         <option value="administrateur">Administrateur</option>
                                                     </select>
                                                 </div>
@@ -800,8 +798,7 @@ export default function AdminDashboard() {
                                                         "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
                                                         u.type === 'Standard' ? "text-blue-600 bg-blue-50" :
                                                             u.type === 'Professionnel' ? "text-emerald-600 bg-emerald-50" :
-                                                                u.type === 'Pharmacien' ? "text-amber-600 bg-amber-50" :
-                                                                    "text-violet-600 bg-violet-50"
+                                                                "text-violet-600 bg-violet-50"
                                                     )}>
                                                         {u.type}
                                                     </span>
@@ -1413,8 +1410,7 @@ export default function AdminDashboard() {
                                 onChange={e => setSelectedTypeId(Number(e.target.value))}
                             >
                                 <option value={1}>Standard (Patient)</option>
-                                <option value={2}>Professionnel de santé</option>
-                                <option value={3}>Pharmacien</option>
+                                <option value={2}>Professionnel / Pharmacien</option>
                                 <option value={4}>Administrateur</option>
                             </select>
                         </div>

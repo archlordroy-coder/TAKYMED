@@ -15,7 +15,7 @@ const sqlScriptPath = path.join(projectRoot, "bd.sql");
 
 // Create or open the database
 export const db = new Database(dbPath, {
-    verbose: console.log
+    verbose: process.env.DEBUG_SQL === 'true' ? console.log : undefined
 });
 
 // Enable modern SQLite features for better performance and safety
@@ -99,6 +99,20 @@ export function initializeDatabase() {
         if (!hasConsiderePoids) {
             console.log("Adding considere_poids column to CategoriesAge...");
             db.exec("ALTER TABLE CategoriesAge ADD COLUMN considere_poids BOOLEAN DEFAULT 0");
+        }
+
+        // Migration: Add PIN expiration columns to Utilisateurs
+        const userColumns = db.prepare("PRAGMA table_info(Utilisateurs)").all() as { name: string }[];
+        const hasPinExpiresAt = userColumns.some(c => c.name === 'pin_expires_at');
+        const hasPinUpdatedAt = userColumns.some(c => c.name === 'pin_updated_at');
+
+        if (!hasPinExpiresAt) {
+            console.log("Adding pin_expires_at column to Utilisateurs...");
+            db.exec("ALTER TABLE Utilisateurs ADD COLUMN pin_expires_at DATETIME");
+        }
+        if (!hasPinUpdatedAt) {
+            console.log("Adding pin_updated_at column to Utilisateurs...");
+            db.exec("ALTER TABLE Utilisateurs ADD COLUMN pin_updated_at DATETIME");
         }
 
         const catAgeCount = db.prepare("SELECT COUNT(*) as count FROM CategoriesAge").get() as { count: number };
@@ -188,21 +202,71 @@ export function initializeDatabase() {
             db.exec("UPDATE Ordonnances SET date_debut = date_ordonnance WHERE date_debut IS NULL");
         }
 
-        // Phase 9: Admin Account Initialization
-        const adminType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get();
-        if (!adminType) {
-            console.log("Adding 'Administrateur' account type...");
-            db.prepare("INSERT INTO TypesComptes (nom_type, description, max_ordonnances_actives, limite_notifications, necessite_paiement, max_pharmacies) VALUES (?, ?, ?, ?, ?, ?)")
-                .run('Administrateur', 'Accès complet au système', null, null, 0, null);
+        // Migration: ensure TypesComptes has correct column names and no duplicates
+        const tcCols = db.prepare("PRAGMA table_info(TypesComptes)").all() as { name: string }[];
+        const hasOldOrdonnances = tcCols.some(c => c.name === 'max_ordonnances_actives');
+        const hasNewOrdonnances = tcCols.some(c => c.name === 'max_ordonnances');
+        const hasOldRappels = tcCols.some(c => c.name === 'limite_notifications');
+        const hasNewRappels = tcCols.some(c => c.name === 'max_rappels');
+
+        if (hasOldOrdonnances && !hasNewOrdonnances) {
+            console.log("Renaming max_ordonnances_actives to max_ordonnances...");
+            db.exec("ALTER TABLE TypesComptes RENAME COLUMN max_ordonnances_actives TO max_ordonnances");
+        } else if (hasOldOrdonnances && hasNewOrdonnances) {
+            console.log("Cleaning up redundant max_ordonnances_actives...");
+            try { db.exec("ALTER TABLE TypesComptes DROP COLUMN max_ordonnances_actives"); } catch(e) {}
+        } else if (!hasNewOrdonnances) {
+            console.log("Adding max_ordonnances column to TypesComptes...");
+            db.exec("ALTER TABLE TypesComptes ADD COLUMN max_ordonnances INT DEFAULT -1");
         }
 
-        // Migration: Update Professionnel to have max_pharmacies = 5 (Pro accounts can manage pharmacies)
-        const proTypeForMigration = db.prepare("SELECT id_type_compte, max_pharmacies FROM TypesComptes WHERE nom_type = 'Professionnel'").get() as { id_type_compte: number; max_pharmacies: number | null } | undefined;
-        if (proTypeForMigration && proTypeForMigration.max_pharmacies === null) {
-            console.log("Updating Professionnel account type to allow pharmacy management (max 5)...");
-            db.prepare("UPDATE TypesComptes SET max_pharmacies = 5, description = 'Compte Pro avancé' WHERE nom_type = 'Professionnel'").run();
+        if (hasOldRappels && !hasNewRappels) {
+            console.log("Renaming limite_notifications to max_rappels...");
+            db.exec("ALTER TABLE TypesComptes RENAME COLUMN limite_notifications TO max_rappels");
+        } else if (hasOldRappels && hasNewRappels) {
+            console.log("Cleaning up redundant limite_notifications...");
+            try { db.exec("ALTER TABLE TypesComptes DROP COLUMN limite_notifications"); } catch(e) {}
+        } else if (!hasNewRappels) {
+            console.log("Adding max_rappels column to TypesComptes...");
+            db.exec("ALTER TABLE TypesComptes ADD COLUMN max_rappels INT DEFAULT -1");
         }
 
+        // Migrate existing Pharmacien users to Professionnel (ID 3 -> ID 2)
+        // This must happen BEFORE ensuring default types to avoid UNIQUE name conflicts
+        try {
+            // If ID 3 exists, move users to ID 2
+            db.prepare("UPDATE Utilisateurs SET id_type_compte = 2 WHERE id_type_compte = 3").run();
+            // Delete ID 3
+            db.prepare("DELETE FROM TypesComptes WHERE id_type_compte = 3").run();
+        } catch (e) {
+            // Ignore errors if table is being migrated or column doesn't exist yet
+        }
+
+        // Ensure default account types exist with consistent values
+        const typesToEnsure = [
+            { id: 1, name: 'Standard', desc: 'Compte Standard gratuit', ordo: 1, rappels: 3, pay: 0, pharmacies: null },
+            { id: 2, name: 'Professionnel', desc: 'Compte Pro / Pharmacien (Gestion de pharmacies et ordonnances)', ordo: -1, rappels: -1, pay: 1, pharmacies: 10 },
+            { id: 4, name: 'Administrateur', desc: 'Accès complet au système', ordo: -1, rappels: -1, pay: 0, pharmacies: null }
+        ];
+
+        for (const t of typesToEnsure) {
+            // First, ensure no other ID has the name we want (to avoid UNIQUE conflict)
+            db.prepare("UPDATE TypesComptes SET nom_type = nom_type || '_old' WHERE nom_type = ? AND id_type_compte <> ?").run(t.name, t.id);
+
+            db.prepare(`
+                INSERT INTO TypesComptes (id_type_compte, nom_type, description, max_ordonnances, max_rappels, necessite_paiement, max_pharmacies)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id_type_compte) DO UPDATE SET
+                    nom_type = excluded.nom_type,
+                    description = excluded.description,
+                    max_ordonnances = excluded.max_ordonnances,
+                    max_rappels = excluded.max_rappels,
+                    necessite_paiement = excluded.necessite_paiement,
+                    max_pharmacies = excluded.max_pharmacies
+            `).run(t.id, t.name, t.desc, t.ordo, t.rappels, t.pay, t.pharmacies);
+        }
+
+        // Create test users for Professional and Pharmacist accounts
         const getAdminTypeId = () => db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Administrateur'").get() as { id_type_compte: number };
         const adminPhone = process.env.ADMIN_PHONE || 'admin';
         const adminPin = process.env.ADMIN_PIN || 'admin';
@@ -217,10 +281,6 @@ export function initializeDatabase() {
             db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
                 .run(info.lastInsertRowid, 'Administrateur Système');
         }
-
-        // Create test users for Professional and Pharmacist accounts
-        const proType = db.prepare("SELECT id_type_compte FROM TypesComptes WHERE nom_type = 'Professionnel'").get() as { id_type_compte: number };
-
 
         // Create UpgradeRequests table for account upgrade requests
         db.exec(`
@@ -248,26 +308,6 @@ export function initializeDatabase() {
                     FOREIGN KEY (id_type_compte) REFERENCES TypesComptes(id_type_compte) ON DELETE CASCADE
                 )
             `);
-
-        // Migration: ensure TypesComptes has correct column names
-        const tcCols = db.prepare("PRAGMA table_info(TypesComptes)").all() as { name: string }[];
-        if (!tcCols.some(c => c.name === 'max_ordonnances')) {
-            console.log("Migrating TypesComptes columns...");
-            const hasOldOrdonnances = tcCols.some(c => c.name === 'max_ordonnances_actives');
-            const hasOldRappels = tcCols.some(c => c.name === 'limite_notifications');
-
-            if (hasOldOrdonnances) {
-                db.exec("ALTER TABLE TypesComptes RENAME COLUMN max_ordonnances_actives TO max_ordonnances");
-            } else {
-                db.exec("ALTER TABLE TypesComptes ADD COLUMN max_ordonnances INT");
-            }
-
-            if (hasOldRappels) {
-                db.exec("ALTER TABLE TypesComptes RENAME COLUMN limite_notifications TO max_rappels");
-            } else {
-                db.exec("ALTER TABLE TypesComptes ADD COLUMN max_rappels INT");
-            }
-        }
 
         // Create Paiements table for payment tracking
         db.exec(`

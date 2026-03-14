@@ -8,6 +8,7 @@ import {
   Plus,
   Trash2,
   ArrowRight,
+  AlertTriangle,
   CheckCircle2,
   Bell,
   Table,
@@ -43,7 +44,12 @@ export default function Prescription() {
     name: user?.name || "",
     categorieAge: "adulte",
     weight: 0,
-    startDate: new Date().toISOString().split('T')[0]
+    startDate: (function() {
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${now.getFullYear()}-${month}-${day}`;
+    })()
   });
 
   const [categories, setCategories] = useState<{ id: number, name: string, description: string, considerWeight: boolean }[]>([]);
@@ -78,7 +84,10 @@ export default function Prescription() {
     if (customDates[day]) return customDates[day];
     const baseDate = new Date(patient.startDate);
     baseDate.setDate(baseDate.getDate() + day - 1);
-    return baseDate.toISOString().split('T')[0];
+    const resDate = new Date(baseDate);
+    const month = String(resDate.getMonth() + 1).padStart(2, '0');
+    const dayOfMonth = String(resDate.getDate()).padStart(2, '0');
+    return `${resDate.getFullYear()}-${month}-${dayOfMonth}`;
   };
 
   // Format date as dd/mm/yy
@@ -105,6 +114,7 @@ export default function Prescription() {
   };
 
   const [dbMedications, setDbMedications] = useState<{ id: number, name: string }[]>([]);
+  const [interactions, setInteractions] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchMeds() {
@@ -116,6 +126,18 @@ export default function Prescription() {
         }
       } catch (err) {
         console.error("Erreur lors du chargement des médicaments:", err);
+      }
+    }
+
+    async function fetchInteractions() {
+      try {
+        const res = await fetch('/api/medications/interactions');
+        if (res.ok) {
+          const data = await res.json();
+          setInteractions(data.interactions);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des interactions:", err);
       }
     }
 
@@ -148,6 +170,7 @@ export default function Prescription() {
     }
 
     fetchMeds();
+    fetchInteractions();
     fetchCategories();
     fetchCountries();
   }, []);
@@ -238,6 +261,22 @@ export default function Prescription() {
     }
   };
 
+  const detectedInteractions = useMemo(() => {
+    const clashes: any[] = [];
+    const names = medications.map(m => m.name.toLowerCase()).filter(Boolean);
+    
+    interactions.forEach(inter => {
+      const m1 = inter.med1Name.toLowerCase();
+      const m2 = inter.med2Name.toLowerCase();
+      
+      if (names.includes(m1) && names.includes(m2)) {
+        clashes.push(inter);
+      }
+    });
+
+    return clashes;
+  }, [medications, interactions]);
+
   return (
     <div className="bg-slate-50 min-h-screen pb-20">
       <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
@@ -310,6 +349,32 @@ export default function Prescription() {
                 </div>
               </div>
             </div>
+
+            {/* Interactions Warning */}
+            {detectedInteractions.length > 0 && (
+              <div className="space-y-3 animate-in fade-in zoom-in duration-300">
+                {detectedInteractions.map((inter, idx) => (
+                  <div key={idx} className={cn(
+                    "p-4 rounded-3xl border flex items-start gap-4 shadow-sm",
+                    inter.riskLevel === 'critique' ? "bg-red-50 border-red-200 text-red-900" :
+                    inter.riskLevel === 'eleve' ? "bg-orange-50 border-orange-200 text-orange-900" :
+                    "bg-amber-50 border-amber-200 text-amber-900"
+                  )}>
+                    <AlertTriangle className="w-6 h-6 shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="font-bold flex items-center gap-2">
+                         Risque d'Incompatibilité : {inter.med1Name} & {inter.med2Name}
+                         <span className={cn(
+                           "px-2 py-0.5 rounded-full text-[10px] uppercase font-black",
+                           inter.riskLevel === 'critique' ? "bg-red-600 text-white" : "bg-orange-500 text-white"
+                         )}>{inter.riskLevel}</span>
+                      </h4>
+                      <p className="text-sm opacity-80 mt-1">{inter.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Medications List */}
             <div className="space-y-4">
@@ -666,19 +731,23 @@ export default function Prescription() {
                     setIsSubmitting(true);
                     try {
                       // 1. Save to DB
-                      const res = await fetch("/api/prescriptions", {
+                       const res = await fetch("/api/prescriptions", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { 
+                           "Content-Type": "application/json",
+                           "x-user-id": user.id.toString()
+                        },
                         body: JSON.stringify({
-                          userId: user.id,
-                          title: patient.title,
-                          weight: patient.weight,
-                          categorieAge: patient.categorieAge,
-                          medications: medications.map(m => ({
-                            ...m,
-                            name: m.name
-                          })),
-                          notifConfig
+                           userId: user.id,
+                           title: patient.title,
+                           weight: patient.weight,
+                           categorieAge: patient.categorieAge,
+                           startDate: patient.startDate,
+                           medications: medications.map(m => ({
+                             ...m,
+                             name: m.name
+                           })),
+                           notifConfig
                         })
                       });
 

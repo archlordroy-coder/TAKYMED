@@ -212,11 +212,11 @@ router.delete("/users/:id", (req, res) => {
 router.post("/users", (req, res) => {
     const { email, phone, password, type, name } = req.body;
     try {
-        const typeIdStr = String(type).toLowerCase();
+        const typeStr = String(type).toLowerCase();
         let typeId = 1; // "standard"
-        if (typeIdStr === "professionnel") typeId = 2;
-        if (typeIdStr === "pharmacien") typeId = 3;
-        if (typeIdStr === "administrateur") typeId = 4;
+        if (typeStr === "professionnel" || typeStr === "professional" || typeStr === "pharmacien" || typeStr === "pharmacist") typeId = 2;
+        if (typeStr === "administrateur" || typeStr === "admin") typeId = 4;
+        // Migration: Pharmacien (3) is now merged into Professionnel (2)
 
         db.transaction(() => {
             const insertUser = db.prepare(`

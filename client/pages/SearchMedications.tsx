@@ -41,6 +41,7 @@ export default function SearchMedications() {
   const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [medications, setMedications] = useState<any[]>([]);
+  const [interactions, setInteractions] = useState<any[]>([]);
   const [selectedMed, setSelectedMed] = useState<any | null>(null);
   const [pharmaciesWithStock, setPharmaciesWithStock] = useState<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -49,11 +50,25 @@ export default function SearchMedications() {
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const navigate = useNavigate();
 
-  // Load bookmarks
+  // Load bookmarks and interactions
   useEffect(() => {
     const saved = localStorage.getItem("med_bookmarks");
     if (saved) setBookmarks(JSON.parse(saved));
+    
+    fetchInteractions();
   }, []);
+
+  const fetchInteractions = async () => {
+    try {
+      const res = await fetch('/api/medications/interactions');
+      if (res.ok) {
+        const data = await res.json();
+        setInteractions(data.interactions);
+      }
+    } catch (err) {
+      console.error("Error fetching interactions:", err);
+    }
+  };
 
   const toggleBookmark = (id: number) => {
     const newBookmarks = bookmarks.includes(id)
@@ -91,6 +106,14 @@ export default function SearchMedications() {
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
+
+  // Filter interactions for current med
+  const relevantInteractions = selectedMed 
+    ? interactions.filter(i => 
+        i.med1Name.toLowerCase() === selectedMed.name.toLowerCase() || 
+        i.med2Name.toLowerCase() === selectedMed.name.toLowerCase()
+      )
+    : [];
 
   // Fetch pharmacies when a medication is selected
   useEffect(() => {
@@ -260,14 +283,52 @@ export default function SearchMedications() {
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-amber-600 font-bold">
                           <AlertTriangle className="w-5 h-5" />
-                          <span>Précautions</span>
+                          <span>Précautions & Incompatibilités</span>
                         </div>
-                        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-sm text-amber-800">
-                          {selectedMed.precautions || "Aucune précaution spécifique enregistrée."}
-                          <div className="mt-2 font-bold opacity-80">
-                            {selectedMed.mode && `Mode: ${selectedMed.mode}`}
-                            {selectedMed.moment && ` • Moment: ${selectedMed.moment}`}
-                          </div>
+                        <div className="space-y-3">
+                          {((selectedMed.precautions && selectedMed.precautions !== 'aucune') || (!relevantInteractions.length)) && (
+                            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-sm text-amber-800">
+                              <span className="font-bold opacity-60 block mb-1">RECOMMANDATIONS :</span>
+                              {selectedMed.precautions && selectedMed.precautions !== 'aucune' 
+                                ? selectedMed.precautions 
+                                : "Aucune précaution spécifique enregistrée."
+                              }
+                              <div className="mt-2 font-bold opacity-80">
+                                {selectedMed.mode && `Mode: ${selectedMed.mode}`}
+                                {selectedMed.moment && selectedMed.moment !== 'indifferent' && ` • Moment: ${selectedMed.moment}`}
+                              </div>
+                            </div>
+                          )}
+
+                          {relevantInteractions.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="text-xs font-bold text-destructive uppercase tracking-wider ml-1">Incompatibilités détectées :</span>
+                              {relevantInteractions.map((inter, idx) => {
+                                const otherMed = inter.med1Name.toLowerCase() === selectedMed.name.toLowerCase() ? inter.med2Name : inter.med1Name;
+                                return (
+                                  <div key={idx} className={cn(
+                                    "p-4 rounded-2xl border flex gap-3",
+                                    inter.riskLevel === 'critique' ? "bg-red-50 border-red-100 text-red-900" :
+                                    inter.riskLevel === 'eleve' ? "bg-orange-50 border-orange-100 text-orange-900" :
+                                    "bg-amber-50 border-amber-100 text-amber-900"
+                                  )}>
+                                    <AlertTriangle className="w-5 h-5 shrink-0" />
+                                    <div>
+                                      <p className="font-bold">Ne pas mélanger avec : {otherMed}</p>
+                                      <p className="text-xs opacity-80 mt-1">{inter.description}</p>
+                                      <div className={cn(
+                                        "inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-black uppercase",
+                                        inter.riskLevel === 'critique' ? "bg-red-600 text-white" : 
+                                        inter.riskLevel === 'eleve' ? "bg-orange-500 text-white" : "bg-amber-500 text-white"
+                                      )}>
+                                        Risque {inter.riskLevel}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

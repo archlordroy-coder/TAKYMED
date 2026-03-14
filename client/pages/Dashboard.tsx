@@ -406,13 +406,15 @@ function CalendarView({ doses, isLoading, onToggleMed, user, patients }: {
    const dosesByDate = new Map<string, DoseSchedule[]>();
    filteredDoses.forEach((dose) => {
       if (!dose.scheduledAt) return;
-      const dateKey = new Date(dose.scheduledAt).toISOString().slice(0, 10);
+      const d = new Date(dose.scheduledAt);
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const current = dosesByDate.get(dateKey) ?? [];
       current.push(dose);
       dosesByDate.set(dateKey, current);
    });
 
-   const selectedKey = new Date(currentYear, currentMonth, selectedDate).toISOString().slice(0, 10);
+   const dSel = new Date(currentYear, currentMonth, selectedDate);
+   const selectedKey = `${dSel.getFullYear()}-${String(dSel.getMonth() + 1).padStart(2, '0')}-${String(dSel.getDate()).padStart(2, '0')}`;
    const selectedDoses = dosesByDate.get(selectedKey) ?? [];
    const takenCount = selectedDoses.filter((d) => d.statusTaken).length;
    const pendingCount = selectedDoses.length - takenCount;
@@ -506,7 +508,8 @@ function CalendarView({ doses, isLoading, onToggleMed, user, patients }: {
                      if (day === null) return <div key={`empty-${idx}`} />;
                      const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
                      const isSelected = day === selectedDate;
-                     const dayKey = new Date(currentYear, currentMonth, day).toISOString().slice(0, 10);
+                     const dCel = new Date(currentYear, currentMonth, day);
+                     const dayKey = `${dCel.getFullYear()}-${String(dCel.getMonth() + 1).padStart(2, '0')}-${String(dCel.getDate()).padStart(2, '0')}`;
                      const dayDoses = dosesByDate.get(dayKey) ?? [];
                      const hasDoses = dayDoses.length > 0;
 
@@ -726,8 +729,13 @@ function DashboardSecurityCard({ user }: { user: any }) {
    useEffect(() => {
       // Fetch PIN expiration info
       const fetchPinInfo = async () => {
+         if (!user?.id) return;
          try {
-            const res = await fetch('/api/auth/pin-info');
+            const res = await fetch('/api/auth/pin-info', {
+               headers: {
+                  'x-user-id': user.id.toString()
+               }
+            });
             if (res.ok) {
                const data = await res.json();
                setPinExpiresAt(data.expiresAt);
@@ -737,7 +745,7 @@ function DashboardSecurityCard({ user }: { user: any }) {
          }
       };
       fetchPinInfo();
-   }, []);
+   }, [user?.id]);
 
    const handleRegeneratePin = async () => {
       if (!confirm('Êtes-vous sûr de vouloir régénérer votre PIN ? Un nouveau PIN de 6 chiffres vous sera envoyé par SMS.')) {
@@ -748,7 +756,10 @@ function DashboardSecurityCard({ user }: { user: any }) {
       try {
          const res = await fetch('/api/auth/regenerate-pin', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+               'Content-Type': 'application/json',
+               'x-user-id': user.id.toString()
+            },
          });
 
          if (res.ok) {
