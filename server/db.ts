@@ -47,6 +47,19 @@ export function initializeDatabase() {
             db.exec("ALTER TABLE Medicaments ADD COLUMN prix VARCHAR(50)");
         }
 
+        // Create InteractionsMedicaments table if missing
+        db.exec(`
+                CREATE TABLE IF NOT EXISTS InteractionsMedicaments (
+                    id_interaction INTEGER PRIMARY KEY AUTOINCREMENT,
+                    medicament_source INT NOT NULL,
+                    medicament_interdit INT NOT NULL,
+                    niveau_risque VARCHAR(20) DEFAULT 'modere',
+                    description TEXT,
+                    FOREIGN KEY (medicament_source) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE,
+                    FOREIGN KEY (medicament_interdit) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE
+                )
+            `);
+
         // Check for missing columns in Pharmacies (Migration)
         const pharmacyColumns = db.prepare("PRAGMA table_info(Pharmacies)").all() as { name: string }[];
         const hasLat = pharmacyColumns.some(c => c.name === 'latitude');
@@ -322,6 +335,17 @@ export function initializeDatabase() {
                     FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE
                 )
             `);
+
+        // Migration for Reminder Worker Reliability (tentatives_rappel and dernier_essai)
+        const cpColumns = db.prepare("PRAGMA table_info(CalendrierPrises)").all() as { name: string }[];
+        if (!cpColumns.some(c => c.name === 'tentatives_rappel')) {
+            console.log("Adding tentatives_rappel column to CalendrierPrises...");
+            db.exec("ALTER TABLE CalendrierPrises ADD COLUMN tentatives_rappel INTEGER DEFAULT 0");
+        }
+        if (!cpColumns.some(c => c.name === 'dernier_essai')) {
+            console.log("Adding dernier_essai column to CalendrierPrises...");
+            db.exec("ALTER TABLE CalendrierPrises ADD COLUMN dernier_essai DATETIME");
+        }
     } catch (error) {
         console.error("Failed to initialize database:", error);
         throw error;

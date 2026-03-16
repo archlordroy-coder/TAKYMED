@@ -163,14 +163,19 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                       ))}
                     </SelectContent>
                   </Select>
-                  <div className="relative flex-1">
+                    <div className="relative flex-1">
                     <Smartphone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="phone"
                       type="tel"
                       placeholder="6XXXXXXXX"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || /^[0-9]+$/.test(val) || val === "admin") {
+                          setPhone(val);
+                        }
+                      }}
                       className="pl-10 h-11 rounded-xl w-full"
                       required
                     />

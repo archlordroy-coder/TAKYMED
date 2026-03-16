@@ -719,7 +719,12 @@ export default function AdminDashboard() {
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <label className={labelClass}>Téléphone</label>
-                                                    <Input className={cn(inputClass, "w-auto min-w-[15ch]")} size={15} placeholder="+225..." value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} />
+                                                    <Input className={cn(inputClass, "w-auto min-w-[15ch]")} size={15} placeholder="+225..." value={newUser.phone} onChange={e => {
+                                                        const val = e.target.value;
+                                                        if (val === "" || /^[0-9+]+$/.test(val)) {
+                                                            setNewUser({ ...newUser, phone: val });
+                                                        }
+                                                    }} />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <label className={labelClass}>Email</label>

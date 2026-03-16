@@ -351,7 +351,12 @@ export default function PharmacyManagement() {
                       required
                       size={15}
                       value={newPharmacy.phone}
-                      onChange={e => setNewPharmacy({ ...newPharmacy, phone: e.target.value })}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === "" || /^[0-9+]+$/.test(val)) {
+                          setNewPharmacy({ ...newPharmacy, phone: val });
+                        }
+                      }}
                       className="rounded-xl h-10 w-auto min-w-[15ch]"
                     />
                   </div>

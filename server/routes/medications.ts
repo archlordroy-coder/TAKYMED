@@ -31,7 +31,20 @@ router.get("/", (req, res) => {
             sql += ` WHERE ` + whereClauses.join(" AND ");
         }
 
-        const medications = db.prepare(sql + " ORDER BY nom ASC").all(...params);
+        let medications = db.prepare(sql + " ORDER BY nom ASC").all(...params);
+        
+        // Fallback: If "new" was requested but none found, return the most recent 5
+        if (isNewOnly && medications.length === 0) {
+            medications = db.prepare(`
+                SELECT id_medicament as id, nom as name, description, photo_url as photoUrl, 
+                       prix as price, date_ajout as dateAdded, type_utilisation as type, 
+                       precaution_alimentaire as precautions
+                FROM Medicaments
+                ORDER BY date_ajout DESC
+                LIMIT 5
+            `).all();
+        }
+
         res.json({ medications });
     } catch (error) {
         console.error("Failed to fetch medications:", error);

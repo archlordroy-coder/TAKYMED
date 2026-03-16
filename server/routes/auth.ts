@@ -33,8 +33,8 @@ router.get("/account-types", (_req, res) => {
             tc.description as description,
             tc.necessite_paiement as requiresPayment,
             tc.max_pharmacies as maxPharmacies,
-            tc.max_ordonnances_actives as maxOrdonnances,
-            tc.limite_notifications as maxNotifications,
+            tc.max_ordonnances as maxOrdonnances,
+            tc.max_rappels as maxNotifications,
             COALESCE(f.montant, 0) as price,
             COALESCE(f.devise, 'FCFA') as currency
           FROM TypesComptes tc
@@ -140,7 +140,7 @@ router.get("/pin-info", async (req, res) => {
       .get(userId as string) as { pin_expires_at: string | null } | undefined;
 
     if (!user) {
-      return res.status(404).json({ error: "Utilisateur non trouvé" });
+      return res.status(401).json({ error: "Session invalide ou utilisateur non trouvé. Veuillez vous reconnecter." });
     }
 
     res.json({

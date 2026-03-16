@@ -381,7 +381,15 @@ router.put("/medications/:id", (req, res) => {
 // Delete all medications
 router.delete("/medications/all", (req, res) => {
     try {
-        db.prepare("DELETE FROM Medicaments").run();
+        db.transaction(() => {
+            // Delete dependent records first to avoid FK constraint issues
+            db.prepare("DELETE FROM StockMedicamentsPharmacie").run();
+            db.prepare("DELETE FROM PosologieDefautMedicaments").run();
+            db.prepare("DELETE FROM InteractionsMedicaments").run();
+            db.prepare("DELETE FROM ElementsOrdonnance").run();
+            // Finally delete all medications
+            db.prepare("DELETE FROM Medicaments").run();
+        })();
         res.json({ success: true, message: "Tous les médicaments ont été supprimés." });
     } catch (error) {
         console.error("Failed to delete all medications:", error);

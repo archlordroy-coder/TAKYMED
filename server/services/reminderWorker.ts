@@ -1,8 +1,8 @@
 import { db } from "../db";
 import { notificationProvider } from "../services/notificationProvider";
 
-// Intervalle de vérification des rappels (5 secondes)
-const REMINDER_CHECK_INTERVAL = 5 * 1000;
+// Intervalle de vérification des rappels (30 secondes)
+const REMINDER_CHECK_INTERVAL = 30 * 1000;
 
 // Flag pour éviter les exécutions concurrentes
 let isChecking = false;
@@ -38,8 +38,7 @@ function generateCombinedReminderMessage(patientName: string, items: any[]): str
     if (!isNaN(doseNum)) {
       current.dose += doseNum;
     } else {
-      // Si ce n'est pas un nombre, on concatène ou on ignore? 
-      // Pour l'instant on garde la première valeur si non numérique
+      // Si ce n'est pas un nombre, on garde la première valeur si non numérique
       if (current.dose === 0) (current as any).rawDose = item.dose;
     }
     groupedMeds.set(key, current);
@@ -64,7 +63,7 @@ export function startReminderWorker() {
     return;
   }
 
-  console.log("🚀 Starting reminder worker (5s interval)...");
+  console.log("🚀 Starting reminder worker (30s interval)...");
   
   const runWorker = async () => {
     try {
@@ -84,8 +83,14 @@ async function checkAndSendReminders() {
   isChecking = true;
   try {
     const now = new Date();
-    const plus5Str = new Date(now.getTime() + 5 * 60 * 1000).toISOString();
-    const minus1HourStr = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+    // On cherche les rappels dus (fenêtre large pour rattrapage) 
+    // qui n'ont pas encore été envoyés ET qui ont moins de 3 tentatives
+    // ET dont le dernier essai remonte à plus de 5 minutes (pour éviter le spam en cas d'erreur)
+    // Compenser le décalage horaire (Serveur UTC vs Client Cameroun UTC+1)
+    // On regarde 65 minutes dans le futur (1h + 5min de marge)
+    const plus65Str = new Date(now.getTime() + 65 * 60 * 1000).toISOString();
+    const minus24HoursStr = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const retryCooldownStr = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
 
     const dueReminders = db.prepare(`
       SELECT
@@ -98,7 +103,8 @@ async function checkAndSendReminders() {
         pnu.valeur_contact,
         cn.nom_canal,
         u2.numero_telephone,
-        u2.id_utilisateur
+        u2.id_utilisateur,
+        cp.tentatives_rappel
       FROM CalendrierPrises cp
       JOIN ElementsOrdonnance eo ON cp.id_element_ordonnance = eo.id_element_ordonnance
       JOIN Ordonnances o ON eo.id_ordonnance = o.id_ordonnance
@@ -108,22 +114,22 @@ async function checkAndSendReminders() {
       LEFT JOIN PreferencesNotificationUtilisateurs pnu ON u2.id_utilisateur = pnu.id_utilisateur
       LEFT JOIN CanauxNotification cn ON pnu.id_canal = cn.id_canal
       WHERE cp.rappel_envoye = 0
+        AND cp.tentatives_rappel < 3
+        AND (cp.dernier_essai IS NULL OR cp.dernier_essai <= ?)
         AND cp.heure_prevue <= ?
         AND cp.heure_prevue >= ?
         AND (pnu.est_active = 1 OR pnu.est_active IS NULL)
         AND o.est_active = 1
-    `).all(plus5Str, minus1HourStr) as any[];
+    `).all(retryCooldownStr, plus65Str, minus24HoursStr) as any[];
 
     if (dueReminders.length === 0) {
-      if (now.getSeconds() < 10) { 
-         // console.log(`⏱️ Reminder worker checking...`);
-      }
       return;
     }
 
     const groups: Record<string, any[]> = {};
     dueReminders.forEach(r => {
       const contact = r.valeur_contact || r.numero_telephone;
+      // On groupe par contact, patient et heure prévue pour envoyer un seul message groupé
       const key = `${contact}_${r.nom_patient}_${r.heure_prevue}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(r);
@@ -153,10 +159,17 @@ async function sendCombinedReminders(contact: string, items: any[]) {
   const ids = items.map(i => i.id_calendrier_prise);
   const placeholders = ids.map(() => '?').join(',');
 
-  // Marquage immédiat comme envoyé (optimiste) pour éviter les doublons par d'autres instances/runs
-  db.prepare(`UPDATE CalendrierPrises SET rappel_envoye = 1 WHERE id_calendrier_prise IN (${placeholders})`).run(...ids);
+  // Marquage immédiat comme envoyé (optimiste) pour éviter les doublons/boucles infinies
+  // comme demandé par l'utilisateur ("si il en envoi une celle ci est automatiquement consider comme envoyé")
+  db.prepare(`
+    UPDATE CalendrierPrises 
+    SET tentatives_rappel = tentatives_rappel + 1,
+        dernier_essai = datetime('now'),
+        rappel_envoye = 1
+    WHERE id_calendrier_prise IN (${placeholders})
+  `).run(...ids);
 
-  console.log(`📤 Sending ${channel} to ${contact} (${items.length} items grouped)`);
+  console.log(`📤 [Attempt] Sending ${channel} to ${contact} (${items.length} items grouped)`);
 
   const jobId = db.prepare(`
     INSERT INTO NotificationJobs (id_utilisateur, channel, message, contact_value, scheduled_at, status)
@@ -180,15 +193,18 @@ async function sendCombinedReminders(contact: string, items: any[]) {
   db.prepare(`UPDATE NotificationJobs SET status = ?, processed_at = datetime('now') WHERE id_job = ?`).run(result.success ? 'sent' : 'failed', jobId);
 
   const providerName = (notificationProvider.constructor.name.includes('Orange') ? 'orange' : 'mock');
-  db.prepare(`
-    INSERT INTO NotificationLogs (id_job, provider, channel, to_contact, message, status, error_message, provider_message_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(jobId, providerName, channel, contact, message, result.success ? "sent" : "failed", result.error, result.messageId);
+  try {
+    db.prepare(`
+        INSERT INTO NotificationLogs (id_job, provider, channel, to_contact, message, status, error_message, provider_message_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(jobId, providerName, channel, contact, message, result.success ? "sent" : "failed", result.error, result.messageId || null);
+  } catch (logError) {
+      console.error("Failed to insert notification log:", logError);
+  }
 
   if (!result.success) {
-    // Revenir à 0 si échec pour permettre un retry
-    db.prepare(`UPDATE CalendrierPrises SET rappel_envoye = 0 WHERE id_calendrier_prise IN (${placeholders})`).run(...ids);
     console.log(`❌ Failed: ${result.error}`);
+    // Note: on ne repasse pas rappel_envoye à 0 pour respecter la consigne de l'utilisateur
   } else {
     console.log(`✅ Sent to ${patientName}`);
   }

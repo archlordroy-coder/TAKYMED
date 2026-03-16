@@ -251,7 +251,12 @@ export default function Checkout() {
                       placeholder="6XX XXX XXX"
                       size={15}
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || /^[0-9+]+$/.test(val)) {
+                          setPhoneNumber(val);
+                        }
+                      }}
                       className="pl-12 h-14 rounded-2xl text-2xl font-mono tracking-widest bg-white border-slate-200 focus-visible:ring-primary w-auto min-w-[15ch] flex-1"
                       maxLength={15}
                     />

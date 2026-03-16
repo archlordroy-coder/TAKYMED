@@ -38,20 +38,24 @@ router.get("/", (req, res) => {
 
         const doses = db.prepare(query).all(...params);
 
-        const mappedDoses = doses.map((d: any) => ({
-            id: d.id,
-            medicationId: d.medicationId,
-            medicationName: d.medicationName,
-            clientName: d.clientName || 'Patient',
-            patientId: d.patientId,
-            dose: d.dose,
-            unit: "unité",
-            scheduledAt: d.time,
-            time: new Date(d.time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            day: new Date(d.time).getDate(),
-            statusReminderSent: !!d.statusReminderSent,
-            statusTaken: !!d.statusTaken
-        }));
+        const mappedDoses = doses.map((d: any) => {
+            const dateObj = new Date(d.time);
+            const isValidDate = !isNaN(dateObj.getTime());
+            return {
+                id: d.id,
+                medicationId: d.medicationId,
+                medicationName: d.medicationName,
+                clientName: d.clientName || 'Patient',
+                patientId: d.patientId,
+                dose: d.dose,
+                unit: d.unit || "unité",
+                scheduledAt: d.time,
+                time: isValidDate ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : "--:--",
+                day: isValidDate ? dateObj.getDate() : 1,
+                statusReminderSent: !!d.statusReminderSent,
+                statusTaken: !!d.statusTaken
+            };
+        });
 
         // Fetch unique patients/prescriptions for the user
         // Only include patients that have active prescriptions with pending doses

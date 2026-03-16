@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXISTS ElementsOrdonnance (
     id_unite_personnalisee INT,
     instructions_speciales TEXT,
     FOREIGN KEY (id_ordonnance) REFERENCES Ordonnances(id_ordonnance) ON DELETE CASCADE,
-    FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament),
+    FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE,
     FOREIGN KEY (id_unite_personnalisee) REFERENCES Unites(id_unite)
 );
 -- ===============================
@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS StockMedicamentsPharmacie (
     quantite INT DEFAULT 0,
     UNIQUE(id_pharmacie, id_medicament),
     FOREIGN KEY (id_pharmacie) REFERENCES Pharmacies(id_pharmacie) ON DELETE CASCADE,
-    FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament)
+    FOREIGN KEY (id_medicament) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE
 );
 -- ===============================
 -- OTP REQUESTS
@@ -294,4 +294,16 @@ CREATE TABLE IF NOT EXISTS UpgradeRequests (
     processed_by INTEGER,
     FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE,
     FOREIGN KEY (processed_by) REFERENCES Utilisateurs(id_utilisateur)
+);
+-- ===============================
+-- INTERACTIONS MEDICAMENTEUZES
+-- ===============================
+CREATE TABLE IF NOT EXISTS InteractionsMedicaments (
+    id_interaction INTEGER PRIMARY KEY AUTOINCREMENT,
+    medicament_source INT NOT NULL,
+    medicament_interdit INT NOT NULL,
+    niveau_risque VARCHAR(20) DEFAULT 'modere',
+    description TEXT,
+    FOREIGN KEY (medicament_source) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE,
+    FOREIGN KEY (medicament_interdit) REFERENCES Medicaments(id_medicament) ON DELETE CASCADE
 );

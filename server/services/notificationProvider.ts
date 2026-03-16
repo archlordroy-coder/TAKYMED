@@ -41,6 +41,26 @@ class OrangeSMSProvider implements NotificationProvider {
     return this.accessToken;
   }
 
+  private formatPhone(phone: string): string {
+    let cleaned = phone.replace(/[^\d+]/g, "");
+    
+    // Si c'est un numéro local à 9 chiffres (Cameroun), ajouter le préfixe +237
+    if (cleaned.length === 9 && !cleaned.startsWith("+")) {
+        cleaned = "+237" + cleaned;
+    }
+    // Si le numéro commence par un chiffre (et n'est pas déjà préfixé), ajouter +
+    else if (!cleaned.startsWith("+")) {
+        cleaned = "+" + cleaned;
+    }
+    
+    // S'assurer qu'il n'y a qu'un seul + au début
+    if (cleaned.startsWith("++")) {
+        cleaned = cleaned.substring(1);
+    }
+
+    return `tel:${cleaned}`;
+  }
+
   async sendSMS(to: string, message: string) {
     try {
       console.log(`[Orange SMS] Début envoi vers ${to}`);
@@ -50,8 +70,8 @@ class OrangeSMSProvider implements NotificationProvider {
       const senderAddress = process.env.ORANGE_SENDER_ADDRESS || 'tel:+2250000';
       const senderName = process.env.ORANGE_SENDER_NAME || 'TAKYMED';
 
-      // Ensure 'to' is in 'tel:+xxx' format
-      const formattedTo = to.startsWith('tel:') ? to : `tel:${to.startsWith('+') ? to : '+' + to}`;
+      // Use the helper to ensure correct tel:+xxx format
+      const formattedTo = this.formatPhone(to);
       console.log(`[Orange SMS] Destinataire formaté: ${formattedTo}`);
       console.log(`[Orange SMS] Expéditeur: ${senderAddress}, Nom: ${senderName}`);
 
@@ -84,9 +104,15 @@ class OrangeSMSProvider implements NotificationProvider {
       console.log(`[Orange SMS] Status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
-        const errorData: any = await response.json();
+        const errorData: any = await response.json().catch(() => ({}));
         console.error(`[Orange SMS] Erreur API:`, JSON.stringify(errorData, null, 2));
-        return { success: false, error: JSON.stringify(errorData) };
+        
+        // Extract a more human-readable error if possible
+        const apiError = errorData.requestError?.serviceException?.text || 
+                         errorData.requestError?.policyException?.text ||
+                         JSON.stringify(errorData);
+                         
+        return { success: false, error: apiError };
       }
 
       const data: any = await response.json();
@@ -102,8 +128,8 @@ class OrangeSMSProvider implements NotificationProvider {
   }
 
   async sendWhatsApp(to: string, message: string) {
-    // Orange doesn't seem to support WhatsApp directly in this simple SMS API
-    // We fallback to SMS for now or log it
+    // Current Orange API doesn't support official WhatsApp in all regions via this simple REST API, 
+    // using SMS as fallback but marking it for the logs
     console.log(`[Orange WA Fallback] SMS to ${to}: ${message}`);
     return this.sendSMS(to, message);
   }
