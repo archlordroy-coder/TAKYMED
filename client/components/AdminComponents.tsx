@@ -202,7 +202,7 @@ interface ActivityChartProps {
 }
 
 export function ActivityChart({ data }: ActivityChartProps) {
-    const [chartData, setChartData] = useState<{ name: string; prescriptions: number; visites: number }[]>([]);
+    const [chartData, setChartData] = useState<{ name: string; prescriptions: number; inscriptions: number }[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -244,7 +244,7 @@ export function ActivityChart({ data }: ActivityChartProps) {
                         </div>
                         <div className="flex items-center gap-1.5">
                             <div className="w-3 h-3 rounded-full" style={{ background: EMERALD }} />
-                            <span className="text-xs text-slate-600 font-bold uppercase">Visites</span>
+                            <span className="text-xs text-slate-600 font-bold uppercase">Inscriptions</span>
                         </div>
                     </div>
                 </div>
@@ -274,7 +274,7 @@ export function ActivityChart({ data }: ActivityChartProps) {
                             contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}
                         />
                         <Bar dataKey="prescriptions" fill={TEAL} radius={[6, 6, 0, 0]} barSize={14} />
-                        <Bar dataKey="visites" fill={EMERALD} radius={[6, 6, 0, 0]} barSize={14} />
+                        <Bar dataKey="inscriptions" fill={EMERALD} radius={[6, 6, 0, 0]} barSize={14} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>

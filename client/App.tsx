@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { LanguageProvider } from "./context/LanguageContext";
 import { Layout } from "@/components/Layout";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -20,6 +21,9 @@ import Ads from "./pages/Ads";
 import Upgrade from "./pages/Upgrade";
 import Checkout from "./pages/Checkout";
 import Ordonnances from "./pages/Ordonnances";
+import CommercialDashboard from "./pages/CommercialDashboard";
+import CommercialRegister from "./pages/CommercialRegister";
+import ProfileSettings from "./pages/ProfileSettings";
 
 import { AdminLayout } from "@/components/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -37,6 +41,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <LanguageProvider>
       <AuthProvider>
         <Toaster />
         <Sonner />
@@ -83,6 +88,10 @@ const App = () => (
                     <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
                     <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                     <Route path="/ordonnances" element={<ProtectedRoute><Ordonnances /></ProtectedRoute>} />
+                    <Route path="/commercial" element={<ProtectedRoute><CommercialDashboard /></ProtectedRoute>} />
+                    <Route path="/commercial/dashboard" element={<ProtectedRoute><CommercialDashboard /></ProtectedRoute>} />
+                    <Route path="/commercial/register" element={<ProtectedRoute><CommercialRegister /></ProtectedRoute>} />
+                    <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
@@ -92,6 +101,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </AuthProvider>
+      </LanguageProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

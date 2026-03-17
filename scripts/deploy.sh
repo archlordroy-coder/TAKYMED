@@ -50,20 +50,12 @@ $SSH_CMD $REMOTE_USER@$REMOTE_HOST "
     if [ -f $REMOTE_DIR/.env ]; then
         cp $REMOTE_DIR/.env /tmp/takymed-env-backup
     fi
-    # Backup database if it exists
-    if [ -f $REMOTE_DIR/bd.sqlite ]; then
-        cp $REMOTE_DIR/bd.sqlite /tmp/takymed-db-backup
-    fi
     # Clean directory
     rm -rf $REMOTE_DIR/*
     mkdir -p $REMOTE_DIR/public/uploads
     # Restore .env
     if [ -f /tmp/takymed-env-backup ]; then
         mv /tmp/takymed-env-backup $REMOTE_DIR/.env
-    fi
-    # Restore database
-    if [ -f /tmp/takymed-db-backup ]; then
-        mv /tmp/takymed-db-backup $REMOTE_DIR/bd.sqlite
     fi
 " || { echo "❌ Failed to prepare remote directory."; exit 1; }
 

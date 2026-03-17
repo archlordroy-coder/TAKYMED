@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const MOCK_PHARMACIES = [
 
 export default function SearchMedications() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [medications, setMedications] = useState<any[]>([]);
   const [interactions, setInteractions] = useState<any[]>([]);
@@ -168,7 +170,7 @@ export default function SearchMedications() {
     <div className="bg-slate-50 min-h-[calc(100vh-64px)] pb-20">
       <div className="container mx-auto px-4 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold tracking-tight mb-4">Médicaments</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-4">{t('search.title')}</h1>
           <p className="text-muted-foreground max-w-lg mx-auto">
             Trouvez les informations et vérifiez la disponibilité dans les pharmacies les plus proches.
           </p>
@@ -182,7 +184,7 @@ export default function SearchMedications() {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tapez le nom d'un médicament..."
+                placeholder={t('search.searchPlaceholder')}
                 className="border-none text-xl h-14 focus-visible:ring-0 bg-transparent rounded-none"
               />
               {loading && (
@@ -379,7 +381,7 @@ export default function SearchMedications() {
                       ))}
                       {pharmaciesWithStock.length === 0 && (
                         <div className="md:col-span-2 p-12 text-center text-muted-foreground bg-slate-50 rounded-[30px] border border-dashed">
-                          Aucune pharmacie repertoriée ne possède ce médicament en stock pour le moment.
+                          {t('search.noResults')}
                         </div>
                       )}
                     </div>

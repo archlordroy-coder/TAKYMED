@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import {
    Bell,
    PlusCircle,
@@ -26,6 +27,7 @@ import { toast } from "sonner";
 
 export default function Dashboard() {
    const { user } = useAuth();
+   const { t } = useLanguage();
    const [doses, setDoses] = useState<DoseSchedule[]>([]);
    const [stats, setStats] = useState<any>(null);
    const [patients, setPatients] = useState<any[]>([]);
@@ -96,7 +98,41 @@ export default function Dashboard() {
    };
 
 
+   const handleChangeName = async () => {
+      const newName = prompt("Nouveau nom complet :", user?.name || "");
+      if (!newName || newName === user?.name) return;
+
+      try {
+         const res = await fetch('/api/auth/profile', {
+            method: 'PATCH',
+            headers: { 
+               'Content-Type': 'application/json',
+               'x-user-id': user.id.toString()
+            },
+            body: JSON.stringify({ name: newName })
+         });
+
+         if (res.ok) {
+            toast.success('Nom mis à jour !');
+            setTimeout(() => window.location.reload(), 1000);
+         } else {
+            toast.error('Erreur lors de la mise à jour');
+         }
+      } catch (error) {
+         toast.error('Erreur réseau');
+      }
+   };
+
    if (!user) return null;
+
+   // Redirect based on role
+   if (user.type?.toLowerCase() === "admin") {
+      return <Navigate to="/admin" replace />;
+   }
+   
+   if (user.type?.toLowerCase() === "commercial") {
+      return <Navigate to="/commercial" replace />;
+   }
 
    return (
       <div className="bg-slate-50 min-h-screen pb-20">
@@ -106,12 +142,21 @@ export default function Dashboard() {
                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -mr-32 -mt-32" />
                <div className="flex items-center gap-8 relative z-10">
                   <div className="flex-1">
-                     <h1 className="text-4xl font-black tracking-tighter mb-1">
-                        Bonjour, <span className="text-primary">{user.name || user.phone || user.email?.split('@')[0]}</span>
-                     </h1>
+                     <div className="flex items-center gap-3">
+                        <h1 className="text-4xl font-black tracking-tighter mb-1">
+                           {t('dashboard.hello')}, <span className="text-primary">{user.name || user.phone || user.email?.split('@')[0]}</span>
+                        </h1>
+                        <button 
+                           onClick={handleChangeName}
+                           className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-primary transition-all"
+                           title="Changer mon nom"
+                        >
+                           <ArrowRight className="w-5 h-5 rotate-45" />
+                        </button>
+                     </div>
                      <p className="text-muted-foreground flex items-center gap-2 font-medium">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        Espace <span className="text-primary font-bold capitalize">{user.type === 'professional' ? 'Pro' : user.type}</span> activé
+                        Espace <span className="text-primary font-bold capitalize">{(user.type as string) === 'professional' ? 'Pro' : (user.type as string) === 'commercial' ? 'Agent Commercial' : (user.type as string) === 'pharmacist' ? 'Pharmacien' : user.type}</span> activé
                      </p>
                   </div>
                </div>
@@ -119,42 +164,42 @@ export default function Dashboard() {
                   <Link to="/prescription" className="w-full md:w-auto">
                      <Button className="w-full rounded-2xl h-14 px-8 text-lg font-black shadow-2xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-95">
                         <PlusCircle className="w-6 h-6 mr-2" />
-                        Nouvelle Ordonnance
+                        {t('dashboard.newPrescription')}
                      </Button>
                   </Link>
                </div>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-               {user.type === 'standard' ? (
+               {(user.type as string) === 'standard' ? (
                   <div className="col-span-full bg-white rounded-3xl p-8 border shadow-sm text-center space-y-4">
                      <Crown className="w-12 h-12 text-primary mx-auto" />
-                     <h3 className="text-xl font-bold">Passez à la formule Pro</h3>
+                     <h3 className="text-xl font-bold">{t('dashboard.upgradeTitle')}</h3>
                      <p className="text-muted-foreground max-w-md mx-auto">
-                        Débloquez le suivi de l'observance, les statistiques détaillées et les rappels avancés en passant à la formule Pro.
+                        {t('dashboard.upgradeDesc')}
                      </p>
                      <Link to="/upgrade">
                         <Button variant="outline" className="rounded-xl font-bold border-primary text-primary hover:bg-primary/5">
-                           Découvrir les avantages Pro
+                           {t('dashboard.upgradeBtn')}
                         </Button>
                      </Link>
                   </div>
                ) : (
                   <>
                      <div className="bg-white rounded-3xl p-5 border shadow-sm">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Observance</p>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">{t('dashboard.adherence')}</p>
                         <p className="text-2xl font-black">{stats ? `${stats.observanceRate}%` : "0%"}</p>
                      </div>
                      <div className="bg-white rounded-3xl p-5 border shadow-sm">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Prises planifiées</p>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">{t('dashboard.plannedDoses')}</p>
                         <p className="text-2xl font-black">{stats ? stats.plannedReminders : 0}</p>
                      </div>
                      <div className="bg-white rounded-3xl p-5 border shadow-sm">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground">À prendre</p>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">{t('dashboard.toTake')}</p>
                         <p className="text-2xl font-black">{stats ? stats.activeReminders : 0}</p>
                      </div>
                      <div className="bg-white rounded-3xl p-5 border shadow-sm">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground">Pharmacies proches</p>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">{t('dashboard.nearbyPharmacies')}</p>
                         <p className="text-2xl font-black">{stats ? stats.nearbyPharmacies : 0}</p>
                      </div>
                   </>
@@ -165,11 +210,11 @@ export default function Dashboard() {
                <TabsList className="bg-white/50 backdrop-blur-sm border p-1 rounded-2xl h-14 w-full max-w-md mx-auto grid grid-cols-2 shadow-sm">
                   <TabsTrigger value="today" className="rounded-xl font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
                      <Clock className="w-4 h-4 mr-2" />
-                     {user.type === 'standard' ? "Ma Prise" : "Aujourd'hui"}
+                     {user.type === 'standard' ? "Ma Prise" : t('dashboard.today')}
                   </TabsTrigger>
                   <TabsTrigger value="calendar" className="rounded-xl font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
                      <CalendarUIIcon className="w-4 h-4 mr-2" />
-                     Calendrier
+                     {t('dashboard.calendar')}
                   </TabsTrigger>
                </TabsList>
 
@@ -179,27 +224,27 @@ export default function Dashboard() {
                      <div className="lg:col-span-1 space-y-8">
                         <h2 className="text-xl font-bold flex items-center gap-2 px-2">
                            <ArrowRight className="w-5 h-5 text-primary" />
-                           Accès Rapide
+                           {t('dashboard.quickAccess')}
                         </h2>
                         <div className="grid grid-cols-1 gap-4">
                            <DashboardActionCard
-                              title="Rappels"
-                              description="Gérez vos notifications de médicaments"
+                              title={t('dashboard.reminders')}
+                              description={t('dashboard.remindersDesc')}
                               icon={<Bell className="w-6 h-6" />}
                               link="/prescription"
                               color="bg-primary"
                            />
                            <DashboardActionCard
-                              title="Médicament"
-                              description="Trouvez une pharmacie ayant le médicament voulu"
+                              title={t('dashboard.medication')}
+                              description={t('dashboard.medicationDesc')}
                               icon={<Search className="w-6 h-6" />}
                               link="/search"
                               color="bg-secondary"
                            />
                            {user.type === 'pharmacist' && (
                               <DashboardActionCard
-                                 title="Mes Pharmacies"
-                                 description="Gérez vos officines et stocks"
+                                 title={t('dashboard.myPharmacies')}
+                                 description={t('dashboard.myPharmaciesDesc')}
                                  icon={<Store className="w-6 h-6" />}
                                  link="/pharmacy-mgmt"
                                  color="bg-slate-900"
@@ -228,14 +273,14 @@ export default function Dashboard() {
                                  <h3 className="text-2xl font-bold">
                                     {stats?.nextDose ? (
                                        <>
-                                          <span>Prochaine prise : </span>
+                                          <span>{t('dashboard.nextDose')} : </span>
                                           <span className="text-primary">{stats.nextDose.medicationName}</span>
                                           <span className="text-sm text-slate-500 font-medium block mt-1">
-                                             <span>Pour </span>{stats.nextDose.clientName}
+                                             <span>{t('dashboard.forInfo')} </span>{stats.nextDose.clientName}
                                           </span>
                                        </>
                                     ) : (
-                                       <span>Aucune prise à venir</span>
+                                       <span>{t('dashboard.noUpcoming')}</span>
                                     )}
                                  </h3>
                                  <p className="text-muted-foreground">
@@ -247,20 +292,20 @@ export default function Dashboard() {
                                     <div className="flex gap-4 justify-center md:justify-start pt-2">
                                        <Button size="sm" className="rounded-xl h-10 px-6 font-bold" onClick={() => handleToggleMedication(stats.nextDose.id, true)}>
                                           <CheckCircle2 className="w-4 h-4 mr-2" />
-                                          Marquer comme pris
+                                          {t('dashboard.markTaken')}
                                        </Button>
-                                       <Button variant="outline" size="sm" className="rounded-xl h-10 px-6" onClick={() => handleDelayMedication(stats.nextDose.id)}>Plus tard</Button>
+                                       <Button variant="outline" size="sm" className="rounded-xl h-10 px-6" onClick={() => handleDelayMedication(stats.nextDose.id)}>{t('dashboard.later')}</Button>
                                     </div>
                                  )}
                               </div>
                            </div>
-
+                           
                            {/* Stats - Pro/Admin/Pharmacist Only */}
                            {user.type !== 'standard' && (
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
-                                 <DashboardStat label="Observance" value={stats ? `${stats.observanceRate}%` : "0%"} subtext="Cette semaine" />
-                                 <DashboardStat label="Rappels actifs" value={stats ? stats.activeReminders.toString() : "0"} subtext={`Sur ${stats ? stats.plannedReminders : 0} planifiés`} />
-                                 <DashboardStat label="Pharmacies" value={stats ? stats.nearbyPharmacies.toString() : "0"} subtext="À proximité" />
+                                 <DashboardStat label={t('dashboard.adherence')} value={stats ? `${stats.observanceRate}%` : "0%"} subtext="Cette semaine" />
+                                 <DashboardStat label={t('dashboard.activeReminders')} value={stats ? stats.activeReminders.toString() : "0"} subtext={`Sur ${stats ? stats.plannedReminders : 0} planifiés`} />
+                                 <DashboardStat label={t('dashboard.nearbyPharmacies')} value={stats ? stats.nearbyPharmacies.toString() : "0"} subtext="À proximité" />
                               </div>
                            )}
 
@@ -268,7 +313,7 @@ export default function Dashboard() {
                            <div className="p-6 bg-slate-50 rounded-3xl border border-dashed flex items-start gap-4">
                               <AlertCircle className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
                               <div className="space-y-1">
-                                 <p className="font-bold">Astuce Santé</p>
+                                 <p className="font-bold">{t('dashboard.healthTip')}</p>
                                  <p className="text-sm text-muted-foreground leading-relaxed">
                                     Pensez à bien vous hydrater. Boire un grand verre d'eau facilite l'absorption de vos médicaments.
                                  </p>
@@ -283,11 +328,11 @@ export default function Dashboard() {
                            <div className="flex items-center justify-between px-2">
                               <h2 className="text-xl font-bold flex items-center gap-2">
                                  <Store className="w-5 h-5 text-primary" />
-                                 Liste Client
+                                 {t('dashboard.clientList')}
                               </h2>
                               {selectedPatientId && (
                                  <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs font-bold text-muted-foreground hover:text-primary" onClick={() => setSelectedPatientId(null)}>
-                                    Voir tous
+                                    {t('dashboard.all')}
                                  </Button>
                               )}
                            </div>
@@ -312,9 +357,9 @@ export default function Dashboard() {
                                        >
                                           <div>
                                              <h4 className={cn("font-bold text-sm transition-colors line-clamp-1", selectedPatientId === p.id ? "text-primary" : "text-slate-800 group-hover:text-primary")}>
-                                                {p.name || 'Client Inconnu'}
+                                                {p.name || t('dashboard.unknownClient')}
                                              </h4>
-                                             <p className="text-[10px] text-muted-foreground mt-1">Enregistré le {new Date(p.date).toLocaleDateString('fr-FR')}</p>
+                                             <p className="text-[10px] text-muted-foreground mt-1">{t('dashboard.registeredOn')} {new Date(p.date).toLocaleDateString('fr-FR')}</p>
                                           </div>
                                           <div className={cn(
                                              "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm",

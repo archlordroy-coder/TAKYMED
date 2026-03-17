@@ -97,7 +97,11 @@ router.post("/", (req, res) => {
     // Header validation (consistent with Dashboard)
     const headerUserId = req.headers['x-user-id'];
     if (headerUserId && headerUserId.toString() !== userId.toString()) {
-        return res.status(403).json({ error: "User ID mismatch" });
+        // Check if the requester is a commercial user who created this client
+        const client = db.prepare("SELECT id_createur FROM Utilisateurs WHERE id_utilisateur = ?").get(userId) as { id_createur: number } | undefined;
+        if (!client || client.id_createur?.toString() !== headerUserId.toString()) {
+            return res.status(403).json({ error: "User ID mismatch or unauthorized commercial link" });
+        }
     }
 
     try {

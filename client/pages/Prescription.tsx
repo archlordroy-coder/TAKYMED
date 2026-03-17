@@ -30,18 +30,27 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MedicationEntry, DoseSchedule, FrequencyType } from "@shared/api";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 
 
 export default function Prescription() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const initialClientId = searchParams.get("clientId");
+  const initialClientName = searchParams.get("clientName") || "";
+  const initialClientPhone = searchParams.get("clientPhone") || "";
+  const initialMedName = searchParams.get("med") || "";
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [patient, setPatient] = useState({
-    title: "",
-    name: user?.name || "",
+    title: initialClientName || "",
+    name: initialClientName || user?.name || "",
     categorieAge: "adulte",
     weight: 0,
     startDate: (function() {
@@ -56,9 +65,6 @@ export default function Prescription() {
   const [countries, setCountries] = useState<{ code: string, name: string, dialCode: string, flag: string }[]>([]);
   const [selectedCountry, setSelectedCountry] = useState("CM");
 
-  const [searchParams] = useSearchParams();
-  const initialMedName = searchParams.get("med") || "";
-
   const [medications, setMedications] = useState<MedicationEntry[]>([
     {
       id: "1",
@@ -72,7 +78,7 @@ export default function Prescription() {
   ]);
 
   const [notifConfig, setNotifConfig] = useState({
-    phone: user?.phone || "",
+    phone: initialClientPhone || user?.phone || "",
     type: "whatsapp" as "sms" | "whatsapp" | "call" | "push"
   });
 
@@ -287,7 +293,7 @@ export default function Prescription() {
             step >= 1 ? "bg-primary text-white" : "bg-slate-200 text-muted-foreground"
           )}>
             <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">1</div>
-            <span className="font-medium">Médicaments</span>
+            <span className="font-medium">{t('nav.medications')}</span>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
           <div className={cn(
@@ -295,7 +301,7 @@ export default function Prescription() {
             step >= 2 ? "bg-primary text-white" : "bg-slate-200 text-muted-foreground"
           )}>
             <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">2</div>
-            <span className="font-medium">Calendrier & Rappels</span>
+            <span className="font-medium">{t('prescription.reminderTimes')}</span>
           </div>
         </div>
 
@@ -305,11 +311,11 @@ export default function Prescription() {
             <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6">
               <div className="flex items-center gap-3 mb-2">
                 <Stethoscope className="w-6 h-6 text-primary" />
-                <h2 className="text-2xl font-bold">Détails de l'Ordonnance</h2>
+                <h2 className="text-2xl font-bold">{t('prescription.addPrescTitle')}</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-2 space-y-2">
-                  <Label>Nom du client</Label>
+                  <Label>{t('prescription.prescName')}</Label>
                   <Input
                     value={patient.title}
                     onChange={(e) => setPatient({ ...patient, title: e.target.value })}
@@ -317,7 +323,7 @@ export default function Prescription() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Catégorie</Label>
+                  <Label>{t('admin.categories')}</Label>
                   <select
                     title="Sélectionner la catégorie d'âge"
                     className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-base font-medium focus-visible:ring-2 ring-primary/20 outline-none"
@@ -339,7 +345,7 @@ export default function Prescription() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Date de début de la prise</Label>
+                  <Label>{t('prescription.prescDate')}</Label>
                   <Input
                     type="date"
                     value={patient.startDate}
@@ -390,10 +396,10 @@ export default function Prescription() {
                           <Pill className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500 group-hover:text-primary transition-colors" />
                           <Input
                             list={`medication-options-${m.id}`}
-                            title="Saisir un médicament"
+                            title={t('prescription.searchMeds')}
                             value={m.name}
                             onChange={(e) => updateMedication(m.id, { name: e.target.value })}
-                            placeholder="Saisir un médicament"
+                            placeholder={t('prescription.searchMeds')}
                             className="rounded-2xl h-14 pl-12 focus-visible:ring-primary text-lg"
                           />
                           <datalist id={`medication-options-${m.id}`}>
@@ -442,11 +448,11 @@ export default function Prescription() {
                         })}
                       </div>
 
-                      {m.frequencyType === '1x' && <p className="text-xs text-primary mt-2">Une fois par jour <span className="opacity-70">(matin)</span></p>}
-                      {m.frequencyType === '2x' && <p className="text-xs text-primary mt-2">Deux fois par jour <span className="opacity-70">(matin et soir)</span></p>}
-                      {m.frequencyType === '3x' && <p className="text-xs text-primary mt-2">Trois fois par jour <span className="opacity-70">(matin, midi et soir)</span></p>}
-                      {m.frequencyType === 'interval' && <p className="text-xs text-primary mt-2">Prises à intervalles réguliers</p>}
-                      {m.frequencyType === 'prn' && <p className="text-xs text-primary mt-2">En cas de besoin</p>}
+                      {m.frequencyType === '1x' && <p className="text-xs text-primary mt-2">{t('prescription.onceADay')} <span className="opacity-70">{t('prescription.morning')}</span></p>}
+                      {m.frequencyType === '2x' && <p className="text-xs text-primary mt-2">{t('prescription.twiceADay')} <span className="opacity-70">{t('prescription.morningEvening')}</span></p>}
+                      {m.frequencyType === '3x' && <p className="text-xs text-primary mt-2">{t('prescription.threeTimesADay')} <span className="opacity-70">{t('prescription.morningNoonEvening')}</span></p>}
+                      {m.frequencyType === 'interval' && <p className="text-xs text-primary mt-2">{t('prescription.regularIntervals')}</p>}
+                      {m.frequencyType === 'prn' && <p className="text-xs text-primary mt-2">{t('prescription.asNeeded')}</p>}
 
                       {/* Custom Time Selection for 1x, 2x, 3x */}
                       {(m.frequencyType === '1x' || m.frequencyType === '2x' || m.frequencyType === '3x') && (
@@ -478,9 +484,9 @@ export default function Prescription() {
                             value={m.intervalHours}
                             onChange={(e) => updateMedication(m.id, { intervalHours: parseInt(e.target.value) })}
                           >
-                            <option value={6}>Toutes les 6 heures</option>
-                            <option value={8}>Toutes les 8 heures</option>
-                            <option value={12}>Toutes les 12 heures</option>
+                            <option value={6}>{t('prescription.interval6h')}</option>
+                            <option value={8}>{t('prescription.interval8h')}</option>
+                            <option value={12}>{t('prescription.interval12h')}</option>
                           </select>
                         </div>
                       )}
@@ -489,7 +495,7 @@ export default function Prescription() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-xs uppercase">Dose</Label>
+                          <Label className="text-xs uppercase">{t('prescription.doseTab')}</Label>
                           <div className="flex items-center gap-2">
                             <Input
                               type="number"
@@ -500,7 +506,7 @@ export default function Prescription() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs uppercase">Unité</Label>
+                          <Label className="text-xs uppercase">{t('prescription.unitTab')}</Label>
                           <select
                             className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-base font-medium focus-visible:ring-1 focus-visible:ring-primary outline-none"
                             value={m.unit}
@@ -518,7 +524,7 @@ export default function Prescription() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-xs uppercase">Durée (jours)</Label>
+                          <Label className="text-xs uppercase">{t('prescription.durationDays')}</Label>
                           <Input
                             type="number"
                             value={m.durationDays}
@@ -539,12 +545,12 @@ export default function Prescription() {
                 className="rounded-xl border-emerald-500 text-emerald-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Ajouter un médicament
+                {t('prescription.addMedBtn')}
               </Button>
             </div>
             <div className="flex justify-end pt-8">
               <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNext}>
-                Suivant
+                {t('prescription.nextBtn')}
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </div>
@@ -558,14 +564,14 @@ export default function Prescription() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Table className="w-6 h-6 text-primary" />
-                  <h2 className="text-2xl font-bold">Calendrier des prises</h2>
+                  <h2 className="text-2xl font-bold">{t('prescription.scheduleTitle')}</h2>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-slate-200" /> Planifié
+                    <div className="w-3 h-3 rounded-full bg-slate-200" /> {t('prescription.planned')}
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-primary" /> Rappel envoyé
+                    <div className="w-3 h-3 rounded-full bg-primary" /> {t('prescription.reminderSent')}
                   </div>
                 </div>
               </div>
@@ -574,12 +580,12 @@ export default function Prescription() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-slate-50 text-left border-b">
-                      <th className="p-4 text-xs font-bold uppercase tracking-wider">Jour</th>
-                      <th className="p-4 text-xs font-bold uppercase tracking-wider">Médicament</th>
-                      <th className="p-4 text-xs font-bold uppercase tracking-wider">Dose</th>
-                      <th className="p-4 text-xs font-bold uppercase tracking-wider">Heure</th>
-                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-center">Rappel</th>
-                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-center">Pris</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider">{t('prescription.dayTable')}</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider">{t('prescription.medTable')}</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider">{t('prescription.doseTable')}</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider">{t('prescription.timeTable')}</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-center">{t('prescription.reminderTable')}</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-center">{t('prescription.takenTable')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -636,7 +642,7 @@ export default function Prescription() {
                   <div className="bg-primary/10 w-10 h-10 rounded-xl flex items-center justify-center text-primary">
                     <Bell className="w-5 h-5" />
                   </div>
-                  <h3 className="text-xl font-bold">Méthodes de Rappel</h3>
+                  <h3 className="text-xl font-bold">{t('prescription.reminderMethods')}</h3>
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
@@ -704,19 +710,18 @@ export default function Prescription() {
               <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex gap-3">
                 <Info className="w-5 h-5 text-primary flex-shrink-0" />
                 <p className="text-sm text-primary/80">
-                  Les doses et les heures sont pré-calculées en fonction de vos réglages.
-                  Vous pouvez modifier ces horaires individuellement dans les paramètres de notification.
+                  {t('prescription.infoPrecalculated')}
                 </p>
               </div>
             </div>
 
             <div className="flex justify-between items-center">
               <Button variant="ghost" onClick={() => setStep(1)} className="rounded-2xl h-14 px-8">
-                Retour
+                {t('prescription.backBtn')}
               </Button>
               <div className="flex gap-4">
                 <span className="text-sm text-muted-foreground italic self-center">
-                  {notifConfig.phone ? `Destinataire: ${notifConfig.phone}` : "Veuillez entrer un numéro"}
+                  {notifConfig.phone ? `${t('prescription.recipient')} ${notifConfig.phone}` : t('prescription.enterPhone')}
                 </span>
                 <Button
                   size="lg"
@@ -738,17 +743,17 @@ export default function Prescription() {
                            "x-user-id": user.id.toString()
                         },
                         body: JSON.stringify({
-                           userId: user.id,
-                           title: patient.title,
-                           weight: patient.weight,
-                           categorieAge: patient.categorieAge,
-                           startDate: patient.startDate,
-                           medications: medications.map(m => ({
-                             ...m,
-                             name: m.name
-                           })),
-                           notifConfig
-                        })
+                                userId: initialClientId ? parseInt(initialClientId) : user.id,
+                               title: patient.title,
+                               weight: patient.weight,
+                               categorieAge: patient.categorieAge,
+                               startDate: patient.startDate,
+                               medications: medications.map(m => ({
+                                 ...m,
+                                 name: m.name
+                               })),
+                               notifConfig
+                            })
                       });
 
                       if (!res.ok) throw new Error("Erreur de sauvegarde");
@@ -768,9 +773,15 @@ export default function Prescription() {
                       toast.success(`Succès : Programme de rappel activé pour ${medications.length} médicament(s).`, { id: "simul-notif" });
 
                       await new Promise(r => setTimeout(r, 1000));
-                      toast.success("Ordonnance enregistrée avec succès !");
+                       toast.success("Ordonnance enregistrée avec succès !");
 
-                      setTimeout(() => navigate("/dashboard"), 1000);
+                       setTimeout(() => {
+                           if (user.type === 'commercial') {
+                               navigate("/commercial/dashboard");
+                           } else {
+                               navigate("/dashboard");
+                           }
+                       }, 1000);
 
                     } catch (error) {
                       console.error(error);
@@ -782,7 +793,7 @@ export default function Prescription() {
                   {isSubmitting ? (
                     <div className="flex items-center gap-2">
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Traitement...
+                      {t('prescription.processing')}
                     </div>
                   ) : (
                     <>

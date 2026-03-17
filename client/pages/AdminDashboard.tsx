@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,8 @@ import {
     Download,
     FileText,
     ArrowRightLeft,
+    Loader2,
+    UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -46,6 +49,7 @@ interface AdminStats {
     prescriptions: number;
     medications: number;
     pharmacies: number;
+    upgradeRequests?: number;
     recentActivity: { id: number | string; type: string; message: string; time: string }[];
 }
 
@@ -98,6 +102,7 @@ interface AccountTypeSetting {
 
 export default function AdminDashboard() {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -108,7 +113,9 @@ export default function AdminDashboard() {
         if (path.includes("abonnements") || path.includes("settings")) return "settings";
         if (path.includes("pharmacies")) return "pharmacies";
         if (path.includes("categories")) return "categories";
+        if (path.includes("requests")) return "requests";
         if (path.includes("analytics")) return "analytics";
+        if (path.includes("commercials")) return "commercials";
         return "analytics"; // Default for /admin
     };
 
@@ -118,7 +125,9 @@ export default function AdminDashboard() {
         else if (value === "settings") navigate("/admin/settings");
         else if (value === "pharmacies") navigate("/admin/pharmacies");
         else if (value === "categories") navigate("/admin/categories");
+        else if (value === "requests") navigate("/admin/requests");
         else if (value === "analytics") navigate("/admin");
+        else if (value === "commercials") navigate("/admin/commercials");
     };
 
     const [stats, setStats] = useState<AdminStats | null>(null);
@@ -127,6 +136,9 @@ export default function AdminDashboard() {
     const [medications, setMedications] = useState<AdminMedication[]>([]);
     const [settings, setSettings] = useState<AccountTypeSetting[]>([]);
     const [categories, setCategories] = useState<{ id: number, name: string, description: string, considerWeight: boolean }[]>([]);
+    const [upgradeRequests, setUpgradeRequests] = useState<any[]>([]);
+    const [commercials, setCommercials] = useState<any[]>([]);
+    const [unassignedClients, setUnassignedClients] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [isAddCatOpen, setIsAddCatOpen] = useState(false);
@@ -138,6 +150,16 @@ export default function AdminDashboard() {
     const [changingTypeUserId, setChangingTypeUserId] = useState<number | null>(null);
     const [selectedTypeId, setSelectedTypeId] = useState<number>(1);
     const [isChangeTypeOpen, setIsChangeTypeOpen] = useState(false);
+
+    const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+    const [clientToEdit, setClientToEdit] = useState<{ id: number; phone: string; name: string } | null>(null);
+
+    const [selectedCommercial, setSelectedCommercial] = useState<any | null>(null);
+    const [commercialClients, setCommercialClients] = useState<any[]>([]);
+    const [loadingClients, setLoadingClients] = useState(false);
+    const [isClientsDialogOpen, setIsClientsDialogOpen] = useState(false);
+    const [isReassignDialogOpen, setIsReassignDialogOpen] = useState(false);
+    const [clientToReassign, setClientToReassign] = useState<any | null>(null);
 
     const [isAddMedOpen, setIsAddMedOpen] = useState(false);
     const [newMed, setNewMed] = useState<Partial<AdminMedication>>({
@@ -209,9 +231,10 @@ export default function AdminDashboard() {
                 fetch("/api/admin/medications"),
                 fetch("/api/admin/settings"),
                 fetch("/api/admin/pharmacies"),
-                fetch("/api/categories")
+                fetch("/api/categories"),
+                fetch("/api/admin/upgrade-requests")
             ]);
-            if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok && catRes.ok) {
+            if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok && catRes.ok && (arguments.length < 7 || arguments[6].ok)) {
                 setStats(await statsRes.json());
                 const uData = await usersRes.json();
                 setUsers(uData.users);
@@ -223,6 +246,21 @@ export default function AdminDashboard() {
                 setPharmacies(pData.pharmacies);
                 const cData = await catRes.json();
                 setCategories(cData.categories);
+                
+                const urData = await (await fetch("/api/admin/upgrade-requests")).json();
+                setUpgradeRequests(urData.requests);
+
+                const commRes = await fetch("/api/admin/commercials");
+                if (commRes.ok) {
+                    const commData = await commRes.json();
+                    setCommercials(commData.commercials);
+                }
+
+                const unassignedRes = await fetch("/api/admin/unassigned-clients");
+                if (unassignedRes.ok) {
+                    const unassignedData = await unassignedRes.json();
+                    setUnassignedClients(unassignedData.clients);
+                }
             }
         } catch (err) {
             console.error(err);
@@ -288,6 +326,7 @@ export default function AdminDashboard() {
         const typeMap: Record<string, number> = {
             'Standard': 1,
             'Professionnel': 2,
+            'Commercial': 3,
             'Administrateur': 4,
         };
         setChangingTypeUserId(userId);
@@ -454,6 +493,85 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleProcessRequest = async (id: number, status: 'approved' | 'rejected') => {
+        const adminNotes = status === 'rejected' ? prompt("Motif du refus (optionnel) :") : "";
+        if (status === 'rejected' && adminNotes === null) return;
+
+        try {
+            const res = await fetch(`/api/admin/upgrade-requests/${id}/process`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status, adminNotes, processedBy: user?.id })
+            });
+
+            if (res.ok) {
+                toast.success(status === 'approved' ? "Demande approuvée !" : "Demande refusée");
+                refreshData();
+            } else {
+                toast.error("Erreur lors du traitement");
+            }
+        } catch (error) {
+            toast.error("Erreur réseau");
+        }
+    };
+
+    const fetchCommercialClients = async (commId: number) => {
+        setLoadingClients(true);
+        try {
+            const res = await fetch(`/api/admin/commercial-clients/${commId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setCommercialClients(data.clients);
+            }
+        } catch (err) {
+            toast.error("Erreur lors du chargement des clients");
+        } finally {
+            setLoadingClients(false);
+        }
+    };
+
+    const handleReassignClient = async (newCommId: number) => {
+        if (!clientToReassign) return;
+        try {
+            const res = await fetch("/api/admin/reassign-client", {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clientId: clientToReassign.id, newCommercialId: newCommId })
+            });
+            if (res.ok) {
+                toast.success("Client réattribué avec succès");
+                setIsReassignDialogOpen(false);
+                if (selectedCommercial) fetchCommercialClients(selectedCommercial.id);
+                refreshData();
+            } else {
+                toast.error("Erreur lors de la réattribution");
+            }
+        } catch (err) {
+            toast.error("Erreur réseau");
+        }
+    };
+
+    const handleUpdateUser = async () => {
+        if (!clientToEdit) return;
+        try {
+            const res = await fetch(`/api/admin/users/${clientToEdit.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: clientToEdit.phone, name: clientToEdit.name })
+            });
+            if (res.ok) {
+                toast.success("Utilisateur mis à jour");
+                setIsEditUserOpen(false);
+                if (selectedCommercial) fetchCommercialClients(selectedCommercial.id);
+                refreshData();
+            } else {
+                toast.error("Erreur de mise à jour");
+            }
+        } catch (err) {
+            toast.error("Erreur réseau");
+        }
+    };
+
     // ============== CSV EXPORT ==============
     const handleExportCSV = () => {
         if (medications.length === 0) { toast.error("Aucun médicament à exporter"); return; }
@@ -586,13 +704,29 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-black tracking-tighter" style={{ color: "#1e293b" }}>
-                        Panel Administrateur
+                        {getActiveTab() === 'analytics' ? t('admin.analytics') :
+                            getActiveTab() === 'users' ? t('admin.users') :
+                            getActiveTab() === 'meds' ? t('admin.medications') :
+                            getActiveTab() === 'pharmacies' ? t('admin.pharmacies') :
+                            getActiveTab() === 'settings' ? t('admin.settings') :
+                            getActiveTab() === 'categories' ? t('admin.categories') :
+                            getActiveTab() === 'requests' ? t('admin.promoRequests') :
+                            getActiveTab() === 'commercials' ? t('admin.commercials') : t('admin.title')}
                     </h1>
                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
                         <Shield className="w-3 h-3" />
-                        <span>Administration</span>
+                        <span>{t('admin.title')}</span>
                         <span>/</span>
-                        <span style={{ color: TEAL }}>Vue d'ensemble</span>
+                        <span style={{ color: TEAL }}>
+                            {getActiveTab() === 'analytics' ? t('admin.analytics') :
+                            getActiveTab() === 'users' ? t('admin.users') :
+                            getActiveTab() === 'meds' ? t('admin.medications') :
+                            getActiveTab() === 'pharmacies' ? t('admin.pharmacies') :
+                            getActiveTab() === 'settings' ? t('admin.settings') :
+                            getActiveTab() === 'categories' ? t('admin.categories') :
+                            getActiveTab() === 'requests' ? t('admin.promoRequests') :
+                            getActiveTab() === 'commercials' ? t('admin.commercials') : t('nav.dashboard')}
+                        </span>
                     </div>
                 </div>
                 <Button
@@ -600,90 +734,92 @@ export default function AdminDashboard() {
                     className="rounded-xl px-6 h-10 font-bold text-white shadow-md hover:opacity-90"
                     style={{ background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` }}
                 >
-                    Actualiser
+                    {t('common.save')} {/* Just reusing a common action translation for now, or we can use Actualiser if we add it */}
                 </Button>
             </div>
 
-            {/* Hero + Stats */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-4 h-full">
-                    <AdminHeroCard
-                        name={user?.name || "Admin"}
-                        amount={stats?.prescriptions?.toString() || "0"}
-                        targetPercent={85}
-                    />
-                </div>
-                <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <AdminStatCard
-                        label="Utilisateurs"
-                        value={stats?.users?.toLocaleString() || "0"}
-                        trend={12}
-                        data={sparkData}
-                        color="bg-[#006093]"
-                        icon={<Users size={22} />}
-                    />
-                    <AdminStatCard
-                        label="Prescriptions"
-                        value={stats?.prescriptions?.toLocaleString() || "0"}
-                        trend={8}
-                        data={sparkData.map(d => ({ value: d.value * 0.8 }))}
-                        color="bg-[#00A859]"
-                        icon={<Activity size={22} />}
-                    />
-                    <AdminStatCard
-                        label="Médicaments"
-                        value={stats?.medications?.toLocaleString() || "0"}
-                        trend={2}
-                        data={sparkData.map(d => ({ value: 1000 - d.value }))}
-                        color="bg-violet-500"
-                        icon={<Pill size={22} />}
-                    />
-                    <AdminStatCard
-                        label="Pharmacies"
-                        value={stats?.pharmacies?.toLocaleString() || "0"}
-                        trend={15}
-                        data={sparkData.map(d => ({ value: (d.value + 200) * 0.5 }))}
-                        color="bg-amber-500"
-                        icon={<Briefcase size={22} />}
-                    />
-                </div>
-            </div>
+            {/* Hero + Stats - ONLY ON DASHBOARD/ANALYTICS */}
+            {getActiveTab() === "analytics" && (
+                <>
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div className="lg:col-span-4 h-full">
+                            <AdminHeroCard
+                                name={user?.name || "Admin"}
+                                amount={stats?.prescriptions?.toString() || "0"}
+                                targetPercent={85}
+                            />
+                        </div>
+                        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <AdminStatCard
+                                label="Utilisateurs"
+                                value={stats?.users?.toLocaleString() || "0"}
+                                trend={12}
+                                data={sparkData}
+                                color="bg-[#006093]"
+                                icon={<Users size={22} />}
+                            />
+                            <AdminStatCard
+                                label="Prescriptions"
+                                value={stats?.prescriptions?.toLocaleString() || "0"}
+                                trend={8}
+                                data={sparkData.map(d => ({ value: d.value * 0.8 }))}
+                                color="bg-[#00A859]"
+                                icon={<Activity size={22} />}
+                            />
+                            <AdminStatCard
+                                label="Médicaments"
+                                value={stats?.medications?.toLocaleString() || "0"}
+                                trend={2}
+                                data={sparkData.map(d => ({ value: 1000 - d.value }))}
+                                color="bg-violet-500"
+                                icon={<Pill size={22} />}
+                            />
+                            <AdminStatCard
+                                label="Pharmacies"
+                                value={stats?.pharmacies?.toLocaleString() || "0"}
+                                trend={15}
+                                data={sparkData.map(d => ({ value: (d.value + 200) * 0.5 }))}
+                                color="bg-amber-500"
+                                icon={<Briefcase size={22} />}
+                            />
+                        </div>
+                    </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
-                    <p className="text-[10px] uppercase text-slate-400 font-bold">Conversion ordonnances/utilisateurs</p>
-                    <p className="text-2xl font-black text-slate-800">
-                        {stats?.users ? `${Math.round(((stats?.prescriptions || 0) / stats.users) * 100)}%` : "0%"}
-                    </p>
-                </div>
-                <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
-                    <p className="text-[10px] uppercase text-slate-400 font-bold">Catalogue moyen / pharmacie</p>
-                    <p className="text-2xl font-black text-slate-800">
-                        {stats?.pharmacies ? ((stats?.medications || 0) / stats.pharmacies).toFixed(1) : "0"}
-                    </p>
-                </div>
-                <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
-                    <p className="text-[10px] uppercase text-slate-400 font-bold">Activité récente</p>
-                    <p className="text-2xl font-black text-slate-800">{stats?.recentActivity?.length || 0}</p>
-                </div>
-            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
+                            <p className="text-[10px] uppercase text-slate-400 font-bold">Conversion ordonnances/utilisateurs</p>
+                            <p className="text-2xl font-black text-slate-800">
+                                {stats?.users ? `${Math.round(((stats?.prescriptions || 0) / stats.users) * 100)}%` : "0%"}
+                            </p>
+                        </div>
+                        <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
+                            <p className="text-[10px] uppercase text-slate-400 font-bold">Catalogue moyen / pharmacie</p>
+                            <p className="text-2xl font-black text-slate-800">
+                                {stats?.pharmacies ? ((stats?.medications || 0) / stats.pharmacies).toFixed(1) : "0"}
+                            </p>
+                        </div>
+                        <div className="bg-white rounded-2xl border p-4 shadow-sm" style={{ borderColor: "#e2e8f0" }}>
+                            <p className="text-[10px] uppercase text-slate-400 font-bold">Activité récente</p>
+                            <p className="text-2xl font-black text-slate-800">{stats?.recentActivity?.length || 0}</p>
+                        </div>
+                    </div>
+                </>
+            )}
 
-            {/* Tabs */}
+            {/* Tabs Content - TabsList hidden as Navigation is handled by Sidebar */}
             <Tabs value={getActiveTab()} onValueChange={handleTabChange} className="space-y-6">
-                <TabsList className="bg-white p-1 rounded-2xl border inline-flex h-auto shadow-sm" style={{ borderColor: "#e2e8f0" }}>
+                <TabsList className="hidden">
                     {[
                         { value: "users", label: "Clients" },
                         { value: "meds", label: "Catalogue" },
                         { value: "pharmacies", label: "Pharmacies" },
                         { value: "settings", label: "Abonnements" },
                         { value: "categories", label: "Catégories d'âge" },
+                        { value: "requests", label: "Demandes Promo" },
+                        { value: "commercials", label: "Agents Commerciaux" },
                         { value: "analytics", label: "Analytique" },
                     ].map(tab => (
-                        <TabsTrigger
-                            key={tab.value}
-                            value={tab.value}
-                            className="rounded-xl px-6 py-2.5 text-sm font-semibold text-slate-500 transition-all data-[state=active]:bg-[#006093] data-[state=active]:text-white data-[state=active]:shadow-md"
-                        >
+                        <TabsTrigger key={tab.value} value={tab.value}>
                             {tab.label}
                         </TabsTrigger>
                     ))}
@@ -746,6 +882,7 @@ export default function AdminDashboard() {
                                                     >
                                                         <option value="standard">Standard (Patient)</option>
                                                         <option value="professionnel">Professionnel / Pharmacien</option>
+                                                        <option value="commercial">Commercial</option>
                                                         <option value="administrateur">Administrateur</option>
                                                     </select>
                                                 </div>
@@ -803,7 +940,8 @@ export default function AdminDashboard() {
                                                         "px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
                                                         u.type === 'Standard' ? "text-blue-600 bg-blue-50" :
                                                             u.type === 'Professionnel' ? "text-emerald-600 bg-emerald-50" :
-                                                                "text-violet-600 bg-violet-50"
+                                                                u.type === 'Commercial' ? "text-orange-600 bg-orange-50" :
+                                                                    "text-violet-600 bg-violet-50"
                                                     )}>
                                                         {u.type}
                                                     </span>
@@ -826,6 +964,18 @@ export default function AdminDashboard() {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="hover:bg-teal-50 hover:text-teal-600 rounded-xl"
+                                                            onClick={() => {
+                                                                setClientToEdit({ id: u.id, phone: u.phone || "", name: u.name || "" });
+                                                                setIsEditUserOpen(true);
+                                                            }}
+                                                            title="Modifier les infos"
+                                                        >
+                                                            <Edit2 size={15} />
+                                                        </Button>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
@@ -1250,6 +1400,215 @@ export default function AdminDashboard() {
                     </div>
                 </TabsContent>
 
+                {/* UPGRADE REQUESTS TAB */}
+                <TabsContent value="requests">
+                    <div className="bg-white rounded-[2rem] border shadow-sm overflow-hidden" style={{ borderColor: "#e2e8f0" }}>
+                        <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: "#f1f5f9" }}>
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800">Demandes de Promotion</h3>
+                                <p className="text-xs text-slate-400 font-medium mt-0.5">{upgradeRequests.filter(r => r.status === 'pending').length} demandes en attente</p>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            {upgradeRequests.length === 0 ? (
+                                <div className="py-20 text-center">
+                                    <ArrowRightLeft className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                                    <p className="text-slate-400 font-bold">Aucune demande d'upgrade enregistrée</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {upgradeRequests.map((req: any) => (
+                                        <div key={req.id} className="bg-slate-50 border rounded-3xl p-6 transition-all hover:shadow-md">
+                                            <div className="flex flex-col md:flex-row justify-between gap-4">
+                                                <div className="flex gap-4">
+                                                    <div className="h-12 w-12 rounded-2xl bg-[#006093] flex items-center justify-center text-white font-bold text-lg uppercase">
+                                                        {req.userName?.charAt(0) || "U"}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <h4 className="font-bold text-slate-800 text-base">{req.userName}</h4>
+                                                            <span className={cn(
+                                                                "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                                                req.status === 'pending' ? "bg-amber-100 text-amber-600" :
+                                                                req.status === 'approved' ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                                                            )}>
+                                                                {req.status === 'pending' ? 'En attente' : req.status === 'approved' ? 'Approuvée' : 'Refusée'}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 font-medium">{req.userPhone}</p>
+                                                        <div className="mt-2 inline-flex items-center gap-1.5 bg-white border px-3 py-1 rounded-full text-[10px] font-bold text-[#00A859] border-slate-100">
+                                                            Vers: <span className="uppercase text-[#006093]">{req.requestedType}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex flex-col items-end gap-2">
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{new Date(req.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                                    {req.status === 'pending' && (
+                                                        <div className="flex gap-2 mt-2">
+                                                            <Button 
+                                                                size="sm" 
+                                                                onClick={() => handleProcessRequest(req.id, 'approved')}
+                                                                className="rounded-xl h-9 px-4 bg-green-600 hover:bg-green-700 font-bold text-xs shadow-sm"
+                                                            >
+                                                                <Check className="w-3.5 h-3.5 mr-1.5" /> Approuver
+                                                            </Button>
+                                                            <Button 
+                                                                size="sm" 
+                                                                variant="outline"
+                                                                onClick={() => handleProcessRequest(req.id, 'rejected')}
+                                                                className="rounded-xl h-9 px-4 border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs shadow-sm"
+                                                            >
+                                                                <X className="w-3.5 h-3.5 mr-1.5" /> Refuser
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {req.motive && (
+                                                <div className="mt-4 bg-white border rounded-2xl p-4 border-slate-100">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Motif de la demande:</p>
+                                                    <p className="text-sm text-slate-700 italic font-medium">"{req.motive}"</p>
+                                                </div>
+                                            )}
+
+                                            {req.adminNotes && (
+                                                <div className="mt-4 bg-slate-100 rounded-2xl p-4">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Note admin:</p>
+                                                    <p className="text-sm text-slate-700 font-medium">{req.adminNotes}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* COMMERCIALS TAB */}
+                <TabsContent value="commercials">
+                    <div className="bg-white rounded-[2rem] border shadow-sm overflow-hidden" style={{ borderColor: "#e2e8f0" }}>
+                        <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: "#f1f5f9" }}>
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800">Agents Commerciaux</h3>
+                                <p className="text-xs text-slate-400 font-medium mt-0.5">{commercials.length} agents actifs</p>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Agent</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Téléphone</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Clients</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
+                                    {commercials.map((c) => (
+                                        <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-9 w-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">
+                                                        {c.name?.charAt(0) || "C"}
+                                                    </div>
+                                                    <span className="font-bold text-slate-800 text-sm">{c.name || "Agent"}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-slate-600 font-mono">{c.phone}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-50 text-teal-700 rounded-full text-xs font-black">
+                                                    {c.clientCount} clients
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="rounded-xl h-9 border-slate-200 hover:bg-slate-50 font-bold text-xs"
+                                                    onClick={() => {
+                                                        setSelectedCommercial(c);
+                                                        fetchCommercialClients(c.id);
+                                                        setIsClientsDialogOpen(true);
+                                                    }}
+                                                >
+                                                    <Users className="w-3.5 h-3.5 mr-1.5" /> Voir les clients
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {commercials.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-20 text-center">
+                                                <Briefcase className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                                                <p className="text-slate-400 font-bold">Aucun agent commercial trouvé</p>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* ORPHAN CLIENTS SECTION */}
+                    <div className="bg-white rounded-[2rem] border shadow-sm overflow-hidden mt-8" style={{ borderColor: "#e2e8f0" }}>
+                        <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: "#f1f5f9" }}>
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800">Clients sans agent</h3>
+                                <p className="text-xs text-slate-400 font-medium mt-0.5">{unassignedClients.length} utilisateurs orphelins</p>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Client</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Téléphone</th>
+                                        <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
+                                    {unassignedClients.map((client) => (
+                                        <tr key={client.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4 border-b border-slate-50">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs uppercase">
+                                                        {client.name?.charAt(0) || "U"}
+                                                    </div>
+                                                    <span className="font-bold text-slate-800 text-sm">{client.name || client.phone}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 border-b border-slate-50 text-sm text-slate-600 font-mono">{client.phone}</td>
+                                            <td className="px-6 py-4 border-b border-slate-50 text-right">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="rounded-xl h-8 border-slate-200 hover:bg-slate-50 font-bold text-[10px]"
+                                                    onClick={() => {
+                                                        setClientToReassign(client);
+                                                        setIsReassignDialogOpen(true);
+                                                    }}
+                                                >
+                                                    <UserPlus className="w-3 h-3 mr-1" /> Assigner
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {unassignedClients.length === 0 && (
+                                        <tr>
+                                            <td colSpan={3} className="px-6 py-10 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+                                                Tous les clients ont un agent.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </TabsContent>
+
                 {/* ANALYTICS TAB */}
                 <TabsContent value="analytics">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1416,6 +1775,7 @@ export default function AdminDashboard() {
                             >
                                 <option value={1}>Standard (Patient)</option>
                                 <option value={2}>Professionnel / Pharmacien</option>
+                                <option value={3}>Commercial</option>
                                 <option value={4}>Administrateur</option>
                             </select>
                         </div>
@@ -1427,6 +1787,162 @@ export default function AdminDashboard() {
                             onClick={handleChangeUserType}
                         >
                             Confirmer le changement
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Commercial Clients Dialog */}
+            <Dialog open={isClientsDialogOpen} onOpenChange={setIsClientsDialogOpen}>
+                <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-3xl shadow-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="p-6 border-b" style={{ borderColor: "#f1f5f9" }}>
+                        <DialogTitle className="text-slate-800 flex items-center gap-3">
+                            <Users className="w-6 h-6 text-orange-500" />
+                            Clients de {selectedCommercial?.name || "l'agent"}
+                        </DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="flex-1 overflow-y-auto p-0">
+                        {loadingClients ? (
+                            <div className="py-20 flex justify-center">
+                                <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
+                            </div>
+                        ) : commercialClients.length === 0 ? (
+                            <div className="py-20 text-center">
+                                <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                                <p className="text-slate-400 font-bold">Cet agent n'a encore aucun client</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 border-b sticky top-0 z-10" style={{ borderColor: "#f1f5f9" }}>
+                                    <tr>
+                                        <th className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">Client</th>
+                                        <th className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">Date</th>
+                                        <th className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">Status</th>
+                                        <th className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y" style={{ borderColor: "#f1f5f9" }}>
+                                    {commercialClients.map((client) => (
+                                        <tr key={client.id} className="hover:bg-slate-50/50">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-800 text-sm">{client.name}</div>
+                                                <div className="text-[10px] font-mono text-slate-400">{client.phone}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs text-slate-500">
+                                                {new Date(client.createdAt).toLocaleDateString('fr-FR')}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {client.isValid ? (
+                                                    <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase">Actif</span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase">En attente</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="h-8 rounded-lg hover:bg-orange-50 hover:text-orange-600 text-[10px] font-black uppercase"
+                                                    onClick={() => {
+                                                        setClientToReassign(client);
+                                                        setIsReassignDialogOpen(true);
+                                                    }}
+                                                >
+                                                    <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" /> Réattribuer
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reassign Client Dialog */}
+            <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
+                <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Réattribuer le client</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-6 space-y-4">
+                        <p className="text-sm text-slate-500 font-medium">
+                            Sélectionnez le nouvel agent commercial pour <span className="font-bold text-slate-800">{clientToReassign?.name}</span>.
+                        </p>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                            {commercials.filter(c => c.id !== selectedCommercial?.id).map((c) => (
+                                <button
+                                    key={c.id}
+                                    className="w-full flex items-center justify-between p-4 border rounded-2xl hover:bg-slate-50 hover:border-teal-300 transition-all text-left group"
+                                    onClick={() => handleReassignClient(c.id)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-500 flex items-center justify-center font-bold">
+                                            {c.name?.charAt(0) || "C"}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-slate-800 text-sm group-hover:text-teal-600">{c.name}</div>
+                                            <div className="text-[10px] text-slate-400 font-mono">{c.phone}</div>
+                                        </div>
+                                    </div>
+                                    <Check className="w-5 h-5 text-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+                            ))}
+                            {commercials.filter(c => c.id !== selectedCommercial?.id).length === 0 && (
+                                <p className="text-center py-4 text-xs font-bold text-slate-400 italic">
+                                    Aucun autre agent disponible pour la réattribution.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsReassignDialogOpen(false)} className="rounded-xl h-11 w-full font-bold">
+                            Annuler
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+                <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2">
+                            <Edit2 className="w-6 h-6 text-teal-500" />
+                            Modifier l'utilisateur
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-6 space-y-5">
+                        <div className="space-y-2">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Nom complet</label>
+                            <Input
+                                value={clientToEdit?.name || ""}
+                                onChange={(e) => setClientToEdit(prev => prev ? { ...prev, name: e.target.value } : null)}
+                                placeholder="Ex: Jean Dupont"
+                                className="h-12 rounded-2xl border-slate-200 bg-slate-50 focus:bg-white focus:ring-teal-500 transition-all font-medium"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Numéro de téléphone</label>
+                            <Input
+                                value={clientToEdit?.phone || ""}
+                                onChange={(e) => setClientToEdit(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                                placeholder="+221..."
+                                className="h-12 rounded-2xl border-slate-200 bg-slate-50 focus:bg-white focus:ring-teal-500 transition-all font-medium"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="flex flex-row gap-2">
+                        <Button variant="ghost" onClick={() => setIsEditUserOpen(false)} className="flex-1 rounded-xl h-11 font-bold">
+                            Annuler
+                        </Button>
+                        <Button
+                            onClick={handleUpdateUser}
+                            disabled={!clientToEdit?.phone}
+                            className="flex-1 rounded-xl h-11 font-bold bg-teal-500 hover:bg-teal-600 text-white shadow-lg shadow-teal-100"
+                        >
+                            Enregistrer
                         </Button>
                     </DialogFooter>
                 </DialogContent>

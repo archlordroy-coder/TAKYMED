@@ -55,9 +55,7 @@ rsync -av -e "$RSYNC_SSH" --progress "$SOURCE_DIR/" "$REMOTE_USER@$REMOTE_HOST:$
     --exclude '.git' \
     --exclude '.vscode' \
     --exclude '.gemini' \
-    --exclude 'bd.sqlite' \
-    --exclude 'bd.sqlite-shm' \
-    --exclude 'bd.sqlite-wal' \
+    --exclude 'bd.sqlite*' \
     --exclude '.env' \
     --exclude 'public/uploads/*' || { echo "❌ File synchronization failed."; exit 1; }
 

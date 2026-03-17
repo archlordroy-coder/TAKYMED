@@ -12,6 +12,7 @@ import { countriesRouter } from "./routes/countries";
 import { adminRouter } from "./routes/admin";
 import { paymentRouter } from "./routes/payments";
 import { ordonnanceRouter } from "./routes/ordonnances";
+import { commercialRouter } from "./routes/commercial";
 import { notificationRouter } from "./services/notificationProvider";
 import { startReminderWorker } from "./services/reminderWorker";
 import { db, initializeDatabase } from "./db";
@@ -54,6 +55,7 @@ export function createServer() {
   app.use("/api/payments", paymentRouter);
   app.use("/api/ordonnances", ordonnanceRouter);
   app.use("/api/notifications", notificationRouter);
+  app.use("/api/commercial", commercialRouter);
 
   // Start reminder worker
   startReminderWorker();

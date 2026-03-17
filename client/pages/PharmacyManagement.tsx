@@ -227,7 +227,7 @@ export default function PharmacyManagement() {
     }
   };
 
-  if (user?.type !== "pharmacist" && user?.type !== "professional") {
+  if (user?.type !== "admin") {
     return (
       <div className="container mx-auto px-4 py-24 text-center animate-in fade-in duration-700">
         <div className="bg-white p-12 rounded-[40px] shadow-2xl border max-w-lg mx-auto space-y-6">
@@ -236,7 +236,7 @@ export default function PharmacyManagement() {
           </div>
           <h1 className="text-3xl font-black tracking-tight">Accès réservé</h1>
           <p className="text-muted-foreground font-medium leading-relaxed">
-            Seuls les pharmaciens partenaires de TAKYMED peuvent accéder à cet espace de gestion d'officine.
+            Seuls les administrateurs de TAKYMED peuvent gérer le réseau national de pharmacies.
           </p>
           <Button onClick={() => window.history.back()} variant="outline" className="rounded-2xl h-12 px-8 font-bold border-2">
             Retourner

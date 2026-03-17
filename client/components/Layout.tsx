@@ -2,6 +2,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import Logo from "./Logo";
 import { Button } from "./ui/button";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import {
   Menu,
@@ -16,7 +17,8 @@ import {
   User as UserIcon,
   LogOut,
   Crown,
-  FileText
+  FileText,
+  Languages
 } from "lucide-react";
 import {
   Sheet,
@@ -42,6 +44,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
+  const { t, toggleLanguage, language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -68,50 +71,45 @@ export function Layout({ children }: LayoutProps) {
               <>
                 <Link to="/dashboard" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <LayoutDashboard className="w-4 h-4" />
-                  Tableau de bord
+                  {t('nav.dashboard')}
                 </Link>
                 <Link to="/search" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <Search className="w-4 h-4" />
-                  Médicaments
+                  {t('nav.medications')}
                 </Link>
                 {user.type !== "standard" && (
                   <Link to="/ordonnances" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                     <FileText className="w-4 h-4" />
-                    Ordonnances
+                    {t('nav.prescriptions')}
                   </Link>
                 )}
-                {(user.type === "pharmacist" || user.type === "professional") && (
-                  <>
-                    <Link to="/pharmacy-mgmt" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
-                      <Stethoscope className="w-4 h-4" />
-                      Pharmacies
-                    </Link>
-                    <Link to="/interactions-mgmt" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
-                      <ShieldAlert className="w-4 h-4" />
-                      Incompatibilités
-                    </Link>
-                  </>
-                )}
+
                 {user?.type === "admin" && (
                   <Link
                     to="/admin"
                     className={cn(
                       "flex items-center gap-2 text-primary font-bold hover:opacity-80 transition-all whitespace-nowrap",
-                      location.pathname === "/admin" ? "text-primary" : "" // Adjusted styling to fit existing pattern
+                      location.pathname === "/admin" ? "text-primary" : ""
                     )}
                   >
                     <Shield className="w-4 h-4" />
-                    Admin
+                    {t('nav.admin')}
                   </Link>
                 )}
                 <Link to="/ads" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap">
                   <Bell className="w-4 h-4" />
-                  Actu
+                  {t('nav.news')}
                 </Link>
+                {user.type === "commercial" && (
+                  <Link to="/commercial" className="flex items-center gap-2 text-primary font-bold hover:opacity-80 transition-all whitespace-nowrap">
+                    <UserIcon className="w-4 h-4" />
+                    {t('nav.commercial')}
+                  </Link>
+                )}
                 {user?.type !== "admin" && (
                   <Link to="/upgrade" className="flex items-center gap-2 hover:text-primary transition-all whitespace-nowrap text-primary font-semibold">
                     <Crown className="w-4 h-4" />
-                    Upgrade
+                    {t('nav.upgrade')}
                   </Link>
                 )}
               </>
@@ -119,15 +117,27 @@ export function Layout({ children }: LayoutProps) {
           </nav>
 
           <div className="flex items-center gap-2 md:gap-4">
+            {/* Language Toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleLanguage}
+              className="rounded-full h-9 px-3 gap-1.5 text-xs font-bold border bg-slate-50 hover:bg-primary/10 hover:text-primary transition-all"
+              title={language === 'fr' ? 'Switch to English' : 'Passer en Français'}
+            >
+              <Languages className="w-4 h-4" />
+              {t('language.switchTo')}
+            </Button>
+
             {!user ? (
               <>
                 <Link to="/login" className="hidden sm:block">
                   <Button variant="ghost" size="sm">
-                    Connexion
+                    {t('nav.login')}
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button size="sm" className="rounded-full px-6">S'inscrire</Button>
+                  <Button size="sm" className="rounded-full px-6">{t('nav.register')}</Button>
                 </Link>
               </>
             ) : (
@@ -140,17 +150,20 @@ export function Layout({ children }: LayoutProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 rounded-2xl">
-                    <DropdownMenuLabel>Mon Compte</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t('nav.myAccount')}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => navigate("/profile")}>
+                      <UserIcon className="h-4 w-4" /> {t('nav.profile')}
+                    </DropdownMenuItem>
                     <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => navigate("/dashboard")}>
-                      <UserIcon className="h-4 w-4" /> Profil ({user.type})
+                      <LayoutDashboard className="h-4 w-4" /> {t('nav.dashboard')}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="gap-2 text-destructive focus:text-destructive cursor-pointer"
                       onClick={handleLogout}
                     >
-                      <LogOut className="h-4 w-4" /> Déconnexion
+                      <LogOut className="h-4 w-4" /> {t('nav.logout')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -164,35 +177,28 @@ export function Layout({ children }: LayoutProps) {
                     </SheetTrigger>
                     <SheetContent side="right" className="w-[300px] sm:w-[400px] rounded-l-[2rem]">
                       <SheetHeader className="mb-8">
-                        <SheetTitle className="text-left">Menu</SheetTitle>
+                        <SheetTitle className="text-left">{t('nav.menu')}</SheetTitle>
                       </SheetHeader>
                       <nav className="flex flex-col gap-6">
+                        <Link to="/profile" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
+                          <UserIcon className="w-6 h-6" />
+                          {t('nav.profile')}
+                        </Link>
                         <Link to="/dashboard" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
                           <LayoutDashboard className="w-6 h-6" />
-                          Tableau de bord
+                          {t('nav.dashboard')}
                         </Link>
                         <Link to="/search" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
                           <Search className="w-6 h-6" />
-                          Médicaments
+                          {t('nav.medications')}
                         </Link>
                         {user.type !== "standard" && (
                           <Link to="/ordonnances" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
                             <FileText className="w-6 h-6" />
-                            Ordonnances
+                            {t('nav.prescriptions')}
                           </Link>
                         )}
-                        {(user.type === "pharmacist" || user.type === "professional") && (
-                          <>
-                            <Link to="/pharmacy-mgmt" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
-                              <Stethoscope className="w-6 h-6" />
-                              Mes Pharmacies
-                            </Link>
-                            <Link to="/interactions-mgmt" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
-                              <ShieldAlert className="w-6 h-6" />
-                              Incompatibilités
-                            </Link>
-                          </>
-                        )}
+
                         {user?.type === "admin" && (
                           <Link
                             to="/admin"
@@ -204,24 +210,30 @@ export function Layout({ children }: LayoutProps) {
                             <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                               <Shield className="w-5 h-5 text-primary" />
                             </div>
-                            <span className="font-bold">Administration</span>
+                            <span className="font-bold">{t('nav.admin')}</span>
                           </Link>
                         )}
                         <Link to="/ads" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
                           <Bell className="w-6 h-6" />
-                          Nouveautés
+                          {t('nav.news')}
                         </Link>
+                        {user.type === "commercial" && (
+                          <Link to="/commercial" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5">
+                            <UserIcon className="w-6 h-6 text-primary" />
+                            {t('nav.commercial')}
+                          </Link>
+                        )}
                         {user?.type !== "admin" && (
                           <Link to="/upgrade" className="flex items-center gap-4 text-lg font-bold hover:text-primary transition-colors p-2 rounded-xl hover:bg-primary/5 text-primary">
                             <Crown className="w-6 h-6" />
-                            Upgrade
+                            {t('nav.upgrade')}
                           </Link>
                         )}
                       </nav>
                       <div className="absolute bottom-8 left-8 right-8">
                         <Button variant="destructive" className="w-full rounded-2xl h-12 font-bold" onClick={handleLogout}>
                           <LogOut className="w-5 h-5 mr-2" />
-                          Déconnexion
+                          {t('nav.logout')}
                         </Button>
                       </div>
                     </SheetContent>
@@ -247,31 +259,30 @@ export function Layout({ children }: LayoutProps) {
               <span className="text-2xl font-black tracking-tighter text-slate-800">TAKYMED</span>
             </div>
             <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
-              TAKYMED : Votre allié pour une gestion optimale de vos ordonnances et rappels de médicaments.
-              Assurez-vous de prendre vos médicaments au bon moment.
+              TAKYMED : {t('footer.description')}
             </p>
           </div>
           <div className="space-y-4">
-            <h4 className="font-semibold">Services</h4>
+            <h4 className="font-semibold">{t('footer.services')}</h4>
             <ul className="text-sm space-y-2 text-muted-foreground">
               <li>
-                <Link to="/search" className="hover:text-primary">Médicaments</Link>
+                <Link to="/search" className="hover:text-primary">{t('nav.medications')}</Link>
               </li>
               <li>
-                <Link to="/ads" className="hover:text-primary">Nouveautés</Link>
+                <Link to="/ads" className="hover:text-primary">{t('footer.news')}</Link>
               </li>
             </ul>
           </div>
           <div className="space-y-4">
-            <h4 className="font-semibold">Légal</h4>
+            <h4 className="font-semibold">{t('footer.legal')}</h4>
             <ul className="text-sm space-y-2 text-muted-foreground">
-              <li>Confidentialité</li>
-              <li>Conditions d'utilisation</li>
+              <li>{t('footer.privacy')}</li>
+              <li>{t('footer.terms')}</li>
             </ul>
           </div>
         </div>
         <div className="container mx-auto px-4 pt-8 mt-8 border-t text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} TAKYMED. Tous droits réservés.
+          © {new Date().getFullYear()} TAKYMED. {t('footer.rights')}
         </div>
       </footer>
     </div>

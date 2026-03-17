@@ -128,6 +128,18 @@ export function initializeDatabase() {
             db.exec("ALTER TABLE Utilisateurs ADD COLUMN pin_updated_at DATETIME");
         }
 
+        const hasIdCreateur = userColumns.some(c => c.name === 'id_createur');
+        const hasEstValide = userColumns.some(c => c.name === 'est_valide');
+
+        if (!hasIdCreateur) {
+            console.log("Adding id_createur column to Utilisateurs...");
+            db.exec("ALTER TABLE Utilisateurs ADD COLUMN id_createur INTEGER");
+        }
+        if (!hasEstValide) {
+            console.log("Adding est_valide column to Utilisateurs...");
+            db.exec("ALTER TABLE Utilisateurs ADD COLUMN est_valide BOOLEAN DEFAULT TRUE");
+        }
+
         const catAgeCount = db.prepare("SELECT COUNT(*) as count FROM CategoriesAge").get() as { count: number };
         if (catAgeCount.count === 0) {
             console.log("Adding default age categories...");
@@ -244,21 +256,11 @@ export function initializeDatabase() {
             db.exec("ALTER TABLE TypesComptes ADD COLUMN max_rappels INT DEFAULT -1");
         }
 
-        // Migrate existing Pharmacien users to Professionnel (ID 3 -> ID 2)
-        // This must happen BEFORE ensuring default types to avoid UNIQUE name conflicts
-        try {
-            // If ID 3 exists, move users to ID 2
-            db.prepare("UPDATE Utilisateurs SET id_type_compte = 2 WHERE id_type_compte = 3").run();
-            // Delete ID 3
-            db.prepare("DELETE FROM TypesComptes WHERE id_type_compte = 3").run();
-        } catch (e) {
-            // Ignore errors if table is being migrated or column doesn't exist yet
-        }
-
         // Ensure default account types exist with consistent values
         const typesToEnsure = [
             { id: 1, name: 'Standard', desc: 'Compte Standard gratuit', ordo: 1, rappels: 3, pay: 0, pharmacies: null },
             { id: 2, name: 'Professionnel', desc: 'Compte Pro / Pharmacien (Gestion de pharmacies et ordonnances)', ordo: -1, rappels: -1, pay: 1, pharmacies: 10 },
+            { id: 3, name: 'Commercial', desc: 'Peut créer et valider des clients avec ordonnance', ordo: -1, rappels: -1, pay: 0, pharmacies: null },
             { id: 4, name: 'Administrateur', desc: 'Accès complet au système', ordo: -1, rappels: -1, pay: 0, pharmacies: null }
         ];
 
@@ -290,18 +292,25 @@ export function initializeDatabase() {
             const adminTypeId = getAdminTypeId().id_type_compte;
             const info = db.prepare("INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien) VALUES (?, ?, ?, 1)")
                 .run(adminPhone, adminPin, adminTypeId);
-
             db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
                 .run(info.lastInsertRowid, 'Administrateur Système');
         }
 
-        // Create UpgradeRequests table for account upgrade requests
+        const commercialUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = ?").get('commercial');
+        if (!commercialUser) {
+            console.log("Creating test commercial user (commercial/1234)...");
+            const info = db.prepare("INSERT INTO Utilisateurs (numero_telephone, pin_hash, id_type_compte, est_pharmacien) VALUES (?, ?, ?, 0)")
+                .run('commercial', '1234', 3);
+            db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)")
+                .run(info.lastInsertRowid, 'Agent Commercial Test');
+        }
         db.exec(`
                 CREATE TABLE IF NOT EXISTS UpgradeRequests (
                     id_request INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_utilisateur INTEGER NOT NULL,
-                    requested_type TEXT NOT NULL CHECK(requested_type IN ('Pro', 'Professionnel')),
-                    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+                    requested_type TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    motive TEXT,
                     admin_notes TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     processed_at DATETIME,
@@ -310,6 +319,41 @@ export function initializeDatabase() {
                     FOREIGN KEY (processed_by) REFERENCES Utilisateurs(id_utilisateur)
                 )
             `);
+
+        // Migration: add motive column if missing
+        const upgradeReqCols = db.prepare("PRAGMA table_info(UpgradeRequests)").all() as { name: string }[];
+        if (!upgradeReqCols.some(c => c.name === 'motive')) {
+            console.log("Adding motive column to UpgradeRequests...");
+            db.exec("ALTER TABLE UpgradeRequests ADD COLUMN motive TEXT");
+        }
+
+        // Migrate UpgradeRequests to remove restricted check constraints to allow 'Commercial'
+        const upgradeReqSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='UpgradeRequests'").get() as { sql?: string } | undefined;
+        if (upgradeReqSchema?.sql?.includes("CHECK(requested_type IN")) {
+            console.log("Migrating UpgradeRequests to relax requested_type constraints...");
+            db.exec(`
+                BEGIN;
+                CREATE TABLE UpgradeRequests_new (
+                    id_request INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_utilisateur INTEGER NOT NULL,
+                    requested_type TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    motive TEXT,
+                    admin_notes TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    processed_at DATETIME,
+                    processed_by INTEGER,
+                    FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE,
+                    FOREIGN KEY (processed_by) REFERENCES Utilisateurs(id_utilisateur)
+                );
+                INSERT INTO UpgradeRequests_new (id_request, id_utilisateur, requested_type, status, motive, admin_notes, created_at, processed_at, processed_by)
+                SELECT id_request, id_utilisateur, requested_type, status, motive, admin_notes, created_at, processed_at, processed_by
+                FROM UpgradeRequests;
+                DROP TABLE UpgradeRequests;
+                ALTER TABLE UpgradeRequests_new RENAME TO UpgradeRequests;
+                COMMIT;
+            `);
+        }
 
         // Create FraisComptesProfessionnels table if missing
         db.exec(`
@@ -345,6 +389,66 @@ export function initializeDatabase() {
         if (!cpColumns.some(c => c.name === 'dernier_essai')) {
             console.log("Adding dernier_essai column to CalendrierPrises...");
             db.exec("ALTER TABLE CalendrierPrises ADD COLUMN dernier_essai DATETIME");
+        }
+
+        // Migration: Ensure NotificationJobs has ON DELETE CASCADE
+        const njSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='NotificationJobs'").get() as { sql?: string } | undefined;
+        if (njSchema?.sql && !njSchema.sql.includes("ON DELETE CASCADE")) {
+            console.log("Migrating NotificationJobs to add ON DELETE CASCADE...");
+            db.exec("PRAGMA foreign_keys = OFF");
+            db.exec(`
+                BEGIN;
+                CREATE TABLE NotificationJobs_new (
+                    id_job INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_utilisateur INT,
+                    id_calendrier_prise INT,
+                    channel VARCHAR(20) NOT NULL,
+                    message TEXT NOT NULL,
+                    contact_value VARCHAR(255) NOT NULL,
+                    scheduled_at DATETIME NOT NULL,
+                    status TEXT DEFAULT 'pending',
+                    retry_count INT DEFAULT 0,
+                    max_retries INT DEFAULT 3,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    processed_at DATETIME,
+                    FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE,
+                    FOREIGN KEY (id_calendrier_prise) REFERENCES CalendrierPrises(id_calendrier_prise) ON DELETE CASCADE
+                );
+                INSERT INTO NotificationJobs_new SELECT * FROM NotificationJobs;
+                DROP TABLE NotificationJobs;
+                ALTER TABLE NotificationJobs_new RENAME TO NotificationJobs;
+                COMMIT;
+            `);
+            db.exec("PRAGMA foreign_keys = ON");
+        }
+
+        // Migration: Ensure NotificationLogs has ON DELETE CASCADE
+        const nlSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='NotificationLogs'").get() as { sql?: string } | undefined;
+        if (nlSchema?.sql && !nlSchema.sql.includes("ON DELETE CASCADE")) {
+            console.log("Migrating NotificationLogs to add ON DELETE CASCADE...");
+            db.exec("PRAGMA foreign_keys = OFF");
+            db.exec(`
+                BEGIN;
+                CREATE TABLE NotificationLogs_new (
+                    id_log INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_job INT,
+                    provider VARCHAR(50),
+                    channel VARCHAR(20),
+                    to_contact VARCHAR(255),
+                    message TEXT,
+                    status TEXT,
+                    error_message TEXT,
+                    provider_message_id VARCHAR(255),
+                    cost DECIMAL(5, 3),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (id_job) REFERENCES NotificationJobs(id_job) ON DELETE CASCADE
+                );
+                INSERT INTO NotificationLogs_new SELECT * FROM NotificationLogs;
+                DROP TABLE NotificationLogs;
+                ALTER TABLE NotificationLogs_new RENAME TO NotificationLogs;
+                COMMIT;
+            `);
+            db.exec("PRAGMA foreign_keys = ON");
         }
     } catch (error) {
         console.error("Failed to initialize database:", error);

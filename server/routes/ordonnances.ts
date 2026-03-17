@@ -97,13 +97,22 @@ router.get("/:id", (req, res) => {
 });
 
 // Update ordonnance
+// Update ordonnance
 router.put("/:id", (req, res) => {
     const { id } = req.params;
     const { titre, nom_patient, poids_patient, categorie_age } = req.body;
+    const userId = req.headers["x-user-id"];
 
     console.log("Updating ordonnance:", id, { titre, nom_patient, poids_patient, categorie_age });
 
     try {
+        if (userId) {
+            const user = db.prepare("SELECT id_type_compte FROM Utilisateurs WHERE id_utilisateur = ?").get(userId) as { id_type_compte: number } | undefined;
+            if (user?.id_type_compte === 3) {
+                return res.status(403).json({ error: "Les commerciaux ne peuvent pas modifier les ordonnances après création." });
+            }
+        }
+
         const result = db.prepare(`
             UPDATE Ordonnances 
             SET titre = ?, nom_patient = ?, poids_patient = ?, categorie_age = ?
@@ -168,8 +177,16 @@ router.patch("/:id/reactivate", (req, res) => {
 // Delete an ordonnance permanently
 router.delete("/:id", (req, res) => {
     const { id } = req.params;
+    const userId = req.headers["x-user-id"];
 
     try {
+        if (userId) {
+            const user = db.prepare("SELECT id_type_compte FROM Utilisateurs WHERE id_utilisateur = ?").get(userId) as { id_type_compte: number } | undefined;
+            if (user?.id_type_compte === 3) {
+                return res.status(403).json({ error: "Les commerciaux ne peuvent pas supprimer les ordonnances." });
+            }
+        }
+
         // Delete in cascade: CalendrierPrises -> ElementsOrdonnance -> Ordonnance
         db.prepare(`
             DELETE FROM CalendrierPrises 

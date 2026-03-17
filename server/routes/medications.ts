@@ -101,7 +101,23 @@ router.post("/interactions", (req, res) => {
         return res.status(400).json({ error: "Source and Interdit medication IDs are required" });
     }
 
+    const userId = req.headers['x-user-id'];
+    if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+
     try {
+        const userRole = db.prepare(`
+            SELECT tc.nom_type 
+            FROM Utilisateurs u 
+            JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte 
+            WHERE u.id_utilisateur = ?
+        `).get(userId) as { nom_type: string } | undefined;
+
+        if (userRole?.nom_type !== "Administrateur") {
+            return res.status(403).json({ error: "Only Administrateurs can manage interactions" });
+        }
+
         const info = db.prepare(`
             INSERT INTO InteractionsMedicaments (medicament_source, medicament_interdit, niveau_risque, description)
             VALUES (?, ?, ?, ?)

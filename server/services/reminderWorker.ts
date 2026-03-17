@@ -128,6 +128,7 @@ async function checkAndSendReminders() {
 
     const groups: Record<string, any[]> = {};
     dueReminders.forEach(r => {
+      // Prioritize the specific contact value (e.g., changed number) over the account number
       const contact = r.valeur_contact || r.numero_telephone;
       // On groupe par contact, patient et heure prévue pour envoyer un seul message groupé
       const key = `${contact}_${r.nom_patient}_${r.heure_prevue}`;

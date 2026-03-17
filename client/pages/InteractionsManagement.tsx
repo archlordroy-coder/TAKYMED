@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,6 +24,7 @@ interface Interaction {
 
 export default function InteractionsManagement() {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const [interactions, setInteractions] = useState<Interaction[]>([]);
     const [dbMedications, setDbMedications] = useState<{ id: number, name: string }[]>([]);
     const [isAdding, setIsAdding] = useState(false);
@@ -48,7 +50,7 @@ export default function InteractionsManagement() {
                 setInteractions(data.interactions);
             }
         } catch (err) {
-            toast.error("Échec du chargement des interactions");
+            toast.error(t('interactions.loadError'));
         } finally {
             setLoading(false);
         }
@@ -69,7 +71,7 @@ export default function InteractionsManagement() {
     const handleAddInteraction = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newInteraction.medicamentSourceId === newInteraction.medicamentInterditId) {
-            return toast.error("Veuillez sélectionner deux médicaments différents");
+            return toast.error(t('interactions.differentMeds'));
         }
 
         try {
@@ -82,22 +84,22 @@ export default function InteractionsManagement() {
                 body: JSON.stringify(newInteraction)
             });
             if (res.ok) {
-                toast.success("Incompatibilité ajoutée !");
+                toast.success(t('interactions.addSuccess'));
                 setIsAdding(false);
                 setNewInteraction({ medicamentSourceId: "", medicamentInterditId: "", riskLevel: "modere", description: "" });
                 fetchInteractions();
             }
         } catch (err) {
-            toast.error("Erreur lors de l'ajout");
+            toast.error(t('interactions.addError'));
         }
     };
 
-    if (user?.type !== "pharmacist" && user?.type !== "professional") {
+    if (user?.type !== "admin") {
         return (
             <div className="container mx-auto px-4 py-20 text-center">
                 <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
-                <h1 className="text-2xl font-bold mb-2">Accès restreint</h1>
-                <p className="text-muted-foreground">Seuls les pharmaciens peuvent définir les interactions.</p>
+                <h1 className="text-2xl font-bold mb-2">{t('interactions.restricted')}</h1>
+                <p className="text-muted-foreground">{t('interactions.restrictedMsg')}</p>
             </div>
         );
     }
@@ -107,72 +109,72 @@ export default function InteractionsManagement() {
             <div className="container mx-auto px-4 py-12 max-w-5xl">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
                     <div>
-                        <h1 className="text-4xl font-extrabold tracking-tight">Incompatibilités Médicamenteuses</h1>
-                        <p className="text-muted-foreground mt-2">Définissez les mélanges dangereux pour la sécurité des patients.</p>
+                        <h1 className="text-4xl font-extrabold tracking-tight">{t('interactions.title')}</h1>
+                        <p className="text-muted-foreground mt-2">{t('interactions.subtitle')}</p>
                     </div>
                     <Button onClick={() => setIsAdding(true)} className="rounded-2xl h-12 px-6 font-bold shadow-lg shadow-primary/20">
                         <Plus className="w-5 h-5 mr-2" />
-                        Nouvelle Incompatibilité
+                        {t('interactions.addNew')}
                     </Button>
                 </div>
 
                 {isAdding && (
                     <div className="bg-white rounded-[40px] p-8 border shadow-sm mb-12 animate-in slide-in-from-top-4">
-                        <h2 className="text-2xl font-bold mb-6">Ajouter un risque d'interaction</h2>
+                        <h2 className="text-2xl font-bold mb-6">{t('interactions.addTitle')}</h2>
                         <form onSubmit={handleAddInteraction} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <Label>Médicament 1</Label>
+                                <Label>{t('interactions.med1')}</Label>
                                 <select
-                                    title="Médicament source"
+                                    title={t('interactions.med1')}
                                     className="w-full bg-slate-50 border rounded-2xl h-14 px-4 outline-none focus:ring-2 ring-primary/20"
                                     value={newInteraction.medicamentSourceId}
                                     onChange={e => setNewInteraction({ ...newInteraction, medicamentSourceId: e.target.value })}
                                     required
                                 >
-                                    <option value="">Sélectionner...</option>
+                                    <option value="">{t('interactions.selectMed')}</option>
                                     {dbMedications.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Médicament 2 (Incompatible)</Label>
+                                <Label>{t('interactions.med2')}</Label>
                                 <select
-                                    title="Médicament interdit"
+                                    title={t('interactions.med2')}
                                     className="w-full bg-slate-50 border rounded-2xl h-14 px-4 outline-none focus:ring-2 ring-primary/20"
                                     value={newInteraction.medicamentInterditId}
                                     onChange={e => setNewInteraction({ ...newInteraction, medicamentInterditId: e.target.value })}
                                     required
                                 >
-                                    <option value="">Sélectionner...</option>
+                                    <option value="">{t('interactions.selectMed')}</option>
                                     {dbMedications.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Niveau de Risque</Label>
+                                <Label>{t('interactions.riskLevel')}</Label>
                                 <select
-                                    title="Niveau de risque"
+                                    title={t('interactions.riskLevel')}
                                     className="w-full bg-slate-50 border rounded-2xl h-14 px-4 outline-none focus:ring-2 ring-primary/20"
                                     value={newInteraction.riskLevel}
                                     onChange={e => setNewInteraction({ ...newInteraction, riskLevel: e.target.value })}
                                     required
                                 >
-                                    <option value="faible">Faible</option>
-                                    <option value="modere">Modéré</option>
-                                    <option value="eleve">Élevé</option>
-                                    <option value="critique">Critique</option>
+                                    <option value="faible">{t('interactions.riskLow')}</option>
+                                    <option value="modere">{t('interactions.riskModerate')}</option>
+                                    <option value="eleve">{t('interactions.riskHigh')}</option>
+                                    <option value="critique">{t('interactions.riskCritical')}</option>
                                 </select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Description / Conseils</Label>
+                                <Label>{t('interactions.description')}</Label>
                                 <input
-                                    placeholder="Ex: Risque de somnolence accrue..."
+                                    placeholder={t('interactions.descPlaceholder')}
                                     className="w-full bg-slate-50 border rounded-2xl h-14 px-4 outline-none focus:ring-2 ring-primary/20"
                                     value={newInteraction.description}
                                     onChange={e => setNewInteraction({ ...newInteraction, description: e.target.value })}
                                 />
                             </div>
                             <div className="md:col-span-2 flex gap-4 pt-4">
-                                <Button type="button" variant="ghost" onClick={() => setIsAdding(false)} className="h-12 rounded-2xl px-8">Annuler</Button>
-                                <Button type="submit" className="h-12 rounded-2xl px-12 font-bold shadow-lg shadow-primary/20">Enregistrer l'interaction</Button>
+                                <Button type="button" variant="ghost" onClick={() => setIsAdding(false)} className="h-12 rounded-2xl px-8">{t('interactions.cancel')}</Button>
+                                <Button type="submit" className="h-12 rounded-2xl px-12 font-bold shadow-lg shadow-primary/20">{t('interactions.save')}</Button>
                             </div>
                         </form>
                     </div>
@@ -203,7 +205,7 @@ export default function InteractionsManagement() {
                                         {item.riskLevel}
                                     </span>
                                 </div>
-                                <p className="text-sm text-muted-foreground">{item.description || "Aucune description fournie."}</p>
+                                <p className="text-sm text-muted-foreground">{item.description || t('interactions.noDescription')}</p>
                             </div>
                             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive shrink-0">
                                 <Trash2 className="w-5 h-5" />
@@ -214,7 +216,7 @@ export default function InteractionsManagement() {
                     {interactions.length === 0 && !loading && (
                         <div className="text-center py-20 bg-white rounded-[40px] border border-dashed">
                             <Info className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-                            <p className="text-muted-foreground">Aucune incompatibilité définie pour le moment.</p>
+                            <p className="text-muted-foreground">{t('interactions.empty')}</p>
                         </div>
                     )}
                 </div>

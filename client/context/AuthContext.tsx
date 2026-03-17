@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (phone: string, type?: AccountType, pin?: string) => Promise<boolean>;
   register: (phone: string, pin: string, type: AccountType) => Promise<boolean>;
   logout: () => void;
+  updateUser: (updatedUser: Partial<UserDTO>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -88,8 +89,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("takymed_user");
   };
 
+  const updateUser = (updatedUser: Partial<UserDTO>) => {
+    if (user) {
+      const newUser = { ...user, ...updatedUser };
+      setUser(newUser);
+      localStorage.setItem("takymed_user", JSON.stringify(newUser));
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

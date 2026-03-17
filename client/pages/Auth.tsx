@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import type { AccountType } from "@shared/api";
 export default function Auth({ mode }: { mode: "login" | "register" }) {
   const navigate = useNavigate();
   const { login, register } = useAuth();
+  const { t } = useLanguage();
   const [step, setStep] = useState<"form" | "pin">("form");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
@@ -47,7 +49,6 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
     if (phone.trim() === "admin") return "admin";
     const country = countries.find(c => c.code === selectedCountry);
     if (!country) return phone.trim();
-    // Prepend dialCode if not already present
     const cleanPhone = phone.trim().replace(/^\+/, '');
     const cleanDialCode = country.dialCode.replace(/^\+/, '');
     if (cleanPhone.startsWith(cleanDialCode)) {
@@ -59,18 +60,15 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone.trim()) {
-      toast.error("Veuillez saisir votre numéro de téléphone.");
+      toast.error(t('auth.phoneRequired'));
       return;
     }
 
     setIsSubmitting(true);
     try {
       if (mode === "login") {
-        // Login: passer directement à l'étape PIN
-        // L'utilisateur entre son PIN existant
         setStep("pin");
       } else if (mode === "register") {
-        // Register: créer le compte d'abord, le backend enverra le PIN par SMS
         const response = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -79,18 +77,18 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
 
         if (!response.ok) {
           const data = await response.json().catch(() => null);
-          toast.error(data?.error || "Erreur lors de la création du compte");
+          toast.error(data?.error || t('auth.creationError'));
           setIsSubmitting(false);
           return;
         }
 
-        toast.success("Compte créé ! Un PIN de 6 chiffres vous a été envoyé par SMS.");
+        toast.success(t('auth.accountCreated'));
         setStep("pin");
       }
 
     } catch (err) {
       console.error(err);
-      toast.error("Une erreur est survenue.");
+      toast.error(t('auth.genericError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -100,18 +98,20 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Connexion avec le PIN entré
     const success = await login(fullPhone, selectedType, pin.trim());
     setIsSubmitting(false);
     if (success) {
       toast.success(
         mode === "register"
-          ? "Compte créé et connecté !"
-          : "Authentification réussie !",
+          ? t('auth.connectedCreated')
+          : t('auth.authSuccess'),
       );
       const savedUser = localStorage.getItem("takymed_user");
       const parsed = savedUser ? JSON.parse(savedUser) : null;
-      navigate(parsed?.type === "admin" ? "/admin" : "/dashboard");
+      navigate(
+        parsed?.type === "admin" ? "/admin" : 
+        parsed?.type === "commercial" ? "/commercial" : "/dashboard"
+      );
     }
   };
 
@@ -119,7 +119,7 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
     setPhone(testPhone);
     setPin(testPin);
     if (testType) setSelectedType(testType);
-    toast.info("Identifiants de test remplis !");
+    toast.info(t('auth.testFilled'));
   };
 
   return (
@@ -137,7 +137,7 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
           </span>
         </Link>
         <h2 className="mt-4 md:mt-6 text-center text-3xl md:text-4xl font-black text-foreground tracking-tighter">
-          {mode === "login" ? "Connexion" : "Créer votre compte"}
+          {mode === "login" ? t('auth.loginTitle') : t('auth.registerTitle')}
         </h2>
       </div>
 
@@ -146,11 +146,11 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
           {step === "form" && (
             <form className="space-y-6" onSubmit={handleAuth}>
               <div className="space-y-2">
-                <Label htmlFor="phone">Numéro de téléphone</Label>
+                <Label htmlFor="phone">{t('auth.phone')}</Label>
                 <div className="flex gap-2">
                   <Select value={selectedCountry} onValueChange={setSelectedCountry}>
                     <SelectTrigger className="w-24 h-11 rounded-xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none">
-                      <SelectValue placeholder="Pays" />
+                      <SelectValue placeholder={t('auth.country')} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl max-h-60">
                       {countries.map((c, idx) => (
@@ -185,13 +185,13 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
 
               {mode === "register" && (
                 <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 text-sm text-muted-foreground">
-                  <p>Votre compte sera créé en formule <strong className="text-primary">Standard</strong> (gratuit).</p>
-                  <p className="text-xs mt-1">Vous pourrez évoluer vers Pro depuis votre espace.</p>
+                  <p>{t('auth.registerNote')} <strong className="text-primary">{t('auth.registerNoteStandard')}</strong> {t('auth.registerNoteFree')}</p>
+                  <p className="text-xs mt-1">{t('auth.registerUpgradeHint')}</p>
                 </div>
               )}
 
               <Button className="w-full h-11 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]">
-                {mode === "login" ? "Continuer" : "S'inscrire"}
+                {mode === "login" ? t('auth.continue') : t('auth.signUp')}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </form>
@@ -200,7 +200,7 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
           {step === "pin" && (
             <form onSubmit={handlePin} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="pin">Code PIN</Label>
+                <Label htmlFor="pin">{t('auth.pin')}</Label>
                 <Input
                   id="pin"
                   type={phone.trim() === "admin" ? "password" : "text"}
@@ -218,13 +218,13 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
               </div>
               <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-800 text-xs rounded-lg border border-amber-100">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span>Conservez précieusement ce PIN.</span>
+                <span>{t('auth.keepPin')}</span>
               </div>
               <Button
                 disabled={isSubmitting}
                 className="w-full h-12 rounded-xl font-bold shadow-lg shadow-primary/20"
               >
-                {isSubmitting ? "Connexion..." : "Valider et entrer"}
+                {isSubmitting ? t('auth.connecting') : t('auth.validateEnter')}
               </Button>
               <Button
                 type="button"
@@ -232,7 +232,7 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                 className="w-full"
                 onClick={() => setStep("form")}
               >
-                Retour
+                {t('auth.back')}
               </Button>
             </form>
           )}
@@ -240,7 +240,7 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
           <div className="mt-8 p-4 bg-primary/5 rounded-2xl border border-primary/10">
             <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
               <Info className="h-3 w-3" />
-              Comptes de test
+              {t('auth.testAccounts')}
             </h4>
             <div className="flex flex-wrap gap-2">
               <button
@@ -256,6 +256,13 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                 className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
               >
                 Pro
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSelectedCountry("CM"); setTestUser("commercial", "1234", "commercial"); }}
+                className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
+              >
+                Commercial
               </button>
               <button
                 type="button"

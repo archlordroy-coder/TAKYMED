@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import {
     LayoutDashboard,
@@ -14,6 +15,9 @@ import {
     BarChart3,
     Globe,
     MoreVertical,
+    Tags,
+    GitPullRequest,
+    Briefcase
 } from "lucide-react";
 import { Button } from "./ui/button";
 import {
@@ -37,17 +41,21 @@ const EMERALD = "#00A859";
 
 export function AdminLayout({ children }: AdminLayoutProps) {
     const { user, logout } = useAuth();
+    const { t } = useLanguage();
     const location = useLocation();
     const navigate = useNavigate();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     const navItems = [
         { icon: LayoutDashboard, label: "Dashboard", path: "/admin", group: "PRINCIPAL" },
-        { icon: BarChart3, label: "Analyse", path: "/admin/analytics", group: "PRINCIPAL" },
-        { icon: Users, label: "Clients", path: "/admin/clients", group: "GESTION" },
-        { icon: Pill, label: "Médicaments", path: "/admin/catalogue", group: "GESTION" },
-        { icon: Globe, label: "Pharmacies", path: "/admin/pharmacies", group: "GESTION" },
-        { icon: Settings, label: "Paramètres", path: "/admin/settings", group: "SYSTÈME" },
+        { icon: BarChart3, label: t('admin.analytics'), path: "/admin/analytics", group: "PRINCIPAL" },
+        { icon: Users, label: t('admin.users'), path: "/admin/clients", group: "GESTION" },
+        { icon: Pill, label: t('admin.medications'), path: "/admin/catalogue", group: "GESTION" },
+        { icon: Globe, label: t('admin.pharmacies'), path: "/admin/pharmacies", group: "GESTION" },
+        { icon: Tags, label: t('admin.categories'), path: "/admin/categories", group: "GESTION" },
+        { icon: GitPullRequest, label: t('admin.promoRequests'), path: "/admin/requests", group: "GESTION" },
+        { icon: Briefcase, label: t('admin.commercials'), path: "/admin/commercials", group: "GESTION" },
+        { icon: Settings, label: t('admin.settings'), path: "/admin/settings", group: "SYSTÈME" },
     ];
 
     const handleLogout = () => {
@@ -130,7 +138,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                 className="mt-2 w-full flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-red-500 transition-colors py-1"
                             >
                                 <LogOut className="w-3.5 h-3.5" />
-                                Déconnexion
+                                {t('nav.logout')}
                             </button>
                         </div>
                     )}
@@ -167,33 +175,50 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 </div>
                 {/* Top Header */}
                 <header className="h-20 flex items-center justify-end px-4 md:px-8 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e2e8f0" }}>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
+                        {/* Language Toggle */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 border-slate-200 font-bold text-slate-600 rounded-xl"
+                            onClick={() => {
+                                const newLang = t('language.switchTo') === 'EN' ? 'en' : 'fr';
+                                // Hacky approach, language should really be exported from context
+                                // But since we update state locally, let's trigger a small event or just stick to standard t() matching
+                                localStorage.setItem('takymed_lang', newLang);
+                                window.location.reload(); 
+                            }}
+                        >
+                            <Globe className="w-4 h-4 mr-2" />
+                            {t('language.switchTo')}
+                        </Button>
+
                         <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button className="flex items-center gap-3 group">
-                                        <AccountAvatar name={user?.name || "Admin"} type="admin" />
-                                        <div className="text-left hidden sm:block">
-                                            <p className="text-xs font-bold text-slate-800 leading-none mb-0.5">{user?.name || "Admin"}</p>
-                                            <p className="text-[10px] font-semibold leading-none" style={{ color: TEAL }}>Administrateur</p>
-                                        </div>
-                                        <MoreVertical className="w-4 h-4 text-slate-400" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-white border-slate-200 text-slate-700 w-48 rounded-2xl p-2 shadow-xl">
-                                    <DropdownMenuLabel className="px-3 py-2 text-xs font-bold text-slate-400 uppercase">Compte</DropdownMenuLabel>
-                                    <DropdownMenuSeparator className="bg-slate-100" />
-                                    <DropdownMenuItem className="focus:bg-slate-50 rounded-xl px-3 py-2.5 cursor-pointer gap-3">
-                                        <UserIcon size={15} /> Profil
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="focus:bg-slate-50 rounded-xl px-3 py-2.5 cursor-pointer gap-3" onClick={() => navigate("/admin/settings")}>
-                                        <Settings size={15} /> Paramètres
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator className="bg-slate-100" />
-                                    <DropdownMenuItem className="focus:bg-red-50 text-red-500 focus:text-red-500 rounded-xl px-3 py-2.5 cursor-pointer gap-3" onClick={handleLogout}>
-                                        <LogOut size={15} /> Déconnexion
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="flex items-center gap-3 group">
+                                    <AccountAvatar name={user?.name || "Admin"} type="admin" />
+                                    <div className="text-left hidden sm:block">
+                                        <p className="text-xs font-bold text-slate-800 leading-none mb-0.5">{user?.name || "Admin"}</p>
+                                        <p className="text-[10px] font-semibold leading-none" style={{ color: TEAL }}>Administrateur</p>
+                                    </div>
+                                    <MoreVertical className="w-4 h-4 text-slate-400" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-white border-slate-200 text-slate-700 w-48 rounded-2xl p-2 shadow-xl">
+                                <DropdownMenuLabel className="px-3 py-2 text-xs font-bold text-slate-400 uppercase">{t('nav.myAccount')}</DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-slate-100" />
+                                <DropdownMenuItem className="focus:bg-slate-50 rounded-xl px-3 py-2.5 cursor-pointer gap-3" onClick={() => navigate("/profile")}>
+                                    <UserIcon size={15} /> {t('nav.profile')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="focus:bg-slate-50 rounded-xl px-3 py-2.5 cursor-pointer gap-3" onClick={() => navigate("/admin/settings")}>
+                                    <Settings size={15} /> {t('admin.settings')}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-slate-100" />
+                                <DropdownMenuItem className="focus:bg-red-50 text-red-500 focus:text-red-500 rounded-xl px-3 py-2.5 cursor-pointer gap-3" onClick={handleLogout}>
+                                    <LogOut size={15} /> {t('nav.logout')}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </header>
 

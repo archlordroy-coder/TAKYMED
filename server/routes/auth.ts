@@ -11,15 +11,17 @@ const typeMap: Record<string, string> = {
   pharmacist: "Professionnel",
   pharmacy: "Professionnel",
   admin: "Administrateur",
+  commercial: "Commercial",
 };
 
 const reverseTypeMap: Record<
   string,
-  "standard" | "professional" | "admin"
+  "standard" | "professional" | "admin" | "commercial"
 > = {
   Standard: "standard",
   Professionnel: "professional",
   Administrateur: "admin",
+  Commercial: "commercial",
 };
 
 router.get("/account-types", (_req, res) => {
@@ -219,7 +221,7 @@ router.post("/login", async (req, res) => {
     }
 
     let user: any;
-    let frontendType: "standard" | "professional" | "pharmacist" | "admin" = "standard";
+    let frontendType: "standard" | "professional" | "pharmacist" | "admin" | "commercial" = "standard";
 
     // Find user by phone first to be flexible with account type changes
     user = db
@@ -314,6 +316,11 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "PIN incorrect" });
     }
 
+    // Check account validation (for commercial-created accounts)
+    if (user.est_valide === 0) {
+      return res.status(403).json({ error: "Votre compte n'est pas encore validé. Veuillez contacter votre agent commercial." });
+    }
+
     res.json({
       id: user.id_utilisateur,
       email: user.email || `${frontendType}@takymed.com`,
@@ -336,7 +343,7 @@ router.post("/upgrade-request", (req, res) => {
     return res.status(401).json({ error: "Non authentifié" });
   }
 
-  if (!requestedType || !["Pro", "Professionnel"].includes(requestedType)) {
+  if (!requestedType || !["Pro", "Professionnel", "Commercial"].includes(requestedType)) {
     return res.status(400).json({ error: "Type de compte invalide" });
   }
 
@@ -354,13 +361,67 @@ router.post("/upgrade-request", (req, res) => {
 
     // Create upgrade request
     db.prepare(
-      "INSERT INTO UpgradeRequests (id_utilisateur, requested_type) VALUES (?, ?)"
-    ).run(userId, requestedType);
+      "INSERT INTO UpgradeRequests (id_utilisateur, requested_type, motive) VALUES (?, ?, ?)"
+    ).run(userId, requestedType, req.body.motive || null);
 
     res.json({ success: true, message: "Demande envoyée avec succès" });
   } catch (error) {
     console.error("Upgrade request error:", error);
     res.status(500).json({ error: "Erreur lors de la demande" });
+  }
+});
+
+// Update profile (name and phone change)
+router.patch("/profile", (req, res) => {
+  const { name, phone } = req.body;
+  const userId = req.headers["x-user-id"];
+
+  if (!userId) {
+    return res.status(401).json({ error: "Non authentifié" });
+  }
+
+  try {
+    const transaction = db.transaction(() => {
+      // 1. Update Name if provided
+      if (name !== undefined) {
+        const result = db
+          .prepare(
+            "UPDATE ProfilsUtilisateurs SET nom_complet = ? WHERE id_utilisateur = ?"
+          )
+          .run(name, userId as string);
+
+        if (result.changes === 0) {
+          db.prepare(
+            "INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)"
+          ).run(userId, name);
+        }
+      }
+
+      // 2. Update Phone if provided
+      if (phone) {
+        const normalizedPhone = phone.replace(/\s+/g, '');
+        
+        // Check if phone already belongs to someone else
+        const existingUser = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE numero_telephone = ? AND id_utilisateur <> ?")
+          .get(normalizedPhone, userId);
+        
+        if (existingUser) {
+          throw new Error("PHONE_TAKEN");
+        }
+
+        db.prepare("UPDATE Utilisateurs SET numero_telephone = ? WHERE id_utilisateur = ?")
+          .run(normalizedPhone, userId);
+      }
+    });
+
+    transaction();
+    res.json({ success: true, message: "Profil mis à jour" });
+  } catch (error: any) {
+    if (error.message === "PHONE_TAKEN") {
+      return res.status(409).json({ error: "Ce numéro de téléphone est déjà utilisé par un autre compte" });
+    }
+    console.error("Profile update error:", error);
+    res.status(500).json({ error: "Erreur lors de la mise à jour du profil" });
   }
 });
 

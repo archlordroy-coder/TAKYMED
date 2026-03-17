@@ -65,6 +65,14 @@ VALUES ('Standard', 'Compte limité', 1, 3, 0, NULL),
         NULL,
         0,
         NULL
+    ),
+    (
+        'Commercial',
+        'Peut créer et valider des clients avec ordonnance',
+        NULL,
+        NULL,
+        0,
+        NULL
     );
 -- ===============================
 -- FRAIS COMPTES
@@ -90,10 +98,13 @@ CREATE TABLE IF NOT EXISTS Utilisateurs (
     pin_hash VARCHAR(255),
     expiration_pin DATETIME,
     id_type_compte INT NOT NULL,
+    id_createur INTEGER,
+    est_valide BOOLEAN DEFAULT TRUE,
     est_pharmacien BOOLEAN DEFAULT FALSE,
     cree_le DATETIME DEFAULT CURRENT_TIMESTAMP,
     mis_a_jour_le DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_type_compte) REFERENCES TypesComptes(id_type_compte)
+    FOREIGN KEY (id_type_compte) REFERENCES TypesComptes(id_type_compte),
+    FOREIGN KEY (id_createur) REFERENCES Utilisateurs(id_utilisateur)
 );
 -- ===============================
 -- PROFIL
@@ -260,8 +271,8 @@ CREATE TABLE IF NOT EXISTS NotificationJobs (
     max_retries INT DEFAULT 3,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     processed_at DATETIME,
-    FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur),
-    FOREIGN KEY (id_calendrier_prise) REFERENCES CalendrierPrises(id_calendrier_prise)
+    FOREIGN KEY (id_utilisateur) REFERENCES Utilisateurs(id_utilisateur) ON DELETE CASCADE,
+    FOREIGN KEY (id_calendrier_prise) REFERENCES CalendrierPrises(id_calendrier_prise) ON DELETE CASCADE
 );
 -- ===============================
 -- NOTIFICATION LOGS
@@ -278,7 +289,7 @@ CREATE TABLE IF NOT EXISTS NotificationLogs (
     provider_message_id VARCHAR(255),
     cost DECIMAL(5, 3),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_job) REFERENCES NotificationJobs(id_job)
+    FOREIGN KEY (id_job) REFERENCES NotificationJobs(id_job) ON DELETE CASCADE
 );
 -- ===============================
 -- UPGRADE REQUESTS

@@ -1,0 +1,868 @@
+import { useState, useMemo, useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Plus,
+  Trash2,
+  ArrowRight,
+  ArrowLeft,
+  AlertTriangle,
+  CheckCircle2,
+  Bell,
+  Table,
+  User,
+  Clock,
+  ChevronRight,
+  Info,
+  Calendar,
+  Stethoscope,
+  Pill,
+  Save,
+  Phone,
+  UserPlus,
+  Check,
+  Loader2,
+  ShieldCheck
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { MedicationEntry, DoseSchedule, FrequencyType } from "@shared/api";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
+
+export default function CommercialRegister() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [pinCode, setPinCode] = useState("");
+  const [registeredClientId, setRegisteredClientId] = useState<number | null>(null);
+
+  // Step 1: Client Info
+  const [clientInfo, setClientInfo] = useState({
+    name: "",
+    phone: "",
+  });
+
+  // Step 2: Prescription details (mirrors Prescription.tsx)
+  const [patient, setPatient] = useState({
+    title: "",
+    categorieAge: "adulte",
+    weight: 0,
+    startDate: (() => {
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return `${now.getFullYear()}-${month}-${day}`;
+    })()
+  });
+
+  const [categories, setCategories] = useState<{ id: number, name: string, description: string, considerWeight: boolean }[]>([]);
+  const [medications, setMedications] = useState<MedicationEntry[]>([
+    {
+      id: "1",
+      name: "",
+      frequencyType: "1x",
+      times: ["08:00"],
+      durationDays: 1,
+      doseValue: 1,
+      unit: "comprimé"
+    }
+  ]);
+  const [countries, setCountries] = useState<{ code: string, name: string, dialCode: string, flag: string }[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState("CM");
+
+  const [dbMedications, setDbMedications] = useState<{ id: number, name: string }[]>([]);
+  const [interactions, setInteractions] = useState<any[]>([]);
+  const [customDates, setCustomDates] = useState<Record<number, string>>({});
+
+  // Step 3: Schedule preview
+  const [scheduleState, setScheduleState] = useState<DoseSchedule[]>([]);
+
+  useEffect(() => {
+    async function fetchMeds() {
+      try {
+        const res = await fetch('/api/medications');
+        if (res.ok) {
+          const data = await res.json();
+          setDbMedications(data.medications);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des médicaments:", err);
+      }
+    }
+
+    async function fetchInteractions() {
+      try {
+        const res = await fetch('/api/medications/interactions');
+        if (res.ok) {
+          const data = await res.json();
+          setInteractions(data.interactions);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des interactions:", err);
+      }
+    }
+
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        if (res.ok) {
+          const data = await res.json();
+          setCategories(data.categories);
+        }
+      } catch (err) {
+        console.error("Erreur chargement catégories:", err);
+      }
+    }
+
+    async function fetchCountries() {
+      try {
+        const res = await fetch('/api/countries');
+        if (res.ok) {
+          const data = await res.json();
+          setCountries(data.countries);
+        }
+      } catch (err) {
+        console.error("Erreur chargement pays:", err);
+      }
+    }
+
+    fetchMeds();
+    fetchInteractions();
+    fetchCategories();
+    fetchCountries();
+  }, []);
+
+  useEffect(() => {
+    if (step === 3) {
+      const computed: DoseSchedule[] = [];
+      medications.forEach(m => {
+        if (!m.name || m.frequencyType === 'prn') return;
+        for (let day = 1; day <= m.durationDays; day++) {
+          if (m.frequencyType === 'interval' && m.intervalHours) {
+            let hour = 8;
+            while (hour < 24) {
+              computed.push({
+                medicationId: m.id, medicationName: m.name,
+                clientName: clientInfo.name, patientId: 0,
+                dose: m.doseValue, unit: m.unit,
+                time: `${hour.toString().padStart(2, '0')}:00`,
+                day, statusReminderSent: false, statusTaken: false
+              });
+              hour += m.intervalHours;
+            }
+          } else {
+            m.times.forEach(timeStr => {
+              computed.push({
+                medicationId: m.id, medicationName: m.name,
+                clientName: clientInfo.name, patientId: 0,
+                dose: m.doseValue, unit: m.unit,
+                time: timeStr, day,
+                statusReminderSent: false, statusTaken: false
+              });
+            });
+          }
+        }
+      });
+      setScheduleState(computed);
+    }
+  }, [step, medications, clientInfo.name]);
+
+  const getDateForDay = (day: number): string => {
+    if (customDates[day]) return customDates[day];
+    const baseDate = new Date(patient.startDate);
+    baseDate.setDate(baseDate.getDate() + day - 1);
+    const month = String(baseDate.getMonth() + 1).padStart(2, '0');
+    const dayOfMonth = String(baseDate.getDate()).padStart(2, '0');
+    return `${baseDate.getFullYear()}-${month}-${dayOfMonth}`;
+  };
+
+  const formatDateShort = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  };
+
+  const handleDateChange = (day: number, newDate: string) => {
+    const updatedDates: Record<number, string> = { ...customDates, [day]: newDate };
+    const maxDay = Math.max(...medications.map(m => m.durationDays));
+    const baseDate = new Date(newDate);
+    for (let d = day + 1; d <= maxDay; d++) {
+      const nextDate = new Date(baseDate);
+      nextDate.setDate(nextDate.getDate() + (d - day));
+      updatedDates[d] = nextDate.toISOString().split('T')[0];
+    }
+    setCustomDates(updatedDates);
+  };
+
+  const addMedication = () => {
+    setMedications([...medications, {
+      id: Math.random().toString(36).substr(2, 9),
+      name: "", frequencyType: "1x", times: ["08:00"],
+      durationDays: 1, doseValue: 1, unit: "comprimé"
+    }]);
+  };
+
+  const removeMedication = (id: string) => {
+    setMedications(medications.filter(m => m.id !== id));
+  };
+
+  const updateMedication = (id: string, updates: Partial<MedicationEntry>) => {
+    setMedications(medications.map(m => m.id === id ? { ...m, ...updates } : m));
+  };
+
+  const detectedInteractions = useMemo(() => {
+    const clashes: any[] = [];
+    const names = medications.map(m => m.name.toLowerCase()).filter(Boolean);
+    interactions.forEach(inter => {
+      const m1 = inter.med1Name.toLowerCase();
+      const m2 = inter.med2Name.toLowerCase();
+      if (names.includes(m1) && names.includes(m2)) clashes.push(inter);
+    });
+    return clashes;
+  }, [medications, interactions]);
+
+  const handleNextStep = () => {
+    if (step === 1) {
+      if (!clientInfo.name.trim()) { toast.error("Le nom du client est requis."); return; }
+      if (!clientInfo.phone.trim()) { toast.error("Le numéro de téléphone est requis."); return; }
+      setPatient(prev => ({ ...prev, title: clientInfo.name }));
+      setStep(2);
+    } else if (step === 2) {
+      if (medications.some(m => !m.name)) { toast.error("Veuillez remplir le nom de tous les médicaments."); return; }
+      setStep(3);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!user) { toast.error("Vous devez être connecté"); return; }
+    setIsSubmitting(true);
+    try {
+      const dialCode = countries.find(c => c.code === selectedCountry)?.dialCode || "+237";
+      const fullPhone = `${dialCode}${clientInfo.phone.replace(/\s+/g, '')}`;
+
+      const res = await fetch("/api/commercial/register-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commercialId: user.id,
+          clientPhone: fullPhone,
+          clientName: clientInfo.name,
+          startDate: patient.startDate,
+          prescription: {
+            title: patient.title || "Ordonnance initiale",
+            weight: patient.weight,
+            categorieAge: patient.categorieAge,
+            medications: medications.map(m => ({
+              name: m.name,
+              doseValue: m.doseValue,
+              frequencyType: m.frequencyType,
+              durationDays: m.durationDays,
+              unit: m.unit,
+              times: m.times,
+              intervalHours: m.intervalHours
+            }))
+          }
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        if (res.status === 409) {
+          throw new Error("Ce client est déjà inscrit dans le système.");
+        }
+        throw new Error(err.error || "Erreur lors de l'inscription");
+      }
+
+      const data = await res.json().catch(() => ({}));
+      setRegisteredClientId(data.clientId || null);
+      toast.success("Client inscrit ! Demandez-lui son PIN pour finaliser.");
+      setStep(4);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleValidatePin = async () => {
+    if (!pinCode.trim()) { toast.error("Veuillez entrer le code PIN."); return; }
+    setIsSubmitting(true);
+    try {
+      const dialCode = countries.find(c => c.code === selectedCountry)?.dialCode || "+237";
+      const fullPhone = `${dialCode}${clientInfo.phone.replace(/\s+/g, '')}`;
+
+      const res = await fetch("/api/commercial/validate-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commercialId: user?.id,
+          clientPhone: fullPhone,
+          pin: pinCode
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "PIN invalide");
+      }
+
+      toast.success("Client validé avec succès ! Le compte est maintenant actif.");
+      setTimeout(() => navigate("/commercial"), 1500);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!user || user.type !== 'commercial') {
+    return <div className="p-10 text-center">Accès non autorisé</div>;
+  }
+
+  const stepLabels = [
+    { num: 1, label: "Informations Client", icon: <UserPlus className="w-4 h-4" /> },
+    { num: 2, label: "Médicaments", icon: <Pill className="w-4 h-4" /> },
+    { num: 3, label: "Calendrier", icon: <Calendar className="w-4 h-4" /> },
+    { num: 4, label: "Validation PIN", icon: <ShieldCheck className="w-4 h-4" /> },
+  ];
+
+  return (
+    <div className="bg-slate-50 min-h-screen pb-20">
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl">
+        {/* Progress Header */}
+        <div className="flex items-center gap-2 md:gap-4 mb-8 overflow-x-auto pb-4">
+          {stepLabels.map((s, idx) => (
+            <div key={s.num} className="flex items-center gap-2">
+              {idx > 0 && <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0" />}
+              <div className={cn(
+                "flex items-center gap-2 px-3 md:px-4 py-2 rounded-2xl whitespace-nowrap transition-all",
+                step >= s.num ? "bg-primary text-white" : "bg-slate-200 text-muted-foreground"
+              )}>
+                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">{s.num}</div>
+                <span className="font-medium text-sm hidden md:inline">{s.label}</span>
+                {s.icon}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ========== STEP 1: Client Info ========== */}
+        {step === 1 && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6">
+              <div className="flex items-center gap-3 mb-2">
+                <UserPlus className="w-6 h-6 text-primary" />
+                <h2 className="text-2xl font-bold">Informations du Client</h2>
+              </div>
+              <p className="text-muted-foreground text-sm">
+                Renseignez les informations du nouveau client. Un PIN de validation lui sera envoyé par SMS.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Nom complet <span className="text-red-500">*</span></Label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      value={clientInfo.name}
+                      onChange={(e) => setClientInfo({ ...clientInfo, name: e.target.value })}
+                      placeholder="Nom du client"
+                      className="rounded-2xl h-14 pl-12 text-lg"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Numéro de téléphone <span className="text-red-500">*</span></Label>
+                  <div className="flex gap-2">
+                    <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                      <SelectTrigger className="w-28 h-14 rounded-2xl border bg-white px-3 text-sm font-bold focus:ring-2 focus:ring-primary outline-none">
+                        <SelectValue placeholder="Pays" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl max-h-[300px] overflow-y-auto">
+                        {countries.map((c, idx) => (
+                          <SelectItem key={`country-${idx}`} value={c.code} className="rounded-xl">
+                            <span className="flex items-center gap-2">
+                              <span className="text-lg">{c.flag}</span>
+                              <span className="font-bold">{c.dialCode}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        value={clientInfo.phone}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "" || /^[0-9]+$/.test(val)) {
+                            setClientInfo({ ...clientInfo, phone: val });
+                          }
+                        }}
+                        placeholder="6XX XXX XXX"
+                        className="rounded-2xl h-14 pl-12 text-lg font-mono tracking-wider"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex gap-3">
+                <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-700">
+                  Après l'inscription, le client recevra un PIN par SMS. Ce PIN devra être communiqué
+                  à l'agent commercial pour valider le compte.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNextStep}>
+                Suivant : Ordonnance
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ========== STEP 2: Medications (same as Prescription.tsx) ========== */}
+        {step === 2 && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Patient / Prescription Header */}
+            <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6">
+              <div className="flex items-center gap-3 mb-2">
+                <Stethoscope className="w-6 h-6 text-primary" />
+                <h2 className="text-2xl font-bold">Ordonnance pour {clientInfo.name}</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <Label>Titre de l'ordonnance</Label>
+                  <Input
+                    value={patient.title}
+                    onChange={(e) => setPatient({ ...patient, title: e.target.value })}
+                    placeholder="Ex: Traitement Paludisme"
+                    className="rounded-2xl h-14 text-lg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Catégorie</Label>
+                  <select
+                    title="Sélectionner la catégorie d'âge"
+                    className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-base font-medium focus-visible:ring-2 ring-primary/20 outline-none"
+                    value={patient.categorieAge}
+                    onChange={(e) => setPatient({ ...patient, categorieAge: e.target.value })}
+                  >
+                    {categories
+                      .sort((a, b) => {
+                        const order = ["adulte", "enfant", "bébé"];
+                        const indexA = order.indexOf(a.name.toLowerCase());
+                        const indexB = order.indexOf(b.name.toLowerCase());
+                        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+                      })
+                      .map(cat => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name.charAt(0).toUpperCase() + cat.name.slice(1)} {cat.description ? `(${cat.description})` : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Date de début</Label>
+                  <Input
+                    type="date"
+                    value={patient.startDate}
+                    onChange={(e) => setPatient({ ...patient, startDate: e.target.value })}
+                    className="rounded-2xl h-14 text-lg"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Interactions Warning */}
+            {detectedInteractions.length > 0 && (
+              <div className="space-y-3 animate-in fade-in zoom-in duration-300">
+                {detectedInteractions.map((inter, idx) => (
+                  <div key={idx} className={cn(
+                    "p-4 rounded-3xl border flex items-start gap-4 shadow-sm",
+                    inter.riskLevel === 'critique' ? "bg-red-50 border-red-200 text-red-900" :
+                    inter.riskLevel === 'eleve' ? "bg-orange-50 border-orange-200 text-orange-900" :
+                    "bg-amber-50 border-amber-200 text-amber-900"
+                  )}>
+                    <AlertTriangle className="w-6 h-6 shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="font-bold flex items-center gap-2">
+                         Risque d'Incompatibilité : {inter.med1Name} & {inter.med2Name}
+                         <span className={cn(
+                           "px-2 py-0.5 rounded-full text-[10px] uppercase font-black",
+                           inter.riskLevel === 'critique' ? "bg-red-600 text-white" : "bg-orange-500 text-white"
+                         )}>{inter.riskLevel}</span>
+                      </h4>
+                      <p className="text-sm opacity-80 mt-1">{inter.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Medications List */}
+            <div className="space-y-4">
+              {medications.map((m) => (
+                <div key={m.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-full max-w-[320px] space-y-1">
+                        <div className="relative group">
+                          <Pill className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500 group-hover:text-primary transition-colors" />
+                          <Input
+                            list={`medication-options-${m.id}`}
+                            title="Saisir un médicament"
+                            value={m.name}
+                            onChange={(e) => updateMedication(m.id, { name: e.target.value })}
+                            placeholder="Saisir un médicament"
+                            className="rounded-2xl h-14 pl-12 focus-visible:ring-primary text-lg"
+                          />
+                          <datalist id={`medication-options-${m.id}`}>
+                            {dbMedications.map((dbM) => (
+                              <option key={dbM.id} value={dbM.name} />
+                            ))}
+                          </datalist>
+                        </div>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => removeMedication(m.id)} className="text-muted-foreground hover:text-destructive">
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Frequency */}
+                    <div className="space-y-3">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Fréquence des prises</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {['1x', '2x', '3x', '6,8,12', 'prb'].map((freq) => {
+                          const fMap: Record<string, FrequencyType> = {
+                            '1x': '1x', '2x': '2x', '3x': '3x', '6,8,12': 'interval', 'prb': 'prn'
+                          };
+                          const currentFreq = fMap[freq];
+                          return (
+                            <button
+                              key={freq}
+                              onClick={() => {
+                                const newTimes = currentFreq === '1x' ? ['08:00']
+                                  : currentFreq === '2x' ? ['08:00', '20:00']
+                                    : currentFreq === '3x' ? ['08:00', '14:00', '20:00'] : [];
+                                updateMedication(m.id, {
+                                  frequencyType: currentFreq,
+                                  times: newTimes,
+                                  intervalHours: currentFreq === 'interval' ? 8 : undefined
+                                });
+                              }}
+                              className={cn(
+                                "flex-1 min-w-[50px] h-14 rounded-2xl border text-[10px] md:text-sm font-bold transition-all",
+                                m.frequencyType === currentFreq ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-slate-50 hover:bg-slate-100"
+                              )}
+                            >
+                              {freq === 'prb' ? '-/-' : freq}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {m.frequencyType === '1x' && <p className="text-xs text-primary mt-2">Une fois par jour <span className="opacity-70">(matin)</span></p>}
+                      {m.frequencyType === '2x' && <p className="text-xs text-primary mt-2">Deux fois par jour <span className="opacity-70">(matin et soir)</span></p>}
+                      {m.frequencyType === '3x' && <p className="text-xs text-primary mt-2">Trois fois par jour <span className="opacity-70">(matin, midi et soir)</span></p>}
+                      {m.frequencyType === 'interval' && <p className="text-xs text-primary mt-2">Prises à intervalles réguliers</p>}
+                      {m.frequencyType === 'prn' && <p className="text-xs text-primary mt-2">En cas de besoin</p>}
+
+                      {(m.frequencyType === '1x' || m.frequencyType === '2x' || m.frequencyType === '3x') && (
+                        <div className="grid grid-cols-1 gap-2 mt-4">
+                          {m.times.map((t, tIdx) => (
+                            <div key={tIdx} className="flex items-center gap-2">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
+                              <Input
+                                type="time"
+                                value={t}
+                                onChange={(e) => {
+                                  const newTimes = [...m.times];
+                                  newTimes[tIdx] = e.target.value;
+                                  updateMedication(m.id, { times: newTimes });
+                                }}
+                                className="h-8 text-xs rounded-lg"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {m.frequencyType === 'interval' && (
+                        <div className="space-y-2 mt-4">
+                          <select
+                            title="Choisir l'intervalle"
+                            className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-sm outline-none font-medium"
+                            value={m.intervalHours}
+                            onChange={(e) => updateMedication(m.id, { intervalHours: parseInt(e.target.value) })}
+                          >
+                            <option value={6}>Toutes les 6 heures</option>
+                            <option value={8}>Toutes les 8 heures</option>
+                            <option value={12}>Toutes les 12 heures</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dose */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase">Dose</Label>
+                          <Input
+                            type="number"
+                            value={m.doseValue}
+                            onChange={(e) => updateMedication(m.id, { doseValue: parseInt(e.target.value) || 0 })}
+                            className="rounded-2xl h-14 w-28 text-center text-lg"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase">Unité</Label>
+                          <select
+                            className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-base font-medium outline-none"
+                            value={m.unit}
+                            onChange={(e) => updateMedication(m.id, { unit: e.target.value })}
+                            aria-label="Unité de dosage"
+                          >
+                            <option value="comprimé">comprimé</option>
+                            <option value="mg">mg</option>
+                            <option value="ml">ml</option>
+                            <option value="goutte">goutte</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Duration */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs uppercase">Durée (jours)</Label>
+                        <Input
+                          type="number"
+                          value={m.durationDays}
+                          onChange={(e) => updateMedication(m.id, { durationDays: parseInt(e.target.value) || 0 })}
+                          className="rounded-2xl h-14 text-center text-lg w-28"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Button onClick={addMedication} variant="outline" className="rounded-xl border-emerald-500 text-emerald-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
+                <Plus className="w-4 h-4 mr-2" />
+                Ajouter un médicament
+              </Button>
+            </div>
+
+            <div className="flex justify-between pt-8">
+              <Button variant="ghost" onClick={() => setStep(1)} className="rounded-2xl h-14 px-8">
+                <ArrowLeft className="mr-2 w-5 h-5" />
+                Retour
+              </Button>
+              <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNextStep}>
+                Suivant : Calendrier
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ========== STEP 3: Calendar Preview & Submit ========== */}
+        {step === 3 && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Summary */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border flex flex-col md:flex-row gap-6 items-start">
+              <div className="flex items-center gap-4 flex-1">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <User className="w-7 h-7 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">{clientInfo.name}</h3>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Phone className="w-3 h-3" /> {clientInfo.phone}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-4 flex-wrap">
+                <div className="bg-slate-50 px-4 py-2 rounded-xl text-center">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Médicaments</p>
+                  <p className="text-xl font-black text-primary">{medications.length}</p>
+                </div>
+                <div className="bg-slate-50 px-4 py-2 rounded-xl text-center">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Prises totales</p>
+                  <p className="text-xl font-black text-primary">{scheduleState.length}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Schedule Table */}
+            <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Table className="w-6 h-6 text-primary" />
+                <h2 className="text-2xl font-bold">Calendrier des prises</h2>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-left border-b">
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider">Jour</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider">Médicament</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider">Dose</th>
+                      <th className="p-4 text-xs font-bold uppercase tracking-wider">Heure</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleState.map((s, idx) => {
+                      const dateStr = getDateForDay(s.day);
+                      return (
+                        <tr key={idx} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-semibold">{formatDateShort(dateStr)}</span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="font-bold text-primary">{s.medicationName}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="bg-slate-100 px-2 py-1 rounded-lg text-sm font-medium">
+                              {s.dose} {s.unit}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="w-4 h-4" />
+                              <span className="font-mono">{s.time}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <Button variant="ghost" onClick={() => setStep(2)} className="rounded-2xl h-14 px-8">
+                <ArrowLeft className="mr-2 w-5 h-5" />
+                Retour
+              </Button>
+              <Button
+                size="lg"
+                disabled={isSubmitting}
+                className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-[250px]"
+                onClick={handleSubmit}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Traitement...
+                  </div>
+                ) : (
+                  <>
+                    Inscrire le client
+                    <CheckCircle2 className="ml-2 w-5 h-5" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ========== STEP 4: PIN Validation ========== */}
+        {step === 4 && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6 max-w-lg mx-auto text-center">
+              <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+                <ShieldCheck className="w-10 h-10 text-green-600" />
+              </div>
+              <h2 className="text-2xl font-bold">Validation du client</h2>
+              <p className="text-muted-foreground">
+                Le client <span className="font-bold text-foreground">{clientInfo.name}</span> a reçu un <span className="font-bold text-foreground">PIN par SMS</span> au <span className="font-mono font-bold text-foreground">{clientInfo.phone}</span>.
+                <br />Demandez-lui ce code pour finaliser l'inscription.
+              </p>
+
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex gap-3 text-left">
+                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800">
+                  <strong>Important :</strong> Si le client n'est pas validé, son compte sera automatiquement supprimé.
+                </p>
+              </div>
+
+              <div className="space-y-4 pt-4">
+                <Input
+                  placeholder="Code PIN à 6 chiffres"
+                  value={pinCode}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "" || /^[0-9]+$/.test(val)) setPinCode(val);
+                  }}
+                  maxLength={6}
+                  className="rounded-2xl h-16 text-center text-3xl font-bold tracking-[0.5em] bg-slate-50 border-2 focus-visible:border-green-500 focus-visible:ring-green-500"
+                />
+
+                <div className="flex flex-col gap-3">
+                  <Button
+                    size="lg"
+                    disabled={isSubmitting || pinCode.length !== 6}
+                    className="w-full rounded-2xl h-14 text-lg font-bold shadow-xl bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                    onClick={handleValidatePin}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Vérification...
+                      </div>
+                    ) : (
+                      <>
+                        <ShieldCheck className="mr-2 w-5 h-5" />
+                        Valider et finaliser
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+                    onClick={async () => {
+                      if (window.confirm("Voulez-vous vraiment annuler ? Le client sera supprimé.")) {
+                        try {
+                           if (registeredClientId) {
+                             await fetch(`/api/commercial/clients/${registeredClientId}`, { method: 'DELETE' });
+                           }
+                           toast.info("Inscription annulée.");
+                           navigate("/commercial");
+                        } catch (e) {
+                           console.error("Error canceling:", e);
+                           navigate("/commercial");
+                        }
+                      }
+                    }}
+                  >
+                    Annuler et supprimer le client
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

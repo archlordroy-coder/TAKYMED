@@ -138,10 +138,10 @@ router.get("/monthly-activity", (_req, res) => {
             ORDER BY year, month
         `).all() as { month: string; year: string; count: number }[];
 
-        // Generate last 7 months labels (current month first, going back)
+        // Generate last 7 months labels (chronological order)
         const months = [];
         const now = new Date();
-        for (let i = 0; i < 7; i++) {
+        for (let i = 6; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             months.push({
                 key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
@@ -149,14 +149,14 @@ router.get("/monthly-activity", (_req, res) => {
             });
         }
 
-        // Map data to months (reverse to show current month first)
+        // Map data to months
         const data = months.map(m => {
             const presc = prescriptionsByMonth.find(p => `${p.year}-${p.month}` === m.key);
-            const visits = visitsByMonth.find(v => `${v.year}-${v.month}` === m.key);
+            const inscriptions = visitsByMonth.find(v => `${v.year}-${v.month}` === m.key);
             return {
-                name: m.label.charAt(0).toUpperCase() + m.label.slice(1, 3),
+                name: m.label.charAt(0).toUpperCase() + m.label.slice(1),
                 prescriptions: presc?.count || 0,
-                visites: visits?.count || 0
+                inscriptions: inscriptions?.count || 0
             };
         });
 
@@ -461,6 +461,164 @@ router.get("/pharmacies", (_req, res) => {
         res.json({ pharmacies });
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch pharmacies" });
+    }
+});
+
+// List account upgrade requests
+router.get("/upgrade-requests", (_req, res) => {
+    try {
+        const requests = db.prepare(`
+            SELECT r.id_request as id, r.id_utilisateur as userId, r.requested_type as requestedType,
+                   r.status, r.motive, r.admin_notes as adminNotes, r.created_at as createdAt,
+                   COALESCE(p.nom_complet, u.numero_telephone, 'Utilisateur') as userName,
+                   u.numero_telephone as userPhone
+            FROM UpgradeRequests r
+            JOIN Utilisateurs u ON r.id_utilisateur = u.id_utilisateur
+            LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur
+            ORDER BY r.created_at DESC
+        `).all();
+        res.json({ requests });
+    } catch (error) {
+        console.error("Error fetching upgrade requests:", error);
+        res.status(500).json({ error: "Failed to fetch upgrade requests" });
+    }
+});
+
+// Process account upgrade request
+router.post("/upgrade-requests/:id/process", (req, res) => {
+    const { id } = req.params;
+    const { status, adminNotes, processedBy } = req.body;
+    
+    if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: "Invalid status" });
+    }
+
+    try {
+        db.transaction(() => {
+            // Update request status
+            db.prepare(`
+                UPDATE UpgradeRequests 
+                SET status = ?, admin_notes = ?, processed_at = CURRENT_TIMESTAMP, processed_by = ?
+                WHERE id_request = ?
+            `).run(status, adminNotes || null, processedBy || null, id);
+
+            if (status === 'approved') {
+                const request = db.prepare("SELECT id_utilisateur, requested_type FROM UpgradeRequests WHERE id_request = ?").get(id) as { id_utilisateur: number, requested_type: string };
+                
+                if (request) {
+                    // Resolve type name to ID
+                    let typeId = 1;
+                    const typeName = request.requested_type.toLowerCase();
+                    if (typeName === 'commercial') typeId = 3;
+                    else if (typeName === 'pro' || typeName === 'professionnel') typeId = 2;
+                    else if (typeName === 'admin' || typeName === 'administrateur') typeId = 4;
+
+                    db.prepare("UPDATE Utilisateurs SET id_type_compte = ? WHERE id_utilisateur = ?").run(typeId, request.id_utilisateur);
+                }
+            }
+        })();
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error processing upgrade request:", error);
+        res.status(500).json({ error: "Failed to process request" });
+    }
+});
+
+// Commercial Management
+router.get("/commercials", (_req, res) => {
+    try {
+        const commercials = db.prepare(`
+            SELECT u.id_utilisateur as id, u.numero_telephone as phone, p.nom_complet as name,
+                   (SELECT COUNT(*) FROM Utilisateurs WHERE id_createur = u.id_utilisateur) as clientCount
+            FROM Utilisateurs u
+            JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte
+            LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur
+            WHERE tc.nom_type = 'Commercial'
+            ORDER BY clientCount DESC
+        `).all();
+        res.json({ commercials });
+    } catch (error) {
+        console.error("Error fetching commercials:", error);
+        res.status(500).json({ error: "Failed to fetch commercials" });
+    }
+});
+
+router.get("/commercial-clients/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+        const clients = db.prepare(`
+            SELECT u.id_utilisateur as id, u.numero_telephone as phone, p.nom_complet as name, u.est_valide as isValid, u.cree_le as createdAt
+            FROM Utilisateurs u
+            LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur
+            WHERE u.id_createur = ?
+            ORDER BY u.cree_le DESC
+        `).all(id);
+        res.json({ clients });
+    } catch (error) {
+        console.error("Error fetching commercial clients:", error);
+        res.status(500).json({ error: "Failed to fetch clients" });
+    }
+});
+
+router.patch("/reassign-client", (req, res) => {
+    const { clientId, newCommercialId } = req.body;
+    if (!clientId || !newCommercialId) {
+        return res.status(400).json({ error: "ClientId and newCommercialId are required" });
+    }
+    try {
+        db.prepare("UPDATE Utilisateurs SET id_createur = ? WHERE id_utilisateur = ?").run(newCommercialId, clientId);
+        res.json({ success: true, message: "Client réattribué avec succès" });
+    } catch (error) {
+        console.error("Error reassigning client:", error);
+        res.status(500).json({ error: "Failed to reassign client" });
+    }
+});
+
+router.get("/unassigned-clients", (_req, res) => {
+    try {
+        const clients = db.prepare(`
+            SELECT u.id_utilisateur as id, u.numero_telephone as phone, p.nom_complet as name, u.est_valide as isValid, u.cree_le as createdAt
+            FROM Utilisateurs u
+            LEFT JOIN ProfilsUtilisateurs p ON u.id_utilisateur = p.id_utilisateur
+            JOIN TypesComptes tc ON u.id_type_compte = tc.id_type_compte
+            WHERE u.id_createur IS NULL AND tc.nom_type = 'Standard'
+            ORDER BY u.cree_le DESC
+        `).all();
+        res.json({ clients });
+    } catch (error) {
+        console.error("Error fetching unassigned clients:", error);
+        res.status(500).json({ error: "Failed to fetch unassigned clients" });
+    }
+});
+
+router.patch("/users/:id", (req, res) => {
+    const { id } = req.params;
+    const { phone, name } = req.body;
+
+    try {
+        const user = db.prepare("SELECT id_utilisateur FROM Utilisateurs WHERE id_utilisateur = ?").get(id);
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        if (phone) {
+            db.prepare("UPDATE Utilisateurs SET numero_telephone = ? WHERE id_utilisateur = ?").run(phone, id);
+        }
+
+        if (name !== undefined) {
+            // Check if profile exists
+            const profile = db.prepare("SELECT id_utilisateur FROM ProfilsUtilisateurs WHERE id_utilisateur = ?").get(id);
+            if (profile) {
+                db.prepare("UPDATE ProfilsUtilisateurs SET nom_complet = ? WHERE id_utilisateur = ?").run(name, id);
+            } else {
+                db.prepare("INSERT INTO ProfilsUtilisateurs (id_utilisateur, nom_complet) VALUES (?, ?)").run(id, name);
+            }
+        }
+
+        res.json({ success: true, message: "Informations utilisateur mises à jour" });
+    } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).json({ error: "Failed to update user" });
     }
 });
 

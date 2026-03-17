@@ -41,7 +41,7 @@ export interface DoseSchedule {
   statusTaken: boolean;
 }
 
-export type AccountType = "standard" | "professional" | "pharmacist" | "admin";
+export type AccountType = "standard" | "professional" | "pharmacist" | "admin" | "commercial";
 
 export interface UserDTO {
   id: number;

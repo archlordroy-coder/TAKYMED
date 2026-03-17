@@ -43,9 +43,9 @@ router.post("/", (req, res) => {
             return res.status(404).json({ error: "User not found" });
         }
 
-        // Only Pro (professional) and Pharmacist can create pharmacies
-        if (user.nom_type !== "Professionnel" && user.nom_type !== "Pharmacien" && user.nom_type !== "Pro") {
-            return res.status(403).json({ error: "Only Pro accounts can manage pharmacies" });
+        // Only Administrateurs can create pharmacies now
+        if (user.nom_type !== "Administrateur") {
+            return res.status(403).json({ error: "Only Administrateurs can manage pharmacies" });
         }
 
         // Check current pharmacy count against limit

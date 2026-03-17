@@ -2,11 +2,22 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, ArrowRight, Crown, Shield, Users } from "lucide-react";
+import { Check, ArrowRight, Crown, Shield, Users, ArrowRightLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface AccountType {
   id: number;
@@ -20,6 +31,7 @@ interface AccountType {
 
 export default function Upgrade() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [accountTypes, setAccountTypes] = useState<AccountType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +69,7 @@ export default function Upgrade() {
     switch (name) {
       case "Standard": return <Users className="w-8 h-8" />;
       case "Pro": return <Shield className="w-8 h-8" />;
+      case "Commercial": return <ArrowRightLeft className="w-8 h-8" />;
       default: return <Users className="w-8 h-8" />;
     }
   };
@@ -66,6 +79,7 @@ export default function Upgrade() {
     switch (name) {
       case "Standard": return "bg-blue-500";
       case "Pro": return "bg-purple-500";
+      case "Commercial": return "bg-orange-500";
       default: return "bg-slate-500";
     }
   };
@@ -99,23 +113,45 @@ export default function Upgrade() {
       ];
     }
 
+    if (type.name === "Commercial") {
+      return [
+        "Inscription de nouveaux clients",
+        "Validation de comptes via PIN",
+        "Gestion d'ordonnances clients",
+        "Tableau de bord dédié",
+        "Suivi des commissions (bientôt)",
+        "Outils marketing"
+      ];
+    }
+
     return baseFeatures;
   };
 
   // Format price
   const formatPrice = (type: AccountType) => {
-    if (type.price === 0) return "Gratuit";
+    if (type.name === "Commercial") return t('upgrade.freeOnRequest');
+    if (type.price === 0) return t('upgrade.free');
     return `${type.price.toLocaleString()} ${type.currency}/mois`;
   };
 
+  const [motive, setMotive] = useState("");
+  const [showMotiveDialog, setShowMotiveDialog] = useState(false);
+  const [pendingUpgradeType, setPendingUpgradeType] = useState<string | null>(null);
+
   const handleUpgrade = (typeName: string) => {
     if (!user) {
-      toast.error("Vous devez être connecté");
+      toast.error(t('upgrade.mustBeLogged'));
       return;
     }
 
     if (typeName === "Administrateur") {
-      toast.error("Ce type de compte n'est pas accessible");
+      toast.error(t('upgrade.notAccessible'));
+      return;
+    }
+
+    if (typeName === "Commercial") {
+      setPendingUpgradeType(typeName);
+      setShowMotiveDialog(true);
       return;
     }
 
@@ -125,21 +161,31 @@ export default function Upgrade() {
       navigate(`/checkout?plan=${plan.id}`);
     } else if (plan && plan.price === 0) {
       // Free plan - direct upgrade
-      fetch("/api/auth/upgrade-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestedType: typeName })
-      }).then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            toast.success("Compte mis à jour avec succès !");
-            window.location.reload();
-          } else {
-            toast.error(data.error || "Erreur lors de la mise à jour");
-          }
-        })
-        .catch(() => toast.error("Erreur lors de la mise à jour"));
+      submitUpgradeRequest(typeName);
     }
+  };
+
+  const submitUpgradeRequest = (typeName: string, motiveText?: string) => {
+    if (!user?.id) return;
+    fetch("/api/auth/upgrade-request", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "x-user-id": user.id.toString()
+      },
+      body: JSON.stringify({ requestedType: typeName, motive: motiveText })
+    }).then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          toast.success(typeName === "Commercial" ? t('upgrade.requestSent') : t('upgrade.updateSuccess'));
+          if (typeName !== "Commercial") window.location.reload();
+          setShowMotiveDialog(false);
+          setMotive("");
+        } else {
+          toast.error(data.error || t('upgrade.updateError'));
+        }
+      })
+      .catch(() => toast.error(t('upgrade.updateError')));
   };
 
   // Get current user type name
@@ -164,11 +210,11 @@ export default function Upgrade() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
             <Crown className="w-4 h-4" />
-            Améliorez votre expérience TAKYMED
+            {t('upgrade.boostExperience')}
           </div>
-          <h1 className="text-4xl font-black mb-4">Choisissez votre formule</h1>
+          <h1 className="text-4xl font-black mb-4">{t('upgrade.chooseFormula')}</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Débloquez tout le potentiel de TAKYMED avec nos formules adaptées à vos besoins
+            {t('upgrade.unlockPotential')}
           </p>
         </div>
 
@@ -189,7 +235,7 @@ export default function Upgrade() {
                 {isPopular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
                     <Badge className="bg-primary text-white px-4 py-1 rounded-full text-xs font-bold shadow-md">
-                      Plus populaire
+                      {t('upgrade.popular')}
                     </Badge>
                   </div>
                 )}
@@ -231,14 +277,14 @@ export default function Upgrade() {
                     onClick={() => handleUpgrade(type.name)}
                   >
                     {isCurrent ? (
-                      "Formule actuelle"
+                      t('upgrade.currentFormula')
                     ) : type.id > currentTypeId ? (
                       <>
-                        Upgrader maintenant
+                        {t('upgrade.upgradeNow')}
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </>
                     ) : (
-                      "Choisir cette formule"
+                      t('upgrade.chooseThisFormula')
                     )}
                   </Button>
                 </CardContent>
@@ -249,43 +295,75 @@ export default function Upgrade() {
 
         {/* FAQ Section */}
         <div className="mt-16 bg-white p-8 rounded-3xl shadow-sm border">
-          <h2 className="text-2xl font-bold text-center mb-8">Questions fréquentes</h2>
+          <h2 className="text-2xl font-bold text-center mb-8">{t('upgrade.faqTitle')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold mb-2">Puis-je changer de formule à tout moment ?</h3>
+                <h3 className="font-semibold mb-2">{t('upgrade.faq1Q')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Oui, vous pouvez upgrader ou downgrader votre formule à tout moment.
-                  Les changements prennent effet immédiatement.
+                  {t('upgrade.faq1A')}
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Les données sont-elles conservées ?</h3>
+                <h3 className="font-semibold mb-2">{t('upgrade.faq2Q')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Toutes vos ordonnances, données médicales et préférences sont conservées
-                  lors des changements de formule.
+                  {t('upgrade.faq2A')}
                 </p>
               </div>
             </div>
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold mb-2">Comment sont facturés les abonnements ?</h3>
+                <h3 className="font-semibold mb-2">{t('upgrade.faq3Q')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  La facturation est mensuelle et se fait automatiquement.
-                  Vous pouvez annuler à tout moment depuis votre compte.
+                  {t('upgrade.faq3A')}
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Support technique inclus ?</h3>
+                <h3 className="font-semibold mb-2">{t('upgrade.faq4Q')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Le support basique est gratuit. Les formules Pro et Pharmacien
-                  bénéficient d'un support prioritaire par email et téléphone.
+                  {t('upgrade.faq4A')}
                 </p>
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Motive Dialog */}
+      <Dialog open={showMotiveDialog} onOpenChange={setShowMotiveDialog}>
+        <DialogContent className="sm:max-w-md bg-white rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>{t('upgrade.commercialTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('upgrade.commercialDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea 
+              placeholder={t('upgrade.commercialPlaceholder')} 
+              value={motive}
+              onChange={(e) => setMotive(e.target.value)}
+              className="min-h-[120px] rounded-2xl border-slate-200 focus:ring-orange-500"
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowMotiveDialog(false)}
+              className="rounded-xl"
+            >
+              {t('upgrade.cancel')}
+            </Button>
+            <Button 
+              disabled={!motive.trim()} 
+              onClick={() => submitUpgradeRequest("Commercial", motive)}
+              className="rounded-xl bg-orange-500 hover:bg-orange-600 font-bold"
+            >
+              {t('upgrade.sendRequest')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
