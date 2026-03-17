@@ -131,7 +131,7 @@ async function checkAndSendReminders() {
       // Prioritize the specific contact value (e.g., changed number) over the account number
       const contact = r.valeur_contact || r.numero_telephone;
       // On groupe par contact, patient et heure prévue pour envoyer un seul message groupé
-      const key = `${contact}_${r.nom_patient}_${r.heure_prevue}`;
+      const key = `${contact}_${r.nom_patient}_${r.heure_prevue}_${r.nom_canal || "SMS"}`;
       if (!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
@@ -183,6 +183,8 @@ async function sendCombinedReminders(contact: string, items: any[]) {
       result = await notificationProvider.sendSMS(contact, message);
     } else if (channel === "WhatsApp") {
       result = await notificationProvider.sendWhatsApp(contact, message);
+    } else if (channel === "Appel") {
+      result = await notificationProvider.sendVoiceCall(contact, message);
     } else {
       result = { success: false, error: "Unsupported channel" };
     }

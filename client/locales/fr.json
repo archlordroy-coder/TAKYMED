@@ -25,7 +25,11 @@
     "saving": "Enregistrement...",
     "nameRequired": "Le nom est requis",
     "phoneRequired": "Le numéro de téléphone est requis",
-    "success": "Profil mis à jour avec succès !"
+    "success": "Profil mis à jour avec succès !",
+    "standard": "Standard",
+    "professional": "Professionnel",
+    "admin": "Administrateur",
+    "commercial": "Commercial"
   },
   "index": {
     "badge": "Votre santé, notre priorité absolue",
@@ -267,7 +271,10 @@
     "recipient": "Destinataire:",
     "enterPhone": "Veuillez entrer un numéro",
     "processing": "Traitement...",
-    "confirmSave": "Ordonnance enregistrée avec succès !"
+    "confirmSave": "Ordonnance enregistrée avec succès !",
+    "addRecipient": "Ajouter un numéro",
+    "call": "Appel",
+    "recipientCountSuffix": "numéro(s)"
   },
   "upgrade": {
     "title": "Passez au niveau supérieur",

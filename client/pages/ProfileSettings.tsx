@@ -14,6 +14,13 @@ export default function ProfileSettings() {
   const [phone, setPhone] = useState(user?.phone || "");
   const [isSaving, setIsSaving] = useState(false);
 
+  const accountTypeLabel: Record<string, string> = {
+    standard: t("profile.standard"),
+    professional: t("profile.professional"),
+    admin: t("profile.admin"),
+    commercial: t("profile.commercial"),
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error(t('profile.nameRequired'));
@@ -89,7 +96,7 @@ export default function ProfileSettings() {
               <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-bold text-primary uppercase tracking-widest">{t('profile.accountType')}</p>
-                <p className="text-sm font-black text-slate-800 uppercase mt-0.5">{user?.type || "Standard"}</p>
+                <p className="text-sm font-black text-slate-800 uppercase mt-0.5">{accountTypeLabel[user?.type || "standard"] || user?.type}</p>
               </div>
             </div>
           </div>

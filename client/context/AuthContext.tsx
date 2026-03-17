@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { UserDTO, AccountType } from "@shared/api";
 import { toast } from "sonner";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface AuthContextType {
   user: UserDTO | null;
@@ -15,10 +16,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserDTO | null>(() => {
-    const saved = localStorage.getItem("takymed_user");
+    const saved = sessionStorage.getItem("takymed_user");
     return saved ? JSON.parse(saved) : null;
   });
   const [isLoading, setIsLoading] = useState(false);
+  const { t } = useLanguage();
 
   const login = async (
     phone: string,
@@ -42,12 +44,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const userData: UserDTO = await response.json();
       setUser(userData);
-      localStorage.setItem("takymed_user", JSON.stringify(userData));
+      sessionStorage.setItem("takymed_user", JSON.stringify(userData));
       return true;
     } catch (error) {
       console.error(error);
       toast.error(
-        error instanceof Error ? error.message : "Erreur d'authentification",
+        error instanceof Error ? error.message : t("auth.genericError"),
       );
       return false;
     } finally {
@@ -78,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error(error);
       toast.error(
-        error instanceof Error ? error.message : "Erreur d'inscription",
+        error instanceof Error ? error.message : t("auth.genericError"),
       );
       return false;
     }
@@ -86,14 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("takymed_user");
+    sessionStorage.removeItem("takymed_user");
   };
 
   const updateUser = (updatedUser: Partial<UserDTO>) => {
     if (user) {
       const newUser = { ...user, ...updatedUser };
       setUser(newUser);
-      localStorage.setItem("takymed_user", JSON.stringify(newUser));
+      sessionStorage.setItem("takymed_user", JSON.stringify(newUser));
     }
   };
 

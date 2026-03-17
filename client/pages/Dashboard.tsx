@@ -221,45 +221,13 @@ export default function Dashboard() {
                <TabsContent value="today" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className={cn("grid grid-cols-1 gap-8", user.type !== 'standard' ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
                      {/* Left Column: Quick Actions */}
-                     <div className="lg:col-span-1 space-y-8">
-                        <h2 className="text-xl font-bold flex items-center gap-2 px-2">
-                           <ArrowRight className="w-5 h-5 text-primary" />
-                           {t('dashboard.quickAccess')}
-                        </h2>
-                        <div className="grid grid-cols-1 gap-4">
-                           <DashboardActionCard
-                              title={t('dashboard.reminders')}
-                              description={t('dashboard.remindersDesc')}
-                              icon={<Bell className="w-6 h-6" />}
-                              link="/prescription"
-                              color="bg-primary"
-                           />
-                           <DashboardActionCard
-                              title={t('dashboard.medication')}
-                              description={t('dashboard.medicationDesc')}
-                              icon={<Search className="w-6 h-6" />}
-                              link="/search"
-                              color="bg-secondary"
-                           />
-                           {user.type === 'pharmacist' && (
-                              <DashboardActionCard
-                                 title={t('dashboard.myPharmacies')}
-                                 description={t('dashboard.myPharmaciesDesc')}
-                                 icon={<Store className="w-6 h-6" />}
-                                 link="/pharmacy-mgmt"
-                                 color="bg-slate-900"
-                              />
-                           )}
-
-                           <DashboardSecurityCard user={user} />
-                        </div>
-                     </div>
+                     <QuickAccessPanel user={user} t={t} />
 
                      {/* Middle Column: Status & Activity */}
                      <div className="lg:col-span-2 space-y-8">
                         <h2 className="text-xl font-bold flex items-center gap-2 px-2">
                            <CalendarUIIcon className="w-5 h-5 text-primary" />
-                           Aujourd'hui
+                           {t('dashboard.today')}
                         </h2>
 
                         <div className="bg-white rounded-[40px] border shadow-sm p-8 space-y-8">
@@ -377,10 +345,49 @@ export default function Dashboard() {
                   </div>
                </TabsContent>
 
-               <TabsContent value="calendar" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <TabsContent value="calendar" className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+                  <QuickAccessPanel user={user} t={t} compact />
                   <CalendarView doses={doses} isLoading={isLoading} onToggleMed={handleToggleMedication} user={user} patients={patients} />
                </TabsContent>
             </Tabs>
+         </div>
+      </div>
+   );
+}
+
+
+function QuickAccessPanel({ user, t, compact = false }: { user: any; t: (key: string) => string; compact?: boolean }) {
+   return (
+      <div className={cn("space-y-8", compact ? "" : "lg:col-span-1")}>
+         <h2 className="text-xl font-bold flex items-center gap-2 px-2">
+            <ArrowRight className="w-5 h-5 text-primary" />
+            {t('dashboard.quickAccess')}
+         </h2>
+         <div className={cn("gap-4", compact ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1")}>
+            <DashboardActionCard
+               title={t('dashboard.reminders')}
+               description={t('dashboard.remindersDesc')}
+               icon={<Bell className="w-6 h-6" />}
+               link="/prescription"
+               color="bg-primary"
+            />
+            <DashboardActionCard
+               title={t('dashboard.medication')}
+               description={t('dashboard.medicationDesc')}
+               icon={<Search className="w-6 h-6" />}
+               link="/search"
+               color="bg-secondary"
+            />
+            {user.type === 'pharmacist' && (
+               <DashboardActionCard
+                  title={t('dashboard.myPharmacies')}
+                  description={t('dashboard.myPharmaciesDesc')}
+                  icon={<Store className="w-6 h-6" />}
+                  link="/pharmacy-mgmt"
+                  color="bg-slate-900"
+               />
+            )}
+            {!compact && <DashboardSecurityCard user={user} />}
          </div>
       </div>
    );
