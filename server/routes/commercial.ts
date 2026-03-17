@@ -2,7 +2,12 @@ import { Router } from "express";
 import { db } from "../db";
 import { notificationProvider } from "../services/notificationProvider";
 
+import { verifyRole } from "../middleware/auth";
+
 const router = Router();
+
+// Only Commercials and Administrators can access commercial features
+router.use(verifyRole(["Commercial", "Administrateur"]));
 
 // Endpoint for Commercial to register a new client with a mandatory prescription
 router.post("/register-client", async (req, res) => {

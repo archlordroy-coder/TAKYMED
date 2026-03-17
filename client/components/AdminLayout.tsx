@@ -64,18 +64,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     };
 
     return (
-        <div className="min-h-screen text-slate-800 flex overflow-hidden font-sans" style={{ background: "#f0f4f8" }}>
+        <div className="min-h-screen text-slate-800 flex overflow-hidden font-sans bg-[#f0f4f8]">
             <GlobalAdRails />
             {/* Sidebar */}
             <aside
                 className={cn(
-                    "hidden md:flex flex-col transition-all duration-300 relative z-50 shadow-xl",
+                    "hidden md:flex flex-col transition-all duration-300 relative z-50 shadow-xl bg-white border-r border-[#e2e8f0]",
                     isSidebarCollapsed ? "w-20" : "w-64"
                 )}
-                style={{ background: "#ffffff", borderRight: "1px solid #e2e8f0" }}
             >
                 {/* Logo */}
-                <div className="h-20 flex items-center justify-center border-b px-4" style={{ borderColor: "#e2e8f0" }}>
+                <div className="h-20 flex items-center justify-center border-b px-4 border-[#e2e8f0]">
                     {isSidebarCollapsed ? (
                         <Logo size="small" />
                     ) : (
@@ -90,7 +89,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         return (
                             <div key={group}>
                                 {!isSidebarCollapsed && (
-                                    <p className="text-[10px] font-bold mb-3 ml-3 tracking-widest uppercase" style={{ color: "#94a3b8" }}>
+                                    <p className="text-[10px] font-bold mb-3 ml-3 tracking-widest uppercase text-[#94a3b8]">
                                         {group}
                                     </p>
                                 )}
@@ -103,9 +102,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                                 to={item.path}
                                                 className={cn(
                                                     "flex items-center gap-3 px-3 py-3 rounded-xl transition-all group relative",
-                                                    isActive ? "text-white shadow-md" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                                                    isActive ? "text-white shadow-md bg-gradient-to-br from-[#006093] to-[#00A859]" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                                                 )}
-                                                style={isActive ? { background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` } : {}}
                                             >
                                                 <item.icon className="w-5 h-5 shrink-0" />
                                                 {!isSidebarCollapsed && (
@@ -121,16 +119,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 </div>
 
                 {/* User + Collapse */}
-                <div className="p-3 border-t space-y-2" style={{ borderColor: "#e2e8f0" }}>
+                <div className="p-3 border-t space-y-2 border-[#e2e8f0]">
                     {!isSidebarCollapsed && (
-                        <div className="rounded-xl p-3 mb-2" style={{ background: "#f0f4f8" }}>
+                        <div className="rounded-xl p-3 mb-2 bg-[#f0f4f8]">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full overflow-hidden border-2 flex items-center justify-center font-extrabold text-white shadow-sm" style={{ borderColor: TEAL, background: TEAL }}>
+                                <div className="w-9 h-9 rounded-full overflow-hidden border-2 flex items-center justify-center font-extrabold text-white shadow-sm border-[#006093] bg-[#006093]">
                                     {(user?.name || "AD").substring(0, 1).toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-xs font-bold text-slate-800 truncate">{user?.name || "Administrateur"}</p>
-                                    <p className="text-[10px] font-semibold" style={{ color: TEAL }}>Super Admin</p>
+                                    <p className="text-[10px] font-semibold text-[#006093]">Super Admin</p>
                                 </div>
                             </div>
                             <button
@@ -163,9 +161,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                     to={item.path}
                                     className={cn(
                                         "px-3 py-2 rounded-xl text-xs font-bold border",
-                                        isActive ? "text-white border-transparent" : "text-slate-600 border-slate-200 bg-white"
+                                        isActive ? "text-white border-transparent bg-gradient-to-br from-[#006093] to-[#00A859]" : "text-slate-600 border-slate-200 bg-white"
                                     )}
-                                    style={isActive ? { background: `linear-gradient(135deg, ${TEAL}, ${EMERALD})` } : {}}
                                 >
                                     {item.label}
                                 </Link>
@@ -174,7 +171,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     </div>
                 </div>
                 {/* Top Header */}
-                <header className="h-20 flex items-center justify-end px-4 md:px-8 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e2e8f0" }}>
+                <header className="h-20 flex items-center justify-end px-4 md:px-8 z-40 bg-white border-b border-[#e2e8f0]">
                     <div className="flex items-center gap-4">
                         {/* Language Toggle */}
                         <Button
@@ -199,7 +196,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                     <AccountAvatar name={user?.name || "Admin"} type="admin" />
                                     <div className="text-left hidden sm:block">
                                         <p className="text-xs font-bold text-slate-800 leading-none mb-0.5">{user?.name || "Admin"}</p>
-                                        <p className="text-[10px] font-semibold leading-none" style={{ color: TEAL }}>Administrateur</p>
+                                        <p className="text-[10px] font-semibold leading-none text-[#006093]">Administrateur</p>
                                     </div>
                                     <MoreVertical className="w-4 h-4 text-slate-400" />
                                 </button>
@@ -223,7 +220,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 </header>
 
                 {/* Main Viewport */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 2xl:pb-8 custom-scrollbar" style={{ background: "#f0f4f8" }}>
+                <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 2xl:pb-8 custom-scrollbar bg-[#f0f4f8]">
                     <div className="max-w-7xl mx-auto space-y-8">
                         {children}
                     </div>

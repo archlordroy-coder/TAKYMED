@@ -211,7 +211,10 @@ export default function AdminDashboard() {
         }
 
         try {
-            const res = await fetch("/api/admin/medications/all", { method: "DELETE" });
+            const res = await fetch("/api/admin/medications/all", { 
+                method: "DELETE",
+                headers: { "x-user-id": user?.id?.toString() || "" }
+            });
             if (res.ok) {
                 toast.success("Tous les médicaments ont été supprimés.");
                 refreshData();
@@ -226,13 +229,13 @@ export default function AdminDashboard() {
     const refreshData = async () => {
         try {
             const [statsRes, usersRes, medsRes, settingsRes, pharmRes, catRes] = await Promise.all([
-                fetch("/api/admin/stats"),
-                fetch("/api/admin/users"),
-                fetch("/api/admin/medications"),
-                fetch("/api/admin/settings"),
-                fetch("/api/admin/pharmacies"),
-                fetch("/api/categories"),
-                fetch("/api/admin/upgrade-requests")
+                fetch("/api/admin/stats", { headers: { "x-user-id": user?.id?.toString() || "" } }),
+                fetch("/api/admin/users", { headers: { "x-user-id": user?.id?.toString() || "" } }),
+                fetch("/api/admin/medications", { headers: { "x-user-id": user?.id?.toString() || "" } }),
+                fetch("/api/admin/settings", { headers: { "x-user-id": user?.id?.toString() || "" } }),
+                fetch("/api/admin/pharmacies", { headers: { "x-user-id": user?.id?.toString() || "" } }),
+                fetch("/api/categories", { headers: { "x-user-id": user?.id?.toString() || "" } }),
+                fetch("/api/admin/upgrade-requests", { headers: { "x-user-id": user?.id?.toString() || "" } })
             ]);
             if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok && catRes.ok && (arguments.length < 7 || arguments[6].ok)) {
                 setStats(await statsRes.json());
@@ -247,16 +250,22 @@ export default function AdminDashboard() {
                 const cData = await catRes.json();
                 setCategories(cData.categories);
                 
-                const urData = await (await fetch("/api/admin/upgrade-requests")).json();
+                const urData = await (await fetch("/api/admin/upgrade-requests", {
+                    headers: { "x-user-id": user?.id?.toString() || "" }
+                })).json();
                 setUpgradeRequests(urData.requests);
 
-                const commRes = await fetch("/api/admin/commercials");
+                const commRes = await fetch("/api/admin/commercials", {
+                    headers: { "x-user-id": user?.id?.toString() || "" }
+                });
                 if (commRes.ok) {
                     const commData = await commRes.json();
                     setCommercials(commData.commercials);
                 }
 
-                const unassignedRes = await fetch("/api/admin/unassigned-clients");
+                const unassignedRes = await fetch("/api/admin/unassigned-clients", {
+                    headers: { "x-user-id": user?.id?.toString() || "" }
+                });
                 if (unassignedRes.ok) {
                     const unassignedData = await unassignedRes.json();
                     setUnassignedClients(unassignedData.clients);
@@ -274,7 +283,10 @@ export default function AdminDashboard() {
 
     const handleDeleteUser = async (id: number) => {
         if (!confirm("Supprimer cet utilisateur ?")) return;
-        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/admin/users/${id}`, { 
+            method: 'DELETE',
+            headers: { "x-user-id": user?.id?.toString() || "" }
+        });
         if (res.ok) { toast.success("Utilisateur supprimé"); refreshData(); }
         else toast.error("Erreur lors de la suppression");
     };
@@ -290,7 +302,10 @@ export default function AdminDashboard() {
         }
         const res = await fetch("/api/admin/users", {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': user?.id?.toString() || ""
+            },
             body: JSON.stringify(newUser)
         });
         if (res.ok) {
@@ -308,7 +323,10 @@ export default function AdminDashboard() {
         if (!changingTypeUserId) return;
         const res = await fetch(`/api/admin/users/${changingTypeUserId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': user?.id?.toString() || ""
+            },
             body: JSON.stringify({ id_type_compte: selectedTypeId })
         });
         if (res.ok) {
@@ -360,7 +378,10 @@ export default function AdminDashboard() {
 
         const res = await fetch("/api/admin/medications", {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': user?.id?.toString() || ""
+            },
             body: JSON.stringify(payload)
         });
 
@@ -415,7 +436,10 @@ export default function AdminDashboard() {
 
         const res = await fetch(`/api/admin/medications/${editingMed.id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': user?.id?.toString() || ""
+            },
             body: JSON.stringify(payload)
         });
 
@@ -432,7 +456,10 @@ export default function AdminDashboard() {
 
     const handleDeleteMed = async (id: number) => {
         if (!confirm("Retirer ce médicament ?")) return;
-        const res = await fetch(`/api/admin/medications/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/admin/medications/${id}`, { 
+            method: 'DELETE',
+            headers: { "x-user-id": user?.id?.toString() || "" }
+        });
         if (res.ok) { toast.success("Médicament supprimé"); refreshData(); }
         else toast.error("Erreur de suppression");
     };
@@ -440,7 +467,10 @@ export default function AdminDashboard() {
     const handleUpdateSetting = async (id: number, price: number, description: string, maxOrdonnances: number | null, maxRappels: number | null) => {
         const res = await fetch(`/api/admin/settings/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'x-user-id': user?.id?.toString() || ""
+            },
             body: JSON.stringify({ price, description, maxOrdonnances, maxRappels })
         });
         if (res.ok) { toast.success("Paramètres mis à jour"); refreshData(); }
@@ -518,7 +548,9 @@ export default function AdminDashboard() {
     const fetchCommercialClients = async (commId: number) => {
         setLoadingClients(true);
         try {
-            const res = await fetch(`/api/admin/commercial-clients/${commId}`);
+            const res = await fetch(`/api/admin/commercial-clients/${commId}`, {
+                headers: { "x-user-id": user?.id?.toString() || "" }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setCommercialClients(data.clients);
@@ -535,7 +567,10 @@ export default function AdminDashboard() {
         try {
             const res = await fetch("/api/admin/reassign-client", {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-user-id': user?.id?.toString() || ""
+                },
                 body: JSON.stringify({ clientId: clientToReassign.id, newCommercialId: newCommId })
             });
             if (res.ok) {
@@ -556,7 +591,10 @@ export default function AdminDashboard() {
         try {
             const res = await fetch(`/api/admin/users/${clientToEdit.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-user-id': user?.id?.toString() || ""
+                },
                 body: JSON.stringify({ phone: clientToEdit.phone, name: clientToEdit.name })
             });
             if (res.ok) {
@@ -611,7 +649,10 @@ export default function AdminDashboard() {
                 try {
                     const res = await fetch("/api/admin/medications", {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-user-id': user?.id?.toString() || ""
+                        },
                         body: JSON.stringify({ name, unitId, defaultDose: dose })
                     });
                     if (res.ok) imported++;

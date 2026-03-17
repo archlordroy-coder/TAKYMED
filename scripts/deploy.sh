@@ -68,6 +68,7 @@ rsync -avz -e "$RSYNC_SSH" --progress "$SOURCE_DIR/" "$REMOTE_USER@$REMOTE_HOST:
     --exclude '.vscode' \
     --exclude '.gemini' \
     --exclude 'bd.sqlite*' \
+    --exclude 'data/auth_info_baileys/' \
     --exclude 'public/uploads/*' || { echo "❌ File synchronization failed."; exit 1; }
 
 # 2.1 Verify .env was transferred

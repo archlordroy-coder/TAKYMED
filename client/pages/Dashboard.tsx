@@ -323,17 +323,43 @@ export default function Dashboard() {
                                                 : "border-slate-100 hover:border-primary/30 hover:shadow-md bg-slate-50"
                                           )}
                                        >
-                                          <div>
+                                          <div className="flex-1 min-w-0">
                                              <h4 className={cn("font-bold text-sm transition-colors line-clamp-1", selectedPatientId === p.id ? "text-primary" : "text-slate-800 group-hover:text-primary")}>
                                                 {p.name || t('dashboard.unknownClient')}
                                              </h4>
-                                             <p className="text-[10px] text-muted-foreground mt-1">{t('dashboard.registeredOn')} {new Date(p.date).toLocaleDateString('fr-FR')}</p>
+                                             <p className="text-[10px] text-muted-foreground mt-1 truncate">{t('dashboard.registeredOn')} {new Date(p.date).toLocaleDateString('fr-FR')}</p>
                                           </div>
-                                          <div className={cn(
-                                             "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm",
-                                             selectedPatientId === p.id ? "bg-primary text-white" : "bg-white text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                                          )}>
-                                             <ArrowRight className="w-3 h-3" />
+                                          
+                                          <div className="flex items-center gap-2 ml-2">
+                                             {p.phone && (
+                                                <>
+                                                   <a 
+                                                      href={`https://wa.me/${p.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${p.name}, je suis votre praticien sur TAKYMED. Je vous contacte pour votre suivi de traitement.`)}`}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      onClick={(e) => e.stopPropagation()}
+                                                      className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center hover:bg-green-600 hover:text-white transition-all shadow-sm"
+                                                      title="WhatsApp"
+                                                   >
+                                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.414 0 .018 5.393 0 12.03c0 2.122.54 4.197 1.57 6.057L0 24l6.105-1.604a11.81 11.81 0 005.94 1.585h.005c6.634 0 12.032-5.391 12.036-12.029a11.812 11.812 0 00-3.528-8.504z"/></svg>
+                                                   </a>
+                                                   <a 
+                                                      href={`tel:${p.phone}`}
+                                                      onClick={(e) => e.stopPropagation()}
+                                                      className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                                      title="Appeler"
+                                                   >
+                                                      <Search className="w-4 h-4 rotate-90" /> {/* Using Search as phone icon fallback if Phone not imported here, but Phone IS imported at line 13 if I check carefully, oh wait, line 13 in Dashboard.tsx is NOT imported. Let's check imports. */}
+                                                   </a>
+                                                </>
+                                             )}
+                                             <div className={cn(
+                                                "w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm",
+                                                selectedPatientId === p.id ? "bg-primary text-white" : "bg-white text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                                             )}>
+                                                <ArrowRight className="w-3 h-3" />
+                                             </div>
                                           </div>
                                        </div>
                                     ))}

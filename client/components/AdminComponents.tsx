@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import {
     ResponsiveContainer,
@@ -205,10 +206,15 @@ export function ActivityChart({ data }: ActivityChartProps) {
     const [chartData, setChartData] = useState<{ name: string; prescriptions: number; inscriptions: number }[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const { user } = useAuth();
+
     useEffect(() => {
         async function fetchData() {
+            if (!user?.id) return;
             try {
-                const res = await fetch("/api/admin/monthly-activity");
+                const res = await fetch("/api/admin/monthly-activity", {
+                    headers: { "x-user-id": user.id.toString() }
+                });
                 if (res.ok) {
                     const data = await res.json();
                     setChartData(data);

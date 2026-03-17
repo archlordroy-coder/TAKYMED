@@ -39,7 +39,9 @@ export default function Upgrade() {
   useEffect(() => {
     async function fetchAccountTypes() {
       try {
-        const res = await fetch("/api/admin/settings");
+        const res = await fetch("/api/admin/settings", {
+          headers: { "x-user-id": user?.id?.toString() || "" }
+        });
         if (res.ok) {
           const data = await res.json();
           setAccountTypes(data.types || []);

@@ -246,7 +246,10 @@ export default function CommercialRegister() {
 
       const res = await fetch("/api/commercial/register-client", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": user.id.toString()
+        },
         body: JSON.stringify({
           commercialId: user.id,
           clientPhone: fullPhone,
@@ -297,7 +300,10 @@ export default function CommercialRegister() {
 
       const res = await fetch("/api/commercial/validate-client", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": user?.id?.toString() || ""
+        },
         body: JSON.stringify({
           commercialId: user?.id,
           clientPhone: fullPhone,
@@ -844,7 +850,10 @@ export default function CommercialRegister() {
                       if (window.confirm("Voulez-vous vraiment annuler ? Le client sera supprimé.")) {
                         try {
                            if (registeredClientId) {
-                             await fetch(`/api/commercial/clients/${registeredClientId}`, { method: 'DELETE' });
+                             await fetch(`/api/commercial/clients/${registeredClientId}`, { 
+                               method: 'DELETE',
+                               headers: { "x-user-id": user?.id?.toString() || "" }
+                             });
                            }
                            toast.info("Inscription annulée.");
                            navigate("/commercial");

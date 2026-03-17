@@ -128,10 +128,13 @@ class OrangeSMSProvider implements NotificationProvider {
   }
 
   async sendWhatsApp(to: string, message: string) {
-    // Current Orange API doesn't support official WhatsApp in all regions via this simple REST API, 
-    // using SMS as fallback but marking it for the logs
-    console.log(`[Orange WA Fallback] SMS to ${to}: ${message}`);
-    return this.sendSMS(to, message);
+    try {
+        const { sendWhatsAppMessage } = await import("./whatsappProvider");
+        return await sendWhatsAppMessage(to, message);
+    } catch (error: any) {
+        console.error("[Orange WA Fallback] Failed to use Baileys, falling back to SMS:", error);
+        return this.sendSMS(to, message);
+    }
   }
 
   async sendVoiceCall(to: string, message: string) {

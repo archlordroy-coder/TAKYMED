@@ -15,6 +15,7 @@ import { ordonnanceRouter } from "./routes/ordonnances";
 import { commercialRouter } from "./routes/commercial";
 import { notificationRouter } from "./services/notificationProvider";
 import { startReminderWorker } from "./services/reminderWorker";
+import { connectToWhatsApp } from "./services/whatsappProvider";
 import { db, initializeDatabase } from "./db";
 
 // Initialize the SQLite database on server startup
@@ -57,7 +58,8 @@ export function createServer() {
   app.use("/api/notifications", notificationRouter);
   app.use("/api/commercial", commercialRouter);
 
-  // Start reminder worker
+  // Start services
+  connectToWhatsApp().catch(err => console.error("WhatsApp Init Error:", err));
   startReminderWorker();
 
   return app;

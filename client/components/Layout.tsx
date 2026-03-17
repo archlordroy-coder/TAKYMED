@@ -240,38 +240,43 @@ export function Layout({ children }: LayoutProps) {
 
       <main
         className={cn(
-          "pt-16 md:pt-20 min-h-[calc(100vh-64px-300px)] md:min-h-[calc(100vh-80px-300px)]",
-          shouldShowGlobalAds ? "pb-24 2xl:pb-0 2xl:px-[176px]" : "",
-          user ? "pb-24 md:pb-0" : "",
+          "pt-16 md:pt-20",
+          "pb-20 md:pb-0", // Space for bottom nav on mobile
+          shouldShowGlobalAds ? "2xl:px-[176px] 2xl:pb-0" : "",
         )}
       >
         {children}
       </main>
 
-      {user && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          <div className="grid grid-cols-4 h-16">
-            <Link to="/dashboard" className="flex flex-col items-center justify-center text-xs gap-1">
-              <LayoutDashboard className="w-4 h-4" />
-              <span>{t("nav.dashboard")}</span>
-            </Link>
-            <Link to="/search" className="flex flex-col items-center justify-center text-xs gap-1">
-              <Search className="w-4 h-4" />
-              <span>{t("nav.medications")}</span>
-            </Link>
-            <Link to="/ads" className="flex flex-col items-center justify-center text-xs gap-1">
-              <Bell className="w-4 h-4" />
-              <span>{t("nav.news")}</span>
-            </Link>
-            <Link to="/profile" className="flex flex-col items-center justify-center text-xs gap-1">
-              <UserIcon className="w-4 h-4" />
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+        <div className="grid grid-cols-4 h-16">
+          <Link to="/" className={cn("flex flex-col items-center justify-center text-[10px] gap-1 font-bold transition-colors", location.pathname === "/" ? "text-primary" : "text-muted-foreground")}>
+            <LayoutDashboard className="w-5 h-5" />
+            <span>{t("nav.home")}</span>
+          </Link>
+          <Link to="/search" className={cn("flex flex-col items-center justify-center text-[10px] gap-1 font-bold transition-colors", location.pathname === "/search" ? "text-primary" : "text-muted-foreground")}>
+            <Search className="w-5 h-5" />
+            <span>{t("nav.medications")}</span>
+          </Link>
+          <Link to="/ads" className={cn("flex flex-col items-center justify-center text-[10px] gap-1 font-bold transition-colors", location.pathname === "/ads" ? "text-primary" : "text-muted-foreground")}>
+            <Bell className="w-5 h-5" />
+            <span>{t("nav.news")}</span>
+          </Link>
+          {user ? (
+            <Link to="/profile" className={cn("flex flex-col items-center justify-center text-[10px] gap-1 font-bold transition-colors", location.pathname === "/profile" ? "text-primary" : "text-muted-foreground")}>
+              <UserIcon className="w-5 h-5" />
               <span>{t("nav.profile")}</span>
             </Link>
-          </div>
-        </nav>
-      )}
+          ) : (
+            <Link to="/login" className={cn("flex flex-col items-center justify-center text-[10px] gap-1 font-bold transition-colors", location.pathname === "/login" ? "text-primary" : "text-muted-foreground")}>
+              <UserIcon className="w-5 h-5" />
+              <span>{t("nav.login")}</span>
+            </Link>
+          )}
+        </div>
+      </nav>
 
-      <footer className={cn("bg-muted py-12 border-t", shouldShowGlobalAds ? "hidden md:block 2xl:px-[176px]" : "") }>
+      <footer className="bg-muted py-12 border-t hidden md:block">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2 space-y-6">
             <div className="flex items-center gap-3">

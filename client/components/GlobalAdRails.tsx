@@ -39,11 +39,14 @@ export function GlobalAdRails() {
       <AdRail ad={left} side="left" />
       <AdRail ad={right} side="right" />
 
+      {/* AdCard suppressed on mobile as per user request */}
+      {/* 
       <div className="lg:hidden fixed bottom-3 left-3 right-3 z-40">
         <div className="mx-auto max-w-md">
           <AdCard ad={mobile} />
         </div>
       </div>
+      */}
     </>
   );
 }

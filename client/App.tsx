@@ -30,11 +30,16 @@ import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, allowedTypes }: { children: React.ReactNode, allowedTypes?: string[] }) {
   const { user } = useAuth();
   if (!user) {
     return <Navigate to="/" replace />;
   }
+
+  if (allowedTypes && !allowedTypes.includes(user.type)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -51,7 +56,7 @@ const App = () => (
             <Route
               path="/admin"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={["admin"]}>
                   <AdminLayout>
                     <AdminDashboard />
                   </AdminLayout>
@@ -61,7 +66,7 @@ const App = () => (
             <Route
               path="/admin/*"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedTypes={["admin"]}>
                   <AdminLayout>
                     <AdminDashboard />
                   </AdminLayout>
@@ -82,15 +87,15 @@ const App = () => (
                     <Route path="/prescription" element={<ProtectedRoute><Prescription /></ProtectedRoute>} />
                     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                     <Route path="/search" element={<ProtectedRoute><SearchMedications /></ProtectedRoute>} />
-                    <Route path="/pharmacy-mgmt" element={<ProtectedRoute><PharmacyManagement /></ProtectedRoute>} />
-                    <Route path="/interactions-mgmt" element={<ProtectedRoute><InteractionsManagement /></ProtectedRoute>} />
+                    <Route path="/pharmacy-mgmt" element={<ProtectedRoute allowedTypes={["professional", "admin"]}><PharmacyManagement /></ProtectedRoute>} />
+                    <Route path="/interactions-mgmt" element={<ProtectedRoute allowedTypes={["admin"]}><InteractionsManagement /></ProtectedRoute>} />
                     <Route path="/ads" element={<ProtectedRoute><Ads /></ProtectedRoute>} />
                     <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
                     <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                     <Route path="/ordonnances" element={<ProtectedRoute><Ordonnances /></ProtectedRoute>} />
-                    <Route path="/commercial" element={<ProtectedRoute><CommercialDashboard /></ProtectedRoute>} />
-                    <Route path="/commercial/dashboard" element={<ProtectedRoute><CommercialDashboard /></ProtectedRoute>} />
-                    <Route path="/commercial/register" element={<ProtectedRoute><CommercialRegister /></ProtectedRoute>} />
+                    <Route path="/commercial" element={<ProtectedRoute allowedTypes={["commercial"]}><CommercialDashboard /></ProtectedRoute>} />
+                    <Route path="/commercial/dashboard" element={<ProtectedRoute allowedTypes={["commercial"]}><CommercialDashboard /></ProtectedRoute>} />
+                    <Route path="/commercial/register" element={<ProtectedRoute allowedTypes={["commercial"]}><CommercialRegister /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
 
                     <Route path="*" element={<NotFound />} />

@@ -56,12 +56,10 @@ const medicationSchema = z.object({
     }).optional(),
 });
 
-// Middleware to check if user is admin (simplified for demo)
-router.use((req, res, next) => {
-    // In a real app, we'd check req.user.role === 'admin'
-    // For now, we allow access but we could filter by id_utilisateur = 1 or something
-    next();
-});
+import { verifyRole } from "../middleware/auth";
+
+// Middleware to check if user is admin
+router.use(verifyRole(["Administrateur"]));
 
 // Global system statistics
 router.get("/stats", (_req, res) => {

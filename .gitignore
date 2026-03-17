@@ -40,3 +40,6 @@ pnpm-debug.log*
 
 # Uploads
 public/uploads/
+
+# WhatsApp Session
+data/auth_info_baileys/

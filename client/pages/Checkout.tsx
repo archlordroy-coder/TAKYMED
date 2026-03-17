@@ -43,7 +43,9 @@ export default function Checkout() {
   useEffect(() => {
     async function fetchAccountTypes() {
       try {
-        const res = await fetch("/api/admin/settings");
+        const res = await fetch("/api/admin/settings", {
+          headers: { "x-user-id": user?.id?.toString() || "" }
+        });
         if (res.ok) {
           const data = await res.json();
           setAccountTypes(data.types || []);
@@ -90,7 +92,10 @@ export default function Checkout() {
     try {
       const res = await fetch("/api/payments/send-otp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": user?.id?.toString() || ""
+        },
         body: JSON.stringify({
           phoneNumber,
           amount: selectedPlan?.price
@@ -133,7 +138,10 @@ export default function Checkout() {
     try {
       const res = await fetch("/api/payments/process", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": user?.id?.toString() || ""
+        },
         body: JSON.stringify({
           userId: user?.id,
           planId: selectedPlan.id,

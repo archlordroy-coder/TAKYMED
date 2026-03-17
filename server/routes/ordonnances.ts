@@ -20,12 +20,14 @@ router.get("/", (req, res) => {
                 o.categorie_age,
                 o.date_ordonnance,
                 o.est_active,
+                u.numero_telephone as phone,
                 COUNT(DISTINCT eo.id_element_ordonnance) as nombre_medicaments,
                 COUNT(cp.id_calendrier_prise) as prises_totales,
                 SUM(CASE WHEN cp.statut_prise = 1 THEN 1 ELSE 0 END) as prises_effectuees
             FROM Ordonnances o
             LEFT JOIN ElementsOrdonnance eo ON o.id_ordonnance = eo.id_ordonnance
             LEFT JOIN CalendrierPrises cp ON eo.id_element_ordonnance = cp.id_element_ordonnance
+            JOIN Utilisateurs u ON o.id_utilisateur = u.id_utilisateur
             WHERE o.id_utilisateur = ?
             GROUP BY o.id_ordonnance
             ORDER BY o.date_ordonnance DESC
@@ -51,8 +53,10 @@ router.get("/:id", (req, res) => {
                 o.poids_patient,
                 o.categorie_age,
                 o.date_ordonnance,
-                o.est_active
+                o.est_active,
+                u.numero_telephone as phone
             FROM Ordonnances o
+            JOIN Utilisateurs u ON o.id_utilisateur = u.id_utilisateur
             WHERE o.id_ordonnance = ?
         `).get(id);
 
