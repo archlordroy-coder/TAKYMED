@@ -78,8 +78,8 @@ export default function Prescription() {
   ]);
 
   const [notifConfig, setNotifConfig] = useState({
-    phone: initialClientPhone || user?.phone || "",
-    type: "whatsapp" as "sms" | "whatsapp" | "call" | "push"
+    recipients: [initialClientPhone || user?.phone || ""],
+    channels: ["whatsapp"] as Array<"sms" | "whatsapp" | "call">
   });
 
   // Custom dates for each day (allows modification with propagation)
@@ -647,60 +647,99 @@ export default function Prescription() {
 
                 <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
                   <div className="flex-1 w-full space-y-3">
-                    <div className="flex gap-3">
-                      <Select
-                        value={selectedCountry}
-                        onValueChange={(code) => {
-                          setSelectedCountry(code);
-                          const country = countries.find(c => c.code === code);
-                          if (country) {
-                            const phoneWithoutCode = notifConfig.phone.replace(/^\+\d+/, '');
-                            setNotifConfig({ ...notifConfig, phone: country.dialCode + phoneWithoutCode });
-                          }
-                        }}
+                    <div className="space-y-3">
+                      {notifConfig.recipients.map((recipient, index) => (
+                        <div key={index} className="flex gap-3">
+                          {index === 0 ? (
+                            <Select
+                              value={selectedCountry}
+                              onValueChange={(code) => {
+                                setSelectedCountry(code);
+                                const country = countries.find(c => c.code === code);
+                                if (country) {
+                                  const phoneWithoutCode = recipient.replace(/^\+\d+/, '');
+                                  const updated = [...notifConfig.recipients];
+                                  updated[index] = country.dialCode + phoneWithoutCode;
+                                  setNotifConfig({ ...notifConfig, recipients: updated });
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="w-32 h-14 rounded-2xl border bg-white px-3 text-base font-bold focus:ring-2 focus:ring-primary outline-none">
+                                <SelectValue placeholder="Pays" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-2xl max-h-60">
+                                {countries.map(c => (
+                                  <SelectItem key={c.code} value={c.code} className="rounded-xl">
+                                    <span className="flex items-center gap-2">
+                                      <span className="text-lg">{c.flag}</span>
+                                      <span className="font-bold">{c.dialCode}</span>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="w-32 h-14 rounded-2xl border bg-white px-3 flex items-center justify-center text-xs font-bold text-muted-foreground">#{index + 1}</div>
+                          )}
+                          <div className="relative flex-1">
+                            <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
+                            <Input
+                              placeholder="0701020304"
+                              size={15}
+                              value={recipient}
+                              onChange={(e) => {
+                                const updated = [...notifConfig.recipients];
+                                updated[index] = e.target.value;
+                                setNotifConfig({ ...notifConfig, recipients: updated });
+                              }}
+                              className="pl-12 h-14 rounded-2xl text-lg font-mono tracking-widest bg-white border-slate-200 focus-visible:ring-primary w-auto min-w-[15ch] flex-1"
+                            />
+                          </div>
+                          {notifConfig.recipients.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setNotifConfig({ ...notifConfig, recipients: notifConfig.recipients.filter((_, i) => i !== index) })}
+                              className="h-14 rounded-2xl"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setNotifConfig({ ...notifConfig, recipients: [...notifConfig.recipients, ""] })}
+                        className="rounded-2xl"
                       >
-                        <SelectTrigger className="w-32 h-14 rounded-2xl border bg-white px-3 text-base font-bold focus:ring-2 focus:ring-primary outline-none">
-                          <SelectValue placeholder="Pays" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl max-h-60">
-                          {countries.map(c => (
-                            <SelectItem key={c.code} value={c.code} className="rounded-xl">
-                              <span className="flex items-center gap-2">
-                                <span className="text-lg">{c.flag}</span>
-                                <span className="font-bold">{c.dialCode}</span>
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="relative flex-1">
-                        <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          placeholder="0701020304"
-                          size={15}
-                          value={notifConfig.phone}
-                          onChange={(e) => setNotifConfig({ ...notifConfig, phone: e.target.value })}
-                          className="pl-12 h-14 rounded-2xl text-lg font-mono tracking-widest bg-white border-slate-200 focus-visible:ring-primary w-auto min-w-[15ch] flex-1"
-                        />
-                      </div>
+                        <Plus className="w-4 h-4 mr-2" /> {t('prescription.addRecipient')}
+                      </Button>
                     </div>
                   </div>
 
                   <div className="flex-1 w-full space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <NotificationOption
-                        selected={notifConfig.type === 'sms'}
-                        onClick={() => setNotifConfig({ ...notifConfig, type: 'sms' })}
+                        selected={notifConfig.channels.includes('sms')}
+                        onClick={() => setNotifConfig({ ...notifConfig, channels: notifConfig.channels.includes('sms') ? notifConfig.channels.filter(c => c !== 'sms') : [...notifConfig.channels, 'sms'] })}
                         icon={<MessageSquare className="w-4 h-4" />}
                         label="SMS"
                         color="#10b981"
                       />
                       <NotificationOption
-                        selected={notifConfig.type === 'whatsapp'}
-                        onClick={() => setNotifConfig({ ...notifConfig, type: 'whatsapp' })}
+                        selected={notifConfig.channels.includes('whatsapp')}
+                        onClick={() => setNotifConfig({ ...notifConfig, channels: notifConfig.channels.includes('whatsapp') ? notifConfig.channels.filter(c => c !== 'whatsapp') : [...notifConfig.channels, 'whatsapp'] })}
                         icon={<MessageSquare className="w-4 h-4" />}
                         label="WhatsApp"
                         color="#25d366"
+                      />
+                      <NotificationOption
+                        selected={notifConfig.channels.includes('call')}
+                        onClick={() => setNotifConfig({ ...notifConfig, channels: notifConfig.channels.includes('call') ? notifConfig.channels.filter(c => c !== 'call') : [...notifConfig.channels, 'call'] })}
+                        icon={<PhoneCall className="w-4 h-4" />}
+                        label={t('prescription.call')}
+                        color="#3b82f6"
                       />
                     </div>
                   </div>
@@ -721,11 +760,11 @@ export default function Prescription() {
               </Button>
               <div className="flex gap-4">
                 <span className="text-sm text-muted-foreground italic self-center">
-                  {notifConfig.phone ? `${t('prescription.recipient')} ${notifConfig.phone}` : t('prescription.enterPhone')}
+                  {notifConfig.recipients.filter((r) => r.trim()).length > 0 ? `${t('prescription.recipient')} ${notifConfig.recipients.filter((r) => r.trim()).length} ${t('prescription.recipientCountSuffix')}` : t('prescription.enterPhone')}
                 </span>
                 <Button
                   size="lg"
-                  disabled={isSubmitting || !notifConfig.phone}
+                  disabled={isSubmitting || notifConfig.recipients.filter((r) => r.trim()).length === 0 || notifConfig.channels.length === 0}
                   className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-[200px]"
                   onClick={async () => {
                     if (!user) {
@@ -759,15 +798,13 @@ export default function Prescription() {
                       if (!res.ok) throw new Error("Erreur de sauvegarde");
 
                       // 2. Simulation Step
-                      const notifMethod = notifConfig.type === 'sms' ? 'SMS'
-                        : notifConfig.type === 'call' ? 'Appel vocal'
-                          : notifConfig.type === 'push' ? 'Notification Push'
-                            : 'WhatsApp';
+                      const activeRecipients = notifConfig.recipients.filter((r) => r.trim());
+                      const methodsLabel = notifConfig.channels.map((c) => c === 'sms' ? 'SMS' : c === 'call' ? 'Appel vocal' : 'WhatsApp').join(', ');
 
                       toast.info(`Initialisation de l'envoi des rappels...`, { duration: 2000 });
 
                       await new Promise(r => setTimeout(r, 1500));
-                      toast.loading(`Envoi du message de confirmation via ${notifMethod} au ${notifConfig.phone}...`, { id: "simul-notif" });
+                      toast.loading(`Envoi de la confirmation via ${methodsLabel} à ${activeRecipients.length} numéro(s)...`, { id: "simul-notif" });
 
                       await new Promise(r => setTimeout(r, 2000));
                       toast.success(`Succès : Programme de rappel activé pour ${medications.length} médicament(s).`, { id: "simul-notif" });

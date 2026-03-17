@@ -25,7 +25,11 @@
     "saving": "Saving...",
     "nameRequired": "Name is required",
     "phoneRequired": "Phone number is required",
-    "success": "Profile updated successfully!"
+    "success": "Profile updated successfully!",
+    "standard": "Standard",
+    "professional": "Professional",
+    "admin": "Administrator",
+    "commercial": "Commercial"
   },
   "index": {
     "badge": "Your health, our absolute priority",
@@ -267,7 +271,10 @@
     "recipient": "Recipient:",
     "enterPhone": "Please enter a number",
     "processing": "Processing...",
-    "confirmSave": "Prescription saved successfully!"
+    "confirmSave": "Prescription saved successfully!",
+    "addRecipient": "Add a number",
+    "call": "Call",
+    "recipientCountSuffix": "number(s)"
   },
   "upgrade": {
     "title": "Upgrade your account",

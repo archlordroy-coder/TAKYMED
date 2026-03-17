@@ -114,17 +114,41 @@ router.post("/", (req, res) => {
             const ordInfo = ordStmt.run(userId, title, title, weight || 0, categorieAge || 'adulte', startDate || null);
             const idOrdonnance = ordInfo.lastInsertRowid;
 
-            // 2. Save Notification Preferences
-            if (notifConfig && notifConfig.phone) {
-                let canalId = 1; // SMS default
-                if (notifConfig.type === 'whatsapp') canalId = 2;
-                if (notifConfig.type === 'call') canalId = 3;
-                if (notifConfig.type === 'push') canalId = 4;
+            // 2. Save Notification Preferences (multi contacts + multi channels)
+            if (notifConfig) {
+                const channelMap: Record<string, number> = {
+                    sms: 1,
+                    whatsapp: 2,
+                    call: 3,
+                    push: 4,
+                };
 
-                db.prepare(`
-                    INSERT OR REPLACE INTO PreferencesNotificationUtilisateurs (id_utilisateur, id_canal, valeur_contact, est_active)
-                    VALUES (?, ?, ?, 1)
-                `).run(userId, canalId, notifConfig.phone);
+                const recipients = Array.isArray(notifConfig.recipients)
+                    ? notifConfig.recipients.map((r: string) => (r || '').trim()).filter(Boolean)
+                    : (notifConfig.phone ? [String(notifConfig.phone).trim()] : []);
+
+                const channels = Array.isArray(notifConfig.channels)
+                    ? notifConfig.channels.filter((c: string) => channelMap[c])
+                    : (notifConfig.type ? [notifConfig.type] : []);
+
+                if (recipients.length > 0 && channels.length > 0) {
+                    db.prepare(`
+                        UPDATE PreferencesNotificationUtilisateurs
+                        SET est_active = 0
+                        WHERE id_utilisateur = ?
+                    `).run(userId);
+
+                    const insertPref = db.prepare(`
+                        INSERT INTO PreferencesNotificationUtilisateurs (id_utilisateur, id_canal, valeur_contact, est_active)
+                        VALUES (?, ?, ?, 1)
+                    `);
+
+                    for (const recipient of recipients) {
+                        for (const channel of channels) {
+                            insertPref.run(userId, channelMap[channel], recipient);
+                        }
+                    }
+                }
             }
 
             // 3. Iterate each Medication
