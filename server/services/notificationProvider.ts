@@ -7,6 +7,7 @@ interface NotificationProvider {
   sendSMS(to: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }>;
   sendWhatsApp(to: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }>;
   sendVoiceCall(to: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }>;
+  checkStatus(messageId: string, channel: string): Promise<{ status: "sent" | "failed" | "answered" | "no-answer" | "calling" }>;
 }
 
 // Provider Orange SMS (Orange API)
@@ -138,8 +139,24 @@ class OrangeSMSProvider implements NotificationProvider {
   }
 
   async sendVoiceCall(to: string, message: string) {
-    console.log(`[Orange Voice Fallback] Mock voice to ${to}: ${message}`);
-    return { success: false, error: "Voice call not supported by Orange Provider" };
+    try {
+        const { sendWhatsAppVoice } = await import("./whatsappProvider");
+        return await sendWhatsAppVoice(to, message);
+    } catch (error: any) {
+        console.error("[Orange Voice] Failed to use WhatsApp Voice:", error);
+        return { success: false, error: error.message };
+    }
+  }
+
+  async checkStatus(messageId: string, channel: string): Promise<{ status: "sent" | "failed" | "answered" | "no-answer" | "calling" }> {
+    if (channel !== "Voice") return { status: "sent" };
+    
+    // Pour WhatsApp Voice, on considère "answered" si le message a été lu/joué.
+    // Sans store Baileys persistant pour les receipts, on simule :
+    // Si on arrive ici via le worker de fallback (après 1 min), on retourne "no-answer" 
+    // pour déclencher le secours WhatsApp texte.
+    
+    return { status: "no-answer" };
   }
 }
 
@@ -167,12 +184,21 @@ class MockNotificationProvider implements NotificationProvider {
 
   async sendVoiceCall(to: string, message: string) {
     console.log(`📞 Mock Voice call to ${to}: ${message}`);
-    const success = Math.random() > 0.2;
     return {
-      success,
-      messageId: success ? `mock-voice-${Date.now()}` : undefined,
-      error: success ? undefined : "Mock voice call failure"
+      success: true,
+      messageId: `mock-voice-${Date.now()}`
     };
+  }
+
+  async checkStatus(messageId: string, channel: string): Promise<{ status: "sent" | "failed" | "answered" | "no-answer" | "calling" }> {
+    if (channel !== "Voice") return { status: "sent" };
+    
+    // Simuler le fait qu'il faille attendre un peu pour savoir si ça a été décroché
+    // Dans le mock, on décide du résultat basé sur l'ID (50/50 chance)
+    const idNum = parseInt(messageId.split('-').pop() || "0");
+    const isAnswered = idNum % 2 === 0;
+    
+    return { status: isAnswered ? "answered" : "no-answer" };
   }
 }
 

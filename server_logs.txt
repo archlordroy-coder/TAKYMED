@@ -1,0 +1,218 @@
+nohup: les entrées sont ignorées
+🔧 TAKYMED Dev Server
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ℹ️  Aucun serveur Vite actif.
+
+🚀 Démarrage sur http://localhost:3500/
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 Notification Provider initialized: OrangeSMSProvider
+📱 ORANGE_CLIENT_ID: ✅ Set
+📱 ORANGE_CLIENT_SECRET: ✅ Set
+📱 ORANGE_SENDER_ADDRESS: tel:646366
+📱 ORANGE_SENDER_NAME: TAKYMED
+📱 Tous les SMS utilisent maintenant l'API Orange réelle !
+Applying database schema from bd.sql...
+Database schema applied successfully.
+Database tables already exist. Skipping initialization.
+⏳ Initializing WhatsApp connection...
+🚀 Starting reminder worker (30s interval)...
+
+  VITE v7.3.1  ready in 877 ms
+
+  ➜  Local:   http://localhost:3500/
+  ➜  Network: http://192.168.100.151:3500/
+ℹ️ No existing session found. Awaiting QR scan...
+{"level":30,"time":1773762651080,"pid":10939,"hostname":"ravel-Latitude-5580","trace":"Error: WebSocket Error (Opening handshake has timed out)\n    at WebSocketClient.<anonymous> (file:///home/ravel/Documents/CODES/TAKYMED/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:879:17)\n    at WebSocketClient.emit (node:events:519:28)\n    at WebSocket.<anonymous> (file:///home/ravel/Documents/CODES/TAKYMED/node_modules/@whiskeysockets/baileys/lib/Socket/Client/websocket.js:35:54)\n    at WebSocket.emit (node:events:519:28)\n    at emitErrorAndClose (/home/ravel/Documents/CODES/TAKYMED/node_modules/ws/lib/websocket.js:1046:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)","msg":"connection errored"}
+🔴 WhatsApp Connection closed (Status: 408). Should Reconnect: true
+🔄 Attempting reconnection session #1 in 3s...
+⏳ Initializing WhatsApp connection...
+ℹ️ No existing session found. Awaiting QR scan...
+{"level":40,"time":1773762661085,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"Buffer timeout reached, auto-flushing"}
+{"level":30,"time":1773762675120,"pid":10939,"hostname":"ravel-Latitude-5580","trace":"Error: WebSocket Error (Opening handshake has timed out)\n    at WebSocketClient.<anonymous> (file:///home/ravel/Documents/CODES/TAKYMED/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:879:17)\n    at WebSocketClient.emit (node:events:519:28)\n    at WebSocket.<anonymous> (file:///home/ravel/Documents/CODES/TAKYMED/node_modules/@whiskeysockets/baileys/lib/Socket/Client/websocket.js:35:54)\n    at WebSocket.emit (node:events:519:28)\n    at emitErrorAndClose (/home/ravel/Documents/CODES/TAKYMED/node_modules/ws/lib/websocket.js:1046:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)","msg":"connection errored"}
+🔴 WhatsApp Connection closed (Status: 408). Should Reconnect: true
+🔄 Attempting reconnection session #2 in 5s...
+⏳ Initializing WhatsApp connection...
+ℹ️ No existing session found. Awaiting QR scan...
+{"level":40,"time":1773762685122,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"Buffer timeout reached, auto-flushing"}
+{"level":30,"time":1773762694051,"pid":10939,"hostname":"ravel-Latitude-5580","browser":["TAKYMED","Chrome","110.0.0"],"helloMsg":{"clientHello":{"ephemeral":"ckdnHqmx4rc9Pwh8UNTGjCBEyE/eFhH3PtxtF+GleCg="}},"msg":"connected to WA"}
+{"level":30,"time":1773762694250,"pid":10939,"hostname":"ravel-Latitude-5580","node":{"username":"237657635644","passive":true,"userAgent":{"platform":"WEB","appVersion":{"primary":2,"secondary":3000,"tertiary":1027934701},"mcc":"000","mnc":"000","osVersion":"0.1","device":"Desktop","osBuildNumber":"0.1","releaseChannel":"RELEASE","localeLanguageIso6391":"en","localeCountryIso31661Alpha2":"US"},"webInfo":{"webSubPlatform":"WEB_BROWSER"},"connectType":"WIFI_UNKNOWN","connectReason":"USER_ACTIVATED","device":52,"pull":true,"lidDbMigrated":false},"msg":"logging in..."}
+{"level":30,"time":1773762695564,"pid":10939,"hostname":"ravel-Latitude-5580","trace":"Error: Connection Failure\n    at WebSocketClient.<anonymous> (file:///home/ravel/Documents/CODES/TAKYMED/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:785:13)\n    at WebSocketClient.emit (node:events:519:28)\n    at file:///home/ravel/Documents/CODES/TAKYMED/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:464:35\n    at Object.decodeFrame (file:///home/ravel/Documents/CODES/TAKYMED/node_modules/@whiskeysockets/baileys/lib/Utils/noise-handler.js:141:17)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async WebSocketClient.onMessageReceived (file:///home/ravel/Documents/CODES/TAKYMED/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:441:9)","msg":"connection errored"}
+🔴 WhatsApp Connection closed (Status: 405). Should Reconnect: true
+🔄 Attempting reconnection session #3 in 7s...
+⏳ Initializing WhatsApp connection...
+ℹ️ No existing session found. Awaiting QR scan...
+{"level":30,"time":1773762702884,"pid":10939,"hostname":"ravel-Latitude-5580","browser":["TAKYMED","Chrome","110.0.0"],"helloMsg":{"clientHello":{"ephemeral":"lv/52yoyIy0Sbvh1Ga1C853WqkAtYYvIbFROqjeIaUs="}},"msg":"connected to WA"}
+{"level":30,"time":1773762703063,"pid":10939,"hostname":"ravel-Latitude-5580","node":{"username":"237657635644","passive":true,"userAgent":{"platform":"WEB","appVersion":{"primary":2,"secondary":3000,"tertiary":1035194821},"mcc":"000","mnc":"000","osVersion":"0.1","device":"Desktop","osBuildNumber":"0.1","releaseChannel":"RELEASE","localeLanguageIso6391":"en","localeCountryIso31661Alpha2":"US"},"webInfo":{"webSubPlatform":"WEB_BROWSER"},"connectType":"WIFI_UNKNOWN","connectReason":"USER_ACTIVATED","device":52,"pull":true,"lidDbMigrated":false},"msg":"logging in..."}
+{"level":30,"time":1773762703547,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"787 pre-keys found on server"}
+{"level":30,"time":1773762703547,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"Current prekey ID: 814, exists in storage: true"}
+{"level":30,"time":1773762703547,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"PreKey validation passed - Server: 787, Current prekey 814 exists"}
+{"level":30,"time":1773762703754,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"handled 0 offline messages/notifications"}
+{"level":30,"time":1773762703754,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"Connection is now AwaitingInitialSync, buffering events"}
+{"level":30,"time":1773762703754,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"History sync is disabled by config, not waiting for notification. Transitioning to Online."}
+{"level":30,"time":1773762704161,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"opened connection to WA"}
+✅ WhatsApp Connection Opened for TAKYMED!
+{"level":30,"time":1773762704274,"pid":10939,"hostname":"ravel-Latitude-5580","myPN":"237657635644:52@s.whatsapp.net","myLID":"267933515251757:52@lid","msg":"Own LID session created successfully"}
+{"level":40,"time":1773762710654,"pid":10939,"hostname":"ravel-Latitude-5580","msg":"Buffer timeout reached, auto-flushing"}
+📡 Sending Voice Note to 237674376524@s.whatsapp.net...
+Closing session: SessionEntry {
+  _chains: {
+    BXDm46ecAdW7YNILYz40CEMrlcCvTLG2Biio8fisUDgv: { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 340840318,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 70 e6 e3 a7 9c 01 d5 bb 60 d2 0b 63 3e 34 08 43 2b 95 c0 af 4c b1 b6 06 28 a8 f1 f8 ac 50 38 2f>,
+      privKey: <Buffer d8 45 35 ce 90 64 aa 9e b2 ef 8c e1 90 4c 3f f7 23 e4 11 21 2e 1c 67 a3 87 28 7a 25 15 95 e8 48>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 f7 f7 0c 64 52 01 e7 37 ad 74 d5 70 8e 84 c2 3b d6 ff 1d 73 fe a3 36 0a 3e d9 25 57 9d 4c 94 67>,
+    previousCounter: 0,
+    rootKey: <Buffer f2 0e b8 6a ec 87 d5 1a fa 7e ef 3f 1d 49 3f 22 b9 9f c8 28 cf 90 c6 5c d1 ae 27 c2 06 7b 35 99>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 20 f7 ef e1 0b be 35 ac d8 a9 b2 c9 29 77 6d 9a 35 2e 3b 63 01 03 fe fd ed 38 67 af 04 1d 6d 4d>,
+    baseKeyType: 1,
+    closed: -1,
+    used: 1773758173545,
+    created: 1773758173545,
+    remoteIdentityKey: <Buffer 05 d8 74 be 59 d0 dc 90 2d 16 2c c0 ae 58 75 07 1a a0 ea 13 23 d1 7e 99 86 82 50 ec d3 82 09 56 7e>
+  },
+  pendingPreKey: {
+    signedKeyId: 13980272,
+    baseKey: <Buffer 05 20 f7 ef e1 0b be 35 ac d8 a9 b2 c9 29 77 6d 9a 35 2e 3b 63 01 03 fe fd ed 38 67 af 04 1d 6d 4d>,
+    preKeyId: 9583
+  }
+}
+Closing session: SessionEntry {
+  _chains: {
+    'BbtW5Z4ThsWqj9Oh7Rno637GjALt7LnG1H0Rr7y+riM4': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    BYzKmOjrn6burAVcSCxCnuxgmwfln4l4DSvMUtyaiXM7: { chainKey: [Object], chainType: 2, messageKeys: {} },
+    'BVoVlskJCZc+Q5sY/Pbxzzxm6XjWcOwGK6BDuA4zwjAp': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    'BcFAVV9r3bq9RmProc2fsuesfogZKDS8N5gl+yWcj3EH': { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 1849414651,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 c1 40 55 5f 6b dd ba bd 46 63 eb a1 cd 9f b2 e7 ac 7e 88 19 28 34 bc 37 98 25 fb 25 9c 8f 71 07>,
+      privKey: <Buffer 38 4c 33 7b 1d 56 4d 9b e8 af cc 73 cb 76 40 1a bf 13 f0 14 bc 99 46 4a 3d 35 2d 83 d0 7f ea 41>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 5a 15 96 c9 09 09 97 3e 43 9b 18 fc f6 f1 cf 3c 66 e9 78 d6 70 ec 06 2b a0 43 b8 0e 33 c2 30 29>,
+    previousCounter: 0,
+    rootKey: <Buffer 42 cc bc f5 4a 0e cd 46 28 21 6e 91 78 7d fd 6b 6f 3a 57 71 55 b1 57 61 c2 fe 09 d2 6a 05 5c c3>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 1e f4 70 20 7f 43 e8 5b eb 98 6a a5 4f 90 11 91 df 81 85 59 18 11 cc eb 5d 4c 8d 51 6e 46 a3 02>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1773762258680,
+    created: 1773760625363,
+    remoteIdentityKey: <Buffer 05 5b 59 23 fe 84 8f 50 5b e4 95 5a 19 0c e3 f8 8d f6 3d 51 c4 1c fe 79 8d 95 27 ca e9 c1 ab a3 79>
+  }
+}
+Closing session: SessionEntry {
+  _chains: {
+    'BYLNjccilvpb3goDC1CfUiWdfH6QwKFZWb/0WngNilJh': { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 11384,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 82 cd 8d c7 22 96 fa 5b de 0a 03 0b 50 9f 52 25 9d 7c 7e 90 c0 a1 59 59 bf f4 5a 78 0d 8a 52 61>,
+      privKey: <Buffer 70 bc fa 3d 0f 2c 21 f4 35 e3 e3 3c 5d 57 aa b9 04 cd fb e8 df 7f 27 09 82 a5 2d bb 9e b9 f8 64>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 ea 86 d5 50 29 8e df 26 0d a9 03 9c ad c7 ec 03 a5 70 e5 d6 52 38 7f cb 69 e5 55 01 21 67 26 01>,
+    previousCounter: 0,
+    rootKey: <Buffer 04 96 3f 94 a0 7a d2 a8 4f d3 00 65 4c f9 6e f0 7d 50 c3 cc dd f8 31 56 ce 5a 75 68 52 c7 74 22>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 24 c7 52 20 a8 64 68 a1 9b 46 64 41 5d 04 a8 ee 6e 89 8e 1f 53 3e f8 02 9b a4 a4 93 cf 58 b2 26>,
+    baseKeyType: 1,
+    closed: -1,
+    used: 1773758176790,
+    created: 1773758176790,
+    remoteIdentityKey: <Buffer 05 3b 34 ae 33 8a 7b e1 a4 74 41 b1 36 5e 4a bc 97 4d 8a ed 63 f8 35 8f 7f ec 56 21 9b 7a ad 7e 1d>
+  },
+  pendingPreKey: {
+    signedKeyId: 1,
+    baseKey: <Buffer 05 24 c7 52 20 a8 64 68 a1 9b 46 64 41 5d 04 a8 ee 6e 89 8e 1f 53 3e f8 02 9b a4 a4 93 cf 58 b2 26>,
+    preKeyId: 255
+  }
+}
+📡 Sending Voice Note to 237697656378@s.whatsapp.net...
+Closing session: SessionEntry {
+  _chains: {
+    'BQFe34pAKgS6lM6fxbJEs/rk2mX9Gkw1J2qrDIjWtLY/': { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 254,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 01 5e df 8a 40 2a 04 ba 94 ce 9f c5 b2 44 b3 fa e4 da 65 fd 1a 4c 35 27 6a ab 0c 88 d6 b4 b6 3f>,
+      privKey: <Buffer 18 be 30 9a 9d 1d 0c 40 43 77 64 ee 95 c1 43 29 c4 53 ed 99 bc d8 ff 1b 30 be 3a ca 2a 4a 7b 4d>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 2d 94 65 d2 2e d6 d1 36 ac 95 28 7f 2d d8 03 e3 3e f0 28 78 6d 18 10 78 c0 9a db 53 fb 49 81 07>,
+    previousCounter: 0,
+    rootKey: <Buffer a6 6b db 09 c8 6f 4a 8e 33 c7 50 45 f2 a0 e6 cc 77 3c ba e9 be 9d 56 6f e1 31 c5 4b 96 81 62 e3>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 bb 2e 18 fb 5f 79 77 44 3e cc 4d cc 6a 02 6a e4 46 14 90 54 3c 8d 1a 69 f1 14 8c b3 e0 88 8f 01>,
+    baseKeyType: 1,
+    closed: -1,
+    used: 1773762909083,
+    created: 1773762909083,
+    remoteIdentityKey: <Buffer 05 9f 9d 08 c4 e8 58 85 38 f9 c8 58 ff fe c5 15 71 06 d6 27 22 f4 12 21 f8 4b 3c 82 cf db 35 4e 06>
+  },
+  pendingPreKey: {
+    signedKeyId: 1,
+    baseKey: <Buffer 05 bb 2e 18 fb 5f 79 77 44 3e cc 4d cc 6a 02 6a e4 46 14 90 54 3c 8d 1a 69 f1 14 8c b3 e0 88 8f 01>,
+    preKeyId: 756
+  }
+}
+📤 [Attempt] Sending Appel to +237674376524 (1 items grouped)
+node:events:497
+      throw er; // Unhandled 'error' event
+      ^
+
+AggregateError [ETIMEDOUT]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at internalConnectMultiple (node:net:1210:5)
+    at Timeout.internalConnectMultipleTimeout (node:net:1742:5)
+    at listOnTimeout (node:internal/timers:590:11)
+    at process.processTimers (node:internal/timers:523:7)
+Emitted 'error' event on Request instance at:
+    at Request.onerror (node:internal/streams/legacy:63:12)
+    at Request.emit (node:events:519:28)
+    at Request.onRequestError (/home/ravel/Documents/CODES/TAKYMED/node_modules/request/request.js:877:8)
+    at ClientRequest.emit (node:events:519:28)
+    at emitErrorEvent (node:_http_client:107:11)
+    at TLSSocket.socketErrorListener (node:_http_client:574:5)
+    at TLSSocket.emit (node:events:519:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'ETIMEDOUT',
+  [errors]: [
+    Error: connect ETIMEDOUT 142.250.65.78:443
+        at createConnectionError (node:net:1678:14)
+        at Timeout.internalConnectMultipleTimeout (node:net:1737:38)
+        at listOnTimeout (node:internal/timers:590:11)
+        at process.processTimers (node:internal/timers:523:7) {
+      errno: -110,
+      code: 'ETIMEDOUT',
+      syscall: 'connect',
+      address: '142.250.65.78',
+      port: 443
+    },
+    Error: connect ENETUNREACH 2607:f8b0:4006:80e::200e:443 - Local (:::0)
+        at internalConnectMultiple (node:net:1206:16)
+        at Timeout.internalConnectMultipleTimeout (node:net:1742:5)
+        at listOnTimeout (node:internal/timers:590:11)
+        at process.processTimers (node:internal/timers:523:7) {
+      errno: -101,
+      code: 'ENETUNREACH',
+      syscall: 'connect',
+      address: '2607:f8b0:4006:80e::200e',
+      port: 443
+    }
+  ]
+}
+
+Node.js v22.22.0

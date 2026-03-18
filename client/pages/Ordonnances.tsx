@@ -486,11 +486,11 @@ export default function Ordonnances() {
                       </div>
                       <div className="w-48 h-2 bg-slate-200 rounded-full overflow-hidden">
                         <div 
+                          style={{ '--progress-width': `${getProgressPercentage(ord)}%` } as React.CSSProperties}
                           className={cn(
-                            "h-full rounded-full transition-all",
+                            "h-full rounded-full transition-all w-[var(--progress-width)]",
                             getProgressPercentage(ord) === 100 ? "bg-green-500" : "bg-primary"
                           )}
-                          style={{ width: `${getProgressPercentage(ord)}%` }}
                         />
                       </div>
                       <span className="text-xs text-slate-400">
@@ -654,6 +654,7 @@ export default function Ordonnances() {
                                     <div>
                                       <Label className="text-xs">Fréquence</Label>
                                       <select
+                                        title="Sélectionner la fréquence"
                                         className="w-full h-8 rounded-lg border bg-slate-50 px-2 text-sm"
                                         value={editMedForm.type_frequence || '1x'}
                                         onChange={(e) => setEditMedForm(prev => ({ 
@@ -901,6 +902,7 @@ export default function Ordonnances() {
             <div>
               <Label>Fréquence</Label>
               <select
+                title="Choisir la fréquence du nouveau médicament"
                 className="w-full h-10 rounded-xl border bg-slate-50 px-3 mt-1"
                 value={newMedForm.type_frequence}
                 onChange={(e) => setNewMedForm(prev => ({ 

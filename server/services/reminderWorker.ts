@@ -68,6 +68,7 @@ export function startReminderWorker() {
   const runWorker = async () => {
     try {
       await checkAndSendReminders();
+      await handleVoiceFallbacks();
     } catch (err) {
       console.error("Error in reminder worker loop:", err);
     }
@@ -185,6 +186,8 @@ async function sendCombinedReminders(contact: string, items: any[]) {
       result = await notificationProvider.sendWhatsApp(contact, message);
     } else if (channel === "Appel") {
       result = await notificationProvider.sendVoiceCall(contact, message);
+      // Pour les appels, on marque comme 'calling' pour le worker de fallback
+      if (result.success) result.statusOverride = 'calling';
     } else {
       result = { success: false, error: "Unsupported channel" };
     }
@@ -193,14 +196,15 @@ async function sendCombinedReminders(contact: string, items: any[]) {
   }
 
   // Mettre à jour le job et les logs
-  db.prepare(`UPDATE NotificationJobs SET status = ?, processed_at = datetime('now') WHERE id_job = ?`).run(result.success ? 'sent' : 'failed', jobId);
+  const finalStatus = result.statusOverride || (result.success ? 'sent' : 'failed');
+  db.prepare(`UPDATE NotificationJobs SET status = ?, processed_at = datetime('now') WHERE id_job = ?`).run(finalStatus, jobId);
 
   const providerName = (notificationProvider.constructor.name.includes('Orange') ? 'orange' : 'mock');
   try {
     db.prepare(`
         INSERT INTO NotificationLogs (id_job, provider, channel, to_contact, message, status, error_message, provider_message_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(jobId, providerName, channel, contact, message, result.success ? "sent" : "failed", result.error, result.messageId || null);
+    `).run(jobId, providerName, channel, contact, message, finalStatus, result.error, result.messageId || null);
   } catch (logError) {
       console.error("Failed to insert notification log:", logError);
   }
@@ -210,5 +214,56 @@ async function sendCombinedReminders(contact: string, items: any[]) {
     // Note: on ne repasse pas rappel_envoye à 0 pour respecter la consigne de l'utilisateur
   } else {
     console.log(`✅ Sent to ${patientName}`);
+  }
+}
+
+/**
+ * Gère les appels non décrochés : si pas de réponse après 1 min, envoie un WhatsApp
+ */
+async function handleVoiceFallbacks() {
+  try {
+    // Récupérer les jobs d'appel en cours depuis plus d'une minute
+    const pendingCalls = db.prepare(`
+      SELECT nj.*, nl.provider_message_id 
+      FROM NotificationJobs nj
+      JOIN NotificationLogs nl ON nj.id_job = nl.id_job
+      WHERE nj.channel = 'Appel' 
+        AND nj.status = 'calling'
+        AND nj.created_at <= datetime('now', '-1 minute')
+    `).all() as any[];
+
+    for (const job of pendingCalls) {
+      console.log(`📞 Checking status for Call Job ${job.id_job} to ${job.contact_value}...`);
+      
+      const statusCheck = await notificationProvider.checkStatus(job.provider_message_id, "Voice");
+      
+      if (statusCheck.status === "answered") {
+        console.log(`✅ Call ${job.id_job} was answered. No fallback needed.`);
+        db.prepare(`UPDATE NotificationJobs SET status = 'sent' WHERE id_job = ?`).run(job.id_job);
+      } else if (statusCheck.status === "no-answer") {
+        console.log(`⌛ Call ${job.id_job} not answered. Triggering WhatsApp fallback...`);
+        
+        // Marquer comme failed pour cet essai d'appel
+        db.prepare(`UPDATE NotificationJobs SET status = 'fallback_triggered' WHERE id_job = ?`).run(job.id_job);
+        
+        // Envoyer le message WhatsApp de secours
+        const fallbackMsg = `${job.message}\n(Ceci est un message de rappel suite à notre tentative d'appel restée sans réponse.)`;
+        const waResult = await notificationProvider.sendWhatsApp(job.contact_value, fallbackMsg);
+        
+        // Logger l'envoi WhatsApp de secours
+        const providerName = (notificationProvider.constructor.name.includes('Orange') ? 'orange' : 'mock');
+        const fallbackJobId = db.prepare(`
+          INSERT INTO NotificationJobs (id_utilisateur, channel, message, contact_value, scheduled_at, status, processed_at)
+          VALUES (?, 'WhatsApp', ?, ?, datetime('now'), ?, datetime('now'))
+        `).run(job.id_utilisateur, fallbackMsg, job.contact_value, waResult.success ? 'sent' : 'failed').lastInsertRowid;
+
+        db.prepare(`
+          INSERT INTO NotificationLogs (id_job, provider, channel, to_contact, message, status, error_message, provider_message_id)
+          VALUES (?, ?, 'WhatsApp', ?, ?, ?, ?, ?)
+        `).run(fallbackJobId, providerName, job.contact_value, fallbackMsg, waResult.success ? "sent" : "failed", waResult.error, waResult.messageId || null);
+      }
+    }
+  } catch (error) {
+    console.error("Error in handleVoiceFallbacks:", error);
   }
 }
