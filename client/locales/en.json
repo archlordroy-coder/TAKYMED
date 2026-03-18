@@ -1,5 +1,6 @@
 {
   "nav": {
+    "home": "Home",
     "dashboard": "Dashboard",
     "medications": "Medications",
     "prescriptions": "Prescriptions",
@@ -155,6 +156,9 @@
   },
   "admin": {
     "title": "Administration",
+    "main": "Main",
+    "management": "Management",
+    "system": "System",
     "users": "Users",
     "medications": "Medications",
     "pharmacies": "Pharmacies",
