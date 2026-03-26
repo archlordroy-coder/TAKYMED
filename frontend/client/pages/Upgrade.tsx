@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { getApiUrl } from "@/lib/api-config";
 
 interface AccountType {
   id: number;
@@ -39,7 +40,7 @@ export default function Upgrade() {
   useEffect(() => {
     async function fetchAccountTypes() {
       try {
-        const res = await fetch("/api/admin/settings", {
+        const res = await fetch(getApiUrl("/api/admin/settings"), {
           headers: { "x-user-id": user?.id?.toString() || "" }
         });
         if (res.ok) {
@@ -169,7 +170,7 @@ export default function Upgrade() {
 
   const submitUpgradeRequest = (typeName: string, motiveText?: string) => {
     if (!user?.id) return;
-    fetch("/api/auth/upgrade-request", {
+    fetch(getApiUrl("/api/auth/upgrade-request"), {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",

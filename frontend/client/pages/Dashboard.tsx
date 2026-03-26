@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DoseSchedule } from "@shared/api";
 import { toast } from "sonner";
+import { getApiUrl } from "@/lib/api-config";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -109,7 +110,7 @@ export default function Dashboard() {
     if (!newName || newName === user?.name) return;
 
     try {
-      const res = await fetch("/api/auth/profile", {
+      const res = await fetch(getApiUrl("/api/auth/profile"), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -1246,7 +1247,7 @@ function DashboardSecurityCard({ user }: { user: any }) {
     const fetchPinInfo = async () => {
       if (!user?.id) return;
       try {
-        const res = await fetch("/api/auth/pin-info", {
+        const res = await fetch(getApiUrl("/api/auth/pin-info"), {
           headers: {
             "x-user-id": user.id.toString(),
           },
@@ -1273,7 +1274,7 @@ function DashboardSecurityCard({ user }: { user: any }) {
 
     setIsLoading(true);
     try {
-      const res = await fetch("/api/auth/regenerate-pin", {
+      const res = await fetch(getApiUrl("/api/auth/regenerate-pin"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

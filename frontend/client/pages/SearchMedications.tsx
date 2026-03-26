@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getApiUrl } from "@/lib/api-config";
 
 const MOCK_MEDICATIONS = [
   { id: 1, name: "Doliprane 1000", type: "comprimé", description: "Paracétamol, indiqué en cas de douleur et/ou fièvre.", mode: "orale", moment: "indifferent", precautions: "aucune" },
@@ -62,7 +63,7 @@ export default function SearchMedications() {
 
   const fetchInteractions = async () => {
     try {
-      const res = await fetch('/api/medications/interactions');
+      const res = await fetch(getApiUrl('/api/medications/interactions'));
       if (res.ok) {
         const data = await res.json();
         setInteractions(data.interactions);

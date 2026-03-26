@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
 import { Upload, Navigation } from "lucide-react";
+import { getApiUrl } from "@/lib/api-config";
 
 interface Pharmacy {
   id: string;
@@ -104,7 +105,7 @@ export default function PharmacyManagement() {
 
   const fetchMedications = async () => {
     try {
-      const res = await fetch('/api/medications');
+      const res = await fetch(getApiUrl('/api/medications'));
       if (res.ok) {
         const data = await res.json();
         setDbMedications(data.medications);
@@ -148,7 +149,7 @@ export default function PharmacyManagement() {
   const handleRegisterMed = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/medications', {
+      const res = await fetch(getApiUrl('/api/medications'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newMed)
@@ -180,7 +181,7 @@ export default function PharmacyManagement() {
         longitude: selectedCoords?.lng
       };
 
-      const res = await fetch('/api/pharmacies', {
+      const res = await fetch(getApiUrl('/api/pharmacies'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

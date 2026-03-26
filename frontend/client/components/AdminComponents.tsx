@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import { ArrowUpRight, ArrowDownRight, MoreHorizontal } from "lucide-react";
 import { Button } from "./ui/button";
+import { getApiUrl } from "@/lib/api-config";
 
 const TEAL = "#006093";
 const EMERALD = "#00A859";
@@ -233,7 +234,7 @@ export function ActivityChart({ data }: ActivityChartProps) {
         async function fetchData() {
             if (!user?.id) return;
             try {
-                const res = await fetch("/api/admin/monthly-activity", {
+                const res = await fetch(getApiUrl("/api/admin/monthly-activity"), {
                     headers: { "x-user-id": user.id.toString() }
                 });
                 if (res.ok) {

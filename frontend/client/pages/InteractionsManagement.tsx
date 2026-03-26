@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getApiUrl } from "@/lib/api-config";
 
 interface Interaction {
     id: number;
@@ -44,7 +45,7 @@ export default function InteractionsManagement() {
 
     const fetchInteractions = async () => {
         try {
-            const res = await fetch('/api/medications/interactions');
+            const res = await fetch(getApiUrl('/api/medications/interactions'));
             if (res.ok) {
                 const data = await res.json();
                 setInteractions(data.interactions);
@@ -58,7 +59,7 @@ export default function InteractionsManagement() {
 
     const fetchMedications = async () => {
         try {
-            const res = await fetch('/api/medications');
+            const res = await fetch(getApiUrl('/api/medications'));
             if (res.ok) {
                 const data = await res.json();
                 setDbMedications(data.medications);
@@ -75,7 +76,7 @@ export default function InteractionsManagement() {
         }
 
         try {
-            const res = await fetch('/api/medications/interactions', {
+            const res = await fetch(getApiUrl('/api/medications/interactions'), {
                 method: "POST",
                 headers: { 
                     "Content-Type": "application/json",

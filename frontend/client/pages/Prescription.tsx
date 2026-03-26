@@ -32,6 +32,7 @@ import { MedicationEntry, DoseSchedule, FrequencyType } from "@shared/api";
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { getApiUrl } from "@/lib/api-config";
 
 
 
@@ -151,7 +152,7 @@ export default function Prescription() {
   useEffect(() => {
     async function fetchMeds() {
       try {
-        const res = await fetch('/api/medications');
+        const res = await fetch(getApiUrl('/api/medications'));
         if (res.ok) {
           const data = await res.json();
           setDbMedications(data.medications);
@@ -163,7 +164,7 @@ export default function Prescription() {
 
     async function fetchInteractions() {
       try {
-        const res = await fetch('/api/medications/interactions');
+        const res = await fetch(getApiUrl('/api/medications/interactions'));
         if (res.ok) {
           const data = await res.json();
           setInteractions(data.interactions);
@@ -175,7 +176,7 @@ export default function Prescription() {
 
     async function fetchCategories() {
       try {
-        const res = await fetch('/api/categories');
+        const res = await fetch(getApiUrl('/api/categories'));
         if (res.ok) {
           const data = await res.json();
           setCategories(data.categories);
@@ -191,7 +192,7 @@ export default function Prescription() {
 
     async function fetchCountries() {
       try {
-        const res = await fetch('/api/countries');
+        const res = await fetch(getApiUrl('/api/countries'));
         if (res.ok) {
           const data = await res.json();
           setCountries(data.countries);
@@ -856,7 +857,7 @@ export default function Prescription() {
                     setIsSubmitting(true);
                     try {
                       // 1. Save to DB
-                       const res = await fetch("/api/prescriptions", {
+                       const res = await fetch(getApiUrl("/api/prescriptions"), {
                         method: "POST",
                         headers: { 
                            "Content-Type": "application/json",

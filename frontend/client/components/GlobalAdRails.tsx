@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Megaphone, Pill } from "lucide-react";
+import { getApiUrl } from "@/lib/api-config";
 
 interface NewMed {
   id: number;
@@ -17,7 +18,7 @@ export function GlobalAdRails() {
   useEffect(() => {
     async function loadAds() {
       try {
-        const res = await fetch("/api/medications?new=true");
+        const res = await fetch(getApiUrl("/api/medications?new=true"));
         if (!res.ok) return;
         const data = await res.json();
         setItems(data.medications || []);

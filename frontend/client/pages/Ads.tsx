@@ -17,6 +17,7 @@ import {
   Clock3,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { getApiUrl } from "@/lib/api-config";
 
 interface NewMed {
   id: number;
@@ -35,7 +36,7 @@ export default function Ads() {
   useEffect(() => {
     async function fetchNewMeds() {
       try {
-        const res = await fetch("/api/medications?new=true");
+        const res = await fetch(getApiUrl("/api/medications?new=true"));
         if (res.ok) {
           const data = await res.json();
           setNewMedications(data.medications);

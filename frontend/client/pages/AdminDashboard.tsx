@@ -31,6 +31,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import logoImg from "@/components/images/takymed.png";
 import {
+import { getApiUrl } from "@/lib/api-config";
     Dialog,
     DialogContent,
     DialogHeader,
@@ -219,7 +220,7 @@ export default function AdminDashboard() {
         }
 
         try {
-            const res = await fetch("/api/admin/medications/all", { 
+            const res = await fetch(getApiUrl("/api/admin/medications/all"), { 
                 method: "DELETE",
                 headers: { "x-user-id": user?.id?.toString() || "" }
             });
@@ -252,16 +253,16 @@ export default function AdminDashboard() {
                 commRes,
                 unassignedRes,
             ] = await Promise.all([
-                fetch("/api/admin/stats", { headers }),
-                fetch("/api/admin/users", { headers }),
-                fetch("/api/admin/medications", { headers }),
-                fetch("/api/admin/settings", { headers }),
-                fetch("/api/admin/pharmacies", { headers }),
-                fetch("/api/categories", { headers }),
-                fetch("/api/admin/upgrade-requests", { headers }),
-                fetch("/api/admin/monthly-activity", { headers }),
-                fetch("/api/admin/commercials", { headers }),
-                fetch("/api/admin/unassigned-clients", { headers }),
+                fetch(getApiUrl("/api/admin/stats"), { headers }),
+                fetch(getApiUrl("/api/admin/users"), { headers }),
+                fetch(getApiUrl("/api/admin/medications"), { headers }),
+                fetch(getApiUrl("/api/admin/settings"), { headers }),
+                fetch(getApiUrl("/api/admin/pharmacies"), { headers }),
+                fetch(getApiUrl("/api/categories"), { headers }),
+                fetch(getApiUrl("/api/admin/upgrade-requests"), { headers }),
+                fetch(getApiUrl("/api/admin/monthly-activity"), { headers }),
+                fetch(getApiUrl("/api/admin/commercials"), { headers }),
+                fetch(getApiUrl("/api/admin/unassigned-clients"), { headers }),
             ]);
 
             if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok && catRes.ok) {
@@ -334,7 +335,7 @@ export default function AdminDashboard() {
             toast.error("Veuillez fournir un mot de passe");
             return;
         }
-        const res = await fetch("/api/admin/users", {
+        const res = await fetch(getApiUrl("/api/admin/users"), {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -410,7 +411,7 @@ export default function AdminDashboard() {
             return;
         }
 
-        const res = await fetch("/api/admin/medications", {
+        const res = await fetch(getApiUrl("/api/admin/medications"), {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -513,7 +514,7 @@ export default function AdminDashboard() {
 
     const handleAddCat = async () => {
         if (!newCat.name.trim()) return toast.error("Le nom est requis");
-        const res = await fetch("/api/categories", {
+        const res = await fetch(getApiUrl("/api/categories"), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newCat)
@@ -599,7 +600,7 @@ export default function AdminDashboard() {
     const handleReassignClient = async (newCommId: number) => {
         if (!clientToReassign) return;
         try {
-            const res = await fetch("/api/admin/reassign-client", {
+            const res = await fetch(getApiUrl("/api/admin/reassign-client"), {
                 method: 'PATCH',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -681,7 +682,7 @@ export default function AdminDashboard() {
                 const unitId = parts[2]?.toLowerCase().includes('gélule') ? 2 : parts[2]?.toLowerCase().includes('sirop') ? 3 : 1;
                 const dose = parseFloat(parts[3] || parts[2]) || 1;
                 try {
-                    const res = await fetch("/api/admin/medications", {
+                    const res = await fetch(getApiUrl("/api/admin/medications"), {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json',
