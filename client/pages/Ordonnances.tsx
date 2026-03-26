@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 
@@ -836,6 +837,7 @@ export default function Ordonnances() {
         <DialogContent className="rounded-2xl">
           <DialogHeader>
             <DialogTitle>Gérer l'ordonnance</DialogTitle>
+            <DialogDescription>Choisissez l'action à effectuer</DialogDescription>
           </DialogHeader>
           <p className="text-slate-500">Que souhaitez-vous faire avec cette ordonnance ?</p>
           <DialogFooter className="flex-col gap-2 sm:flex-row">
@@ -877,6 +879,7 @@ export default function Ordonnances() {
         <DialogContent className="rounded-2xl">
           <DialogHeader>
             <DialogTitle>Ajouter un médicament</DialogTitle>
+            <DialogDescription>Ajouter un nouveau médicament à cette ordonnance</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>

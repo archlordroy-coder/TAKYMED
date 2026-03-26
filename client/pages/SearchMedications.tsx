@@ -155,9 +155,13 @@ export default function SearchMedications() {
           toast.success("Position récupérée !");
         },
         (error) => {
-          console.error("Error getting location:", error);
+          console.warn("Geolocation error:", error.message);
           setIsFindingLocation(false);
-          toast.error("Impossible de récupérer votre position.");
+          if (error.code === 1) {
+            toast.warning("Géolocalisation non disponible - utilisez localhost ou HTTPS");
+          } else {
+            toast.error("Impossible de récupérer votre position.");
+          }
         }
       );
     } else {

@@ -35,6 +35,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
@@ -959,6 +960,7 @@ export default function AdminDashboard() {
                                     <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
                                         <DialogHeader>
                                             <DialogTitle className="text-slate-800">Ajouter un Utilisateur</DialogTitle>
+                                            <DialogDescription>Créer un nouveau compte utilisateur</DialogDescription>
                                         </DialogHeader>
                                         <div className="space-y-4 py-4">
                                             <div className="space-y-2">
@@ -1179,6 +1181,7 @@ export default function AdminDashboard() {
                                     <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
                                         <DialogHeader>
                                             <DialogTitle className="text-slate-800">Ajouter au Catalogue</DialogTitle>
+                                            <DialogDescription>Ajouter un nouveau médicament au catalogue</DialogDescription>
                                         </DialogHeader>
                                         <div className="space-y-4 py-4">
                                             <div className="space-y-2">
@@ -1427,6 +1430,7 @@ export default function AdminDashboard() {
                                 <DialogContent className="bg-white border-slate-200 text-slate-800 rounded-3xl sm:max-w-md shadow-2xl">
                                     <DialogHeader>
                                         <DialogTitle className="text-slate-800">Ajouter une Catégorie</DialogTitle>
+                                        <DialogDescription>Créer une nouvelle catégorie d'âge</DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-4 py-4">
                                         <div className="space-y-2">
@@ -1913,6 +1917,7 @@ export default function AdminDashboard() {
                             <Users className="w-6 h-6 text-orange-500" />
                             Clients de {selectedCommercial?.name || "l'agent"}
                         </DialogTitle>
+                        <DialogDescription>Liste complète des clients assignés à cet agent commercial</DialogDescription>
                     </DialogHeader>
                     
                     <div className="flex-1 overflow-y-auto p-0">

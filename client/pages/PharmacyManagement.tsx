@@ -219,11 +219,19 @@ export default function PharmacyManagement() {
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setMapCenter(coords);
-        setSelectedCoords(coords);
-      });
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setMapCenter(coords);
+          setSelectedCoords(coords);
+        },
+        (error) => {
+          console.warn("Geolocation error:", error.message);
+          if (error.code === 1) {
+            console.info("Geolocation requires secure origin (HTTPS) or localhost");
+          }
+        }
+      );
     }
   };
 
