@@ -1,0 +1,49 @@
+{
+  "name": "takymed-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "pkg": {
+    "assets": [
+      "public/*"
+    ],
+    "scripts": [
+      "dist/server/**/*.js"
+    ]
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --config vite.config.server.ts",
+    "build:full": "npm run typecheck && npm run build",
+    "start": "node dist/server/node-build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "format.fix": "prettier --write ."
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "bcrypt": "^5.1.1",
+    "better-sqlite3": "^12.6.2",
+    "cors": "^2.8.5",
+    "country-list-with-dial-code-and-flag": "^5.1.1",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "gtts": "^0.2.1",
+    "i18n-iso-countries": "^7.14.0",
+    "indent-string": "^5.0.0",
+    "pino": "^10.3.1",
+    "qrcode-terminal": "^0.12.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.1",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.2",
+    "vitest": "^3.2.4"
+  }
+}
