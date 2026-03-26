@@ -1,4 +1,4 @@
-import { defineConfig, Plugin } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
@@ -8,33 +8,25 @@ export default defineConfig(({ mode }) => ({
     host: "0.0.0.0",
     port: 3500,
     fs: {
-      allow: [".", "./client", "./shared"],
-      deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "server/**"],
+      allow: [".", "./client", "../backend/shared"],
+      deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "../backend/server/**"],
+    },
+    proxy: {
+      "/api": {
+        target: process.env.VITE_API_BASE_URL || "http://localhost:3001",
+        changeOrigin: true,
+        rewrite: (path) => path,
+      },
     },
   },
   build: {
-    outDir: "dist/spa",
+    outDir: "dist",
   },
-  plugins: [react(), expressPlugin()],
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./client"),
-      "@shared": path.resolve(__dirname, "./shared"),
+      "@shared": path.resolve(__dirname, "../backend/shared"),
     },
   },
 }));
-
-function expressPlugin(): Plugin {
-  return {
-    name: "express-plugin",
-    apply: "serve", // Only apply during development (serve mode)
-    configureServer(server) {
-      // Dynamic require to avoid loading server during build
-      const { createServer } = require("./server");
-      const app = createServer();
-
-      // Add Express app as middleware to Vite dev server
-      server.middlewares.use(app);
-    },
-  };
-}

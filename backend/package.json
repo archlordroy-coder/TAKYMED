@@ -15,7 +15,7 @@
     "dev": "vite",
     "build": "vite build --config vite.config.server.ts",
     "build:full": "npm run typecheck && npm run build",
-    "start": "node dist/server/node-build.mjs",
+    "start": "node dist/node-build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
     "format.fix": "prettier --write ."
