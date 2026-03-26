@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Phone, Save, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { getApiUrl } from "@/lib/api-config";
 
 export default function ProfileSettings() {
   const { user, updateUser } = useAuth();
@@ -28,7 +29,7 @@ export default function ProfileSettings() {
 
     setIsSaving(true);
     try {
-      const response = await fetch("/api/auth/profile", {
+      const response = await fetch(getApiUrl("/api/auth/profile"), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

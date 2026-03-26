@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { getApiUrl } from "@/lib/api-config";
 
 interface AccountType {
   id: number;
@@ -43,7 +44,7 @@ export default function Checkout() {
   useEffect(() => {
     async function fetchAccountTypes() {
       try {
-        const res = await fetch("/api/admin/settings", {
+        const res = await fetch(getApiUrl("/api/admin/settings"), {
           headers: { "x-user-id": user?.id?.toString() || "" }
         });
         if (res.ok) {
@@ -65,7 +66,7 @@ export default function Checkout() {
 
     async function fetchCountries() {
       try {
-        const res = await fetch('/api/countries');
+        const res = await fetch(getApiUrl('/api/countries'));
         if (res.ok) {
           const data = await res.json();
           setCountries(data.countries || []);
@@ -90,7 +91,7 @@ export default function Checkout() {
 
     setProcessing(true);
     try {
-      const res = await fetch("/api/payments/send-otp", {
+      const res = await fetch(getApiUrl("/api/payments/send-otp"), {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -136,7 +137,7 @@ export default function Checkout() {
     setProcessing(true);
 
     try {
-      const res = await fetch("/api/payments/process", {
+      const res = await fetch(getApiUrl("/api/payments/process"), {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
