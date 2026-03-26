@@ -1,7 +1,44 @@
 import { Router } from "express";
 import { db } from "../db";
+import {
+    countActiveOrdonnances,
+    countPendingRappels,
+    getUserAccountLimits,
+    isUnlimited,
+    refreshOrdonnanceActiveState,
+} from "../services/accountLimits";
 
 const router = Router();
+
+function estimateReminderCountFromMedications(medications: any[]): number {
+    let total = 0;
+
+    for (const m of medications || []) {
+        if (!m || m.frequencyType === "prn") continue;
+
+        const durationDays = Number(m.durationDays) || 0;
+        if (durationDays <= 0) continue;
+
+        if (m.frequencyType === "interval" && Number(m.intervalHours) > 0) {
+            const interval = Number(m.intervalHours);
+            for (let day = 0; day < durationDays; day++) {
+                let currHour = 0;
+                while (currHour < 24) {
+                    total += 1;
+                    currHour += interval;
+                }
+            }
+            continue;
+        }
+
+        const timesPerDay = Array.isArray(m.times) ? m.times.length : 0;
+        if (timesPerDay > 0) {
+            total += timesPerDay * durationDays;
+        }
+    }
+
+    return total;
+}
 
 // Get user prescriptions and upcoming doses
 router.get("/", (req, res) => {
@@ -9,7 +46,14 @@ router.get("/", (req, res) => {
     const patientId = req.query.patientId;
     if (!userId) return res.status(400).json({ error: "Missing userId" });
 
+    const numericUserId = Number(userId);
+    if (!Number.isFinite(numericUserId)) {
+        return res.status(400).json({ error: "Invalid userId" });
+    }
+
     try {
+        refreshOrdonnanceActiveState(numericUserId);
+
         let query = `
       SELECT 
         cp.id_calendrier_prise as id,
@@ -71,6 +115,21 @@ router.get("/", (req, res) => {
 
         const pharmacyCount = db.prepare("SELECT COUNT(*) as count FROM Pharmacies").get() as { count: number };
 
+        const limits = getUserAccountLimits(numericUserId);
+        const activeOrdonnances = countActiveOrdonnances(numericUserId);
+        const activeRappels = countPendingRappels(numericUserId);
+
+        const ordonnanceUnlimited = isUnlimited(limits?.maxOrdonnances);
+        const rappelsUnlimited = isUnlimited(limits?.maxRappels);
+
+        const ordonnanceRemaining = ordonnanceUnlimited
+            ? null
+            : Math.max(Number(limits?.maxOrdonnances || 0) - activeOrdonnances, 0);
+
+        const rappelsRemaining = rappelsUnlimited
+            ? null
+            : Math.max(Number(limits?.maxRappels || 0) - activeRappels, 0);
+
         res.json({
             doses: mappedDoses,
             patients: patientsDb,
@@ -78,10 +137,24 @@ router.get("/", (req, res) => {
                 observanceRate: mappedDoses.length > 0
                     ? Math.round((mappedDoses.filter(d => d.statusTaken).length / mappedDoses.length) * 100)
                     : 100,
-                activeReminders: mappedDoses.filter(d => !d.statusTaken).length,
+                activeReminders: activeRappels,
                 plannedReminders: mappedDoses.length,
                 nearbyPharmacies: pharmacyCount.count,
-                nextDose: mappedDoses.find(d => !d.statusTaken) || null
+                nextDose: mappedDoses.find(d => !d.statusTaken) || null,
+                quota: {
+                    ordonnances: {
+                        max: limits?.maxOrdonnances ?? null,
+                        used: activeOrdonnances,
+                        remaining: ordonnanceRemaining,
+                        unlimited: ordonnanceUnlimited,
+                    },
+                    rappels: {
+                        max: limits?.maxRappels ?? null,
+                        used: activeRappels,
+                        remaining: rappelsRemaining,
+                        unlimited: rappelsUnlimited,
+                    },
+                },
             }
         });
     } catch (error) {
@@ -95,6 +168,11 @@ router.post("/", (req, res) => {
     const { userId, title, weight, categorieAge, medications, notifConfig, startDate } = req.body;
     if (!userId) return res.status(400).json({ error: "User ID required" });
 
+    const numericUserId = Number(userId);
+    if (!Number.isFinite(numericUserId)) {
+        return res.status(400).json({ error: "Invalid user ID" });
+    }
+
     // Header validation (consistent with Dashboard)
     const headerUserId = req.headers['x-user-id'];
     if (headerUserId && headerUserId.toString() !== userId.toString()) {
@@ -102,6 +180,31 @@ router.post("/", (req, res) => {
         const client = db.prepare("SELECT id_createur FROM Utilisateurs WHERE id_utilisateur = ?").get(userId) as { id_createur: number } | undefined;
         if (!client || client.id_createur?.toString() !== headerUserId.toString()) {
             return res.status(403).json({ error: "User ID mismatch or unauthorized commercial link" });
+        }
+    }
+
+    const limits = getUserAccountLimits(numericUserId);
+    if (!limits) {
+        return res.status(404).json({ error: "User account not found" });
+    }
+
+    refreshOrdonnanceActiveState(numericUserId);
+
+    const activeOrdonnances = countActiveOrdonnances(numericUserId);
+    if (!isUnlimited(limits.maxOrdonnances) && activeOrdonnances >= Number(limits.maxOrdonnances)) {
+        return res.status(403).json({
+            error: `Limite d'ordonnances atteinte (${limits.maxOrdonnances}).`,
+        });
+    }
+
+    const newReminderCount = estimateReminderCountFromMedications(Array.isArray(medications) ? medications : []);
+    if (!isUnlimited(limits.maxRappels)) {
+        const currentPendingRappels = countPendingRappels(numericUserId);
+        const projectedRappels = currentPendingRappels + newReminderCount;
+        if (projectedRappels > Number(limits.maxRappels)) {
+            return res.status(403).json({
+                error: `Limite de rappels atteinte (${limits.maxRappels}). Rappels actuels: ${currentPendingRappels}, nouveaux: ${newReminderCount}.`,
+            });
         }
     }
 
@@ -228,7 +331,7 @@ router.post("/", (req, res) => {
                         currentDate.setDate(baseDate.getDate() + dayOffset);
 
                         if (m.frequencyType === 'interval' && m.intervalHours) {
-                            let currHour = 8; // Start at 8 AM
+                            let currHour = 0;
                             while (currHour < 24) {
                                 const d = new Date(currentDate);
                                 d.setHours(currHour, 0, 0, 0);

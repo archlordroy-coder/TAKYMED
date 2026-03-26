@@ -43,8 +43,6 @@ import {
 } from "@/components/ui/sheet";
 import {
   isNavRouteActive,
-  useBottomNavCapacity,
-  useResponsiveNav,
   type NavMatchMode,
 } from "@/hooks/use-responsive-nav";
 
@@ -68,7 +66,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const bottomNavCapacity = useBottomNavCapacity();
 
   const navItems = useMemo<AdminNavItem[]>(
     () => [
@@ -162,17 +159,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     [navItems],
   );
 
-  const {
-    visibleItems: mobileVisibleNavItems,
-    overflowItems: mobileOverflowNavItems,
-    activeItem,
-    hasOverflow,
-  } = useResponsiveNav(mobileNavItems, location.pathname, bottomNavCapacity);
-
-  const mobileMenuItems = hasOverflow ? mobileOverflowNavItems : mobileNavItems;
-
   const isActiveRoute = (item: { to: string; matchMode?: NavMatchMode }) =>
     isNavRouteActive(location.pathname, item.to, item.matchMode);
+
+  const activeItem =
+    mobileNavItems.find((item) => isActiveRoute(item)) || mobileNavItems[0];
+  const mobileVisibleNavItems = mobileNavItems.slice(0, 3);
+  const mobileOverflowNavItems = mobileNavItems.slice(3);
+  const hasOverflow = mobileOverflowNavItems.length > 0;
 
   const handleLogout = () => {
     setIsMobileMenuOpen(false);
@@ -388,7 +382,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 </SheetTrigger>
                 <SheetContent
                   side="right"
-                  className="w-full max-w-sm border-l border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(240,244,248,0.98)_100%)] px-5 pb-8 pt-12"
+                  className="w-full max-w-sm overflow-y-auto border-l border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(240,244,248,0.98)_100%)] px-5 pb-24 pt-12"
                 >
                   <SheetHeader className="mb-6 text-left">
                     <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-[0_20px_40px_rgba(15,23,42,0.08)]">
@@ -406,7 +400,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             Mobile
                           </p>
                           <p className="text-sm font-semibold text-[#006093]">
-                            {mobileVisibleNavItems.length}/
                             {mobileNavItems.length}
                           </p>
                         </div>
@@ -415,52 +408,60 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   </SheetHeader>
 
                   <div className="grid gap-6">
-                    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-3 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-                      <div className="grid gap-2">
-                        {mobileMenuItems.map((item) => (
-                          <SheetClose asChild key={`sheet-${item.to}`}>
-                            <Link
-                              to={item.to}
-                              className={cn(
-                                "group flex items-center gap-3 rounded-2xl px-3 py-3 transition-all",
-                                isActiveRoute(item)
-                                  ? "bg-gradient-to-br from-[#006093] to-[#00A859] text-white shadow-md"
-                                  : "text-slate-700 hover:bg-slate-50 hover:text-[#006093]",
-                              )}
-                            >
-                              <span
+                    {hasOverflow && (
+                      <details className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]" open>
+                        <summary className="cursor-pointer list-none text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                          {t("nav.menu")}
+                        </summary>
+                        <div className="mt-3 grid gap-2">
+                          {mobileOverflowNavItems.map((item) => (
+                            <SheetClose asChild key={`admin-overflow-${item.to}`}>
+                              <Link
+                                to={item.to}
                                 className={cn(
-                                  "flex h-10 w-10 items-center justify-center rounded-2xl transition-colors",
+                                  "group flex items-center gap-3 rounded-2xl px-3 py-3 transition-all",
                                   isActiveRoute(item)
-                                    ? "bg-white/15"
-                                    : "bg-[#006093]/10 text-[#006093] group-hover:bg-[#006093]/15",
+                                    ? "bg-gradient-to-br from-[#006093] to-[#00A859] text-white shadow-md"
+                                    : "text-slate-700 hover:bg-slate-50 hover:text-[#006093]",
                                 )}
                               >
-                                <item.icon className="h-5 w-5" />
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold">
-                                  {item.label}
-                                </p>
-                                <p
+                                <span
                                   className={cn(
-                                    "truncate text-xs",
+                                    "flex h-10 w-10 items-center justify-center rounded-2xl transition-colors",
                                     isActiveRoute(item)
-                                      ? "text-white/80"
-                                      : "text-slate-500",
+                                      ? "bg-white/15"
+                                      : "bg-[#006093]/10 text-[#006093] group-hover:bg-[#006093]/15",
                                   )}
                                 >
-                                  {item.to}
-                                </p>
-                              </div>
-                              <ChevronRight className="h-4 w-4 opacity-60" />
-                            </Link>
-                          </SheetClose>
-                        ))}
-                      </div>
-                    </div>
+                                  <item.icon className="h-5 w-5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold">
+                                    {item.label}
+                                  </p>
+                                  <p
+                                    className={cn(
+                                      "truncate text-xs",
+                                      isActiveRoute(item)
+                                        ? "text-white/80"
+                                        : "text-slate-500",
+                                    )}
+                                  >
+                                    {item.to}
+                                  </p>
+                                </div>
+                              </Link>
+                            </SheetClose>
+                          ))}
+                        </div>
+                      </details>
+                    )}
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <details className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]" open>
+                      <summary className="cursor-pointer list-none text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                        {t("nav.myAccount")}
+                      </summary>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -490,6 +491,20 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         </Button>
                       </SheetClose>
 
+                      <SheetClose asChild>
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="h-12 rounded-2xl border-slate-200 bg-white font-bold shadow-sm"
+                        >
+                          <Link to="/admin/settings">
+                            <Settings className="mr-2 h-4 w-4" />
+                            {t("admin.settings")}
+                          </Link>
+                        </Button>
+                      </SheetClose>
+
                       <Button
                         variant="destructive"
                         className="h-12 rounded-2xl font-bold shadow-sm sm:col-span-2"
@@ -499,6 +514,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         {t("nav.logout")}
                       </Button>
                     </div>
+                    </details>
                   </div>
                 </SheetContent>
               </Sheet>
@@ -514,10 +530,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 lg:hidden">
         <div className="mx-auto max-w-5xl rounded-[2rem] border border-white/70 bg-white/90 p-2 shadow-[0_-18px_45px_rgba(15,23,42,0.16)] backdrop-blur-2xl">
           <nav
-            className="grid gap-1"
-            style={{
-              gridTemplateColumns: `repeat(${mobileVisibleNavItems.length}, minmax(0, 1fr))`,
-            }}
+            className="flex w-full justify-center gap-1 overflow-x-auto pb-1"
           >
             {mobileVisibleNavItems.map((item) => {
               const isActive = isActiveRoute(item);
@@ -526,7 +539,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   key={`mobile-primary-${item.to}`}
                   to={item.to}
                   className={cn(
-                    "group flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-[1.5rem] px-2 text-[10px] font-bold transition-all",
+                    "group flex min-h-[4.25rem] min-w-[88px] flex-col items-center justify-center gap-1 rounded-[1.5rem] px-2 text-[10px] font-bold transition-all",
                     isActive
                       ? "bg-gradient-to-br from-[#006093]/15 via-[#006093]/10 to-[#00A859]/15 text-[#006093] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]"
                       : "text-slate-500 hover:bg-slate-50 hover:text-[#006093]",

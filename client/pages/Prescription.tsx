@@ -84,6 +84,32 @@ export default function Prescription() {
 
   // Custom dates for each day (allows modification with propagation)
   const [customDates, setCustomDates] = useState<Record<number, string>>({});
+  const [applyCustomReminderHours, setApplyCustomReminderHours] = useState(false);
+
+  const getDefaultTimesForFrequency = (frequencyType: FrequencyType): string[] => {
+    if (frequencyType === "1x") return ["08:00"];
+    if (frequencyType === "2x") return ["08:00", "20:00"];
+    if (frequencyType === "3x") return ["08:00", "14:00", "20:00"];
+    if (frequencyType === "4x") return ["00:00", "06:00", "12:00", "18:00"];
+    return [];
+  };
+
+
+  const getEffectiveMedicationForSave = (m: MedicationEntry) => {
+    if (!applyCustomReminderHours) {
+      return {
+        ...m,
+        times: getDefaultTimesForFrequency(m.frequencyType),
+        intervalHours: m.frequencyType === "interval" ? 6 : undefined,
+      };
+    }
+
+    return {
+      ...m,
+      times: m.times,
+      intervalHours: m.frequencyType === "interval" ? (m.intervalHours || 6) : undefined,
+    };
+  };
 
   // Calculate exact date for a given day
   const getDateForDay = (day: number): string => {
@@ -213,33 +239,35 @@ export default function Prescription() {
       medications.forEach(m => {
         if (!m.name || m.frequencyType === 'prn') return;
 
+        const effectiveMedication = getEffectiveMedicationForSave(m);
+
         for (let day = 1; day <= m.durationDays; day++) {
-          if (m.frequencyType === 'interval' && m.intervalHours) {
-            let hour = 8;
+          if (effectiveMedication.frequencyType === 'interval' && effectiveMedication.intervalHours) {
+            let hour = 0;
             while (hour < 24) {
               computedSchedule.push({
-                medicationId: m.id,
-                medicationName: m.name,
+                medicationId: effectiveMedication.id,
+                medicationName: effectiveMedication.name,
                 clientName: patient.title,
                 patientId: 0,
-                dose: m.doseValue,
-                unit: m.unit,
+                dose: effectiveMedication.doseValue,
+                unit: effectiveMedication.unit,
                 time: `${hour.toString().padStart(2, '0')}:00`,
                 day,
                 statusReminderSent: false,
                 statusTaken: false
               });
-              hour += m.intervalHours;
+              hour += effectiveMedication.intervalHours;
             }
           } else {
-            m.times.forEach(timeStr => {
+            effectiveMedication.times.forEach(timeStr => {
               computedSchedule.push({
-                medicationId: m.id,
-                medicationName: m.name,
+                medicationId: effectiveMedication.id,
+                medicationName: effectiveMedication.name,
                 clientName: patient.title,
                 patientId: 0,
-                dose: m.doseValue,
-                unit: m.unit,
+                dose: effectiveMedication.doseValue,
+                unit: effectiveMedication.unit,
                 time: timeStr,
                 day,
                 statusReminderSent: false,
@@ -251,7 +279,7 @@ export default function Prescription() {
       });
       setScheduleState(computedSchedule);
     }
-  }, [step, medications, patient.title]);
+  }, [step, medications, patient.title, applyCustomReminderHours]);
 
   const handleToggleDose = (idx: number) => {
     setScheduleState(prev => prev.map((s, i) => i === idx ? { ...s, statusTaken: !s.statusTaken } : s));
@@ -419,9 +447,9 @@ export default function Prescription() {
                     <div className="space-y-3">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Fréquence des prises</Label>
                       <div className="flex flex-wrap gap-2">
-                        {['1x', '2x', '3x', '6,8,12', 'prb'].map((freq) => {
+                        {['1x', '2x', '3x', '4x', 'prb'].map((freq) => {
                           const fMap: Record<string, FrequencyType> = {
-                            '1x': '1x', '2x': '2x', '3x': '3x', '6,8,12': 'interval', 'prb': 'prn'
+                            '1x': '1x', '2x': '2x', '3x': '3x', '4x': '4x', 'prb': 'prn'
                           };
                           const currentFreq = fMap[freq];
                           return (
@@ -430,11 +458,12 @@ export default function Prescription() {
                               onClick={() => {
                                 const newTimes = currentFreq === '1x' ? ['08:00']
                                   : currentFreq === '2x' ? ['08:00', '20:00']
-                                    : currentFreq === '3x' ? ['08:00', '14:00', '20:00'] : [];
+                                    : currentFreq === '3x' ? ['08:00', '14:00', '20:00']
+                                      : currentFreq === '4x' ? ['00:00', '06:00', '12:00', '18:00'] : [];
                                 updateMedication(m.id, {
                                   frequencyType: currentFreq,
                                   times: newTimes,
-                                  intervalHours: currentFreq === 'interval' ? 8 : undefined
+                                  intervalHours: undefined
                                 });
                               }}
                               className={cn(
@@ -451,11 +480,12 @@ export default function Prescription() {
                       {m.frequencyType === '1x' && <p className="text-xs text-primary mt-2">{t('prescription.onceADay')} <span className="opacity-70">{t('prescription.morning')}</span></p>}
                       {m.frequencyType === '2x' && <p className="text-xs text-primary mt-2">{t('prescription.twiceADay')} <span className="opacity-70">{t('prescription.morningEvening')}</span></p>}
                       {m.frequencyType === '3x' && <p className="text-xs text-primary mt-2">{t('prescription.threeTimesADay')} <span className="opacity-70">{t('prescription.morningNoonEvening')}</span></p>}
+                      {m.frequencyType === '4x' && <p className="text-xs text-primary mt-2">Quatre fois par jour <span className="opacity-70">(toutes les 6h)</span></p>}
                       {m.frequencyType === 'interval' && <p className="text-xs text-primary mt-2">{t('prescription.regularIntervals')}</p>}
                       {m.frequencyType === 'prn' && <p className="text-xs text-primary mt-2">{t('prescription.asNeeded')}</p>}
 
                       {/* Custom Time Selection for 1x, 2x, 3x */}
-                      {(m.frequencyType === '1x' || m.frequencyType === '2x' || m.frequencyType === '3x') && (
+                      {(m.frequencyType === '1x' || m.frequencyType === '2x' || m.frequencyType === '3x' || m.frequencyType === '4x') && (
                         <div className="grid grid-cols-1 gap-2 mt-4">
                           {m.times.map((t, tIdx) => (
                             <div key={tIdx} className="flex items-center gap-2">
@@ -484,12 +514,21 @@ export default function Prescription() {
                             value={m.intervalHours}
                             onChange={(e) => updateMedication(m.id, { intervalHours: parseInt(e.target.value) })}
                           >
-                            <option value={6}>{t('prescription.interval6h')}</option>
-                            <option value={8}>{t('prescription.interval8h')}</option>
-                            <option value={12}>{t('prescription.interval12h')}</option>
+                            <option value={6}>Toutes les 6 heures (4 prises/jour)</option>
                           </select>
                         </div>
                       )}
+
+                      <div className="mt-2 flex items-start gap-2">
+                        <Checkbox
+                          checked={applyCustomReminderHours}
+                          onCheckedChange={(checked) => setApplyCustomReminderHours(checked === true)}
+                          className="mt-0.5"
+                        />
+                        <p className="text-xs text-primary">
+                          Je m'engage formellement a proceder a la modification des horaires de prise
+                        </p>
+                      </div>
                     </div>
 
                     <div className="space-y-4">
@@ -576,15 +615,54 @@ export default function Prescription() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border">
-                <table className="w-full border-collapse">
+              <div className="md:hidden space-y-2">
+                {scheduleState.map((s, idx) => {
+                  const dateStr = getDateForDay(s.day);
+                  return (
+                    <div key={idx} className="rounded-2xl border bg-white p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <input
+                            type="date"
+                            value={dateStr}
+                            onChange={(e) => handleDateChange(s.day, e.target.value)}
+                            className="text-xs font-semibold bg-transparent border-b border-transparent hover:border-primary focus:border-primary focus:outline-none cursor-pointer"
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">({formatDateShort(dateStr)})</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-mono text-muted-foreground">{s.time}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-primary truncate">{s.medicationName}</span>
+                        <span className="text-xs bg-slate-100 px-2 py-1 rounded-lg font-medium shrink-0">
+                          {s.dose} {s.unit}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{t('prescription.takenTable')}</span>
+                        <Checkbox
+                          checked={s.statusTaken}
+                          onCheckedChange={() => handleToggleDose(idx)}
+                          className="rounded-full h-5 w-5 border-2"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto rounded-2xl border">
+                <table className="responsive-data-table w-full border-collapse min-w-[820px]">
                   <thead>
                     <tr className="bg-slate-50 text-left border-b">
                       <th className="p-4 text-xs font-bold uppercase tracking-wider">{t('prescription.dayTable')}</th>
                       <th className="p-4 text-xs font-bold uppercase tracking-wider">{t('prescription.medTable')}</th>
                       <th className="p-4 text-xs font-bold uppercase tracking-wider">{t('prescription.doseTable')}</th>
                       <th className="p-4 text-xs font-bold uppercase tracking-wider">{t('prescription.timeTable')}</th>
-                      <th className="p-4 text-xs font-bold uppercase tracking-wider text-center">{t('prescription.reminderTable')}</th>
+                      <th className="hidden lg:table-cell p-4 text-xs font-bold uppercase tracking-wider text-center">{t('prescription.reminderTable')}</th>
                       <th className="p-4 text-xs font-bold uppercase tracking-wider text-center">{t('prescription.takenTable')}</th>
                     </tr>
                   </thead>
@@ -619,7 +697,7 @@ export default function Prescription() {
                               <span className="font-mono">{s.time}</span>
                             </div>
                           </td>
-                          <td className="p-4 text-center">
+                          <td className="hidden lg:table-cell p-4 text-center">
                             <Checkbox checked={s.statusReminderSent} className="rounded-full h-5 w-5 border-2" />
                           </td>
                           <td className="p-4 text-center">
@@ -637,19 +715,21 @@ export default function Prescription() {
               </div>
 
               {/* Méthodes de Rappel - Moved and Redesigned */}
-              <div className="pt-6 border-t space-y-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="bg-primary/10 w-10 h-10 rounded-xl flex items-center justify-center text-primary">
-                    <Bell className="w-5 h-5" />
+              <div className="pt-4 sm:pt-6 border-t space-y-4 sm:space-y-6">
+                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                  <div className="bg-primary/10 w-8 sm:w-10 h-8 sm:h-10 rounded-xl flex items-center justify-center text-primary shrink-0">
+                    <Bell className="w-4 sm:w-5 h-4 sm:h-5" />
                   </div>
-                  <h3 className="text-xl font-bold">{t('prescription.reminderMethods')}</h3>
+                  <h3 className="text-lg sm:text-xl font-bold">{t('prescription.reminderMethods')}</h3>
                 </div>
 
-                <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
-                  <div className="flex-1 w-full space-y-3">
-                    <div className="space-y-3">
+                <div className="flex flex-col gap-4 sm:gap-6 bg-slate-50/50 p-3 sm:p-4 md:p-6 rounded-3xl border border-slate-100">
+                  {/* Recipients Section */}
+                  <div className="w-full space-y-2 sm:space-y-3">
+                    <p className="text-xs sm:text-sm text-muted-foreground font-semibold uppercase">Destinataires</p>
+                    <div className="space-y-2 sm:space-y-3">
                       {notifConfig.recipients.map((recipient, index) => (
-                        <div key={index} className="flex gap-3">
+                        <div key={index} className="flex flex-col sm:flex-row gap-2 sm:gap-2 md:gap-3">
                           {index === 0 ? (
                             <Select
                               value={selectedCountry}
@@ -664,7 +744,7 @@ export default function Prescription() {
                                 }
                               }}
                             >
-                              <SelectTrigger className="w-32 h-14 rounded-2xl border bg-white px-3 text-base font-bold focus:ring-2 focus:ring-primary outline-none">
+                              <SelectTrigger className="w-full sm:w-24 md:w-32 h-10 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl border bg-white px-2 sm:px-3 text-xs sm:text-base font-bold focus:ring-2 focus:ring-primary outline-none">
                                 <SelectValue placeholder="Pays" />
                               </SelectTrigger>
                               <SelectContent className="rounded-2xl max-h-60">
@@ -672,27 +752,26 @@ export default function Prescription() {
                                   <SelectItem key={c.code} value={c.code} className="rounded-xl">
                                     <span className="flex items-center gap-2">
                                       <span className="text-lg">{c.flag}</span>
-                                      <span className="font-bold">{c.dialCode}</span>
+                                      <span className="font-bold text-sm">{c.dialCode}</span>
                                     </span>
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           ) : (
-                            <div className="w-32 h-14 rounded-2xl border bg-white px-3 flex items-center justify-center text-xs font-bold text-muted-foreground">#{index + 1}</div>
+                            <div className="w-full sm:w-24 md:w-32 h-10 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl border bg-white px-2 sm:px-3 flex items-center justify-center text-[10px] sm:text-xs font-bold text-muted-foreground">#{index + 1}</div>
                           )}
                           <div className="relative flex-1">
-                            <Smartphone className="absolute left-4 top-4 h-5 w-5 text-muted-foreground" />
+                            <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 sm:h-4 md:h-5 w-3.5 sm:w-4 md:w-5 text-muted-foreground" />
                             <Input
                               placeholder="0701020304"
-                              size={15}
                               value={recipient}
                               onChange={(e) => {
                                 const updated = [...notifConfig.recipients];
                                 updated[index] = e.target.value;
                                 setNotifConfig({ ...notifConfig, recipients: updated });
                               }}
-                              className="pl-12 h-14 rounded-2xl text-lg font-mono tracking-widest bg-white border-slate-200 focus-visible:ring-primary w-auto min-w-[15ch] flex-1"
+                              className="pl-9 sm:pl-11 h-10 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl text-sm sm:text-lg font-mono tracking-widest bg-white border-slate-200 focus-visible:ring-primary"
                             />
                           </div>
                           {notifConfig.recipients.length > 1 && (
@@ -700,9 +779,9 @@ export default function Prescription() {
                               type="button"
                               variant="outline"
                               onClick={() => setNotifConfig({ ...notifConfig, recipients: notifConfig.recipients.filter((_, i) => i !== index) })}
-                              className="h-14 rounded-2xl"
+                              className="h-10 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl px-2 sm:px-3 shrink-0"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 sm:w-4 md:w-4 h-3.5 sm:h-4 md:h-4" />
                             </Button>
                           )}
                         </div>
@@ -711,33 +790,35 @@ export default function Prescription() {
                         type="button"
                         variant="outline"
                         onClick={() => setNotifConfig({ ...notifConfig, recipients: [...notifConfig.recipients, ""] })}
-                        className="rounded-2xl"
+                        className="w-full sm:w-auto rounded-xl sm:rounded-2xl h-10 sm:h-12 md:h-14 text-xs sm:text-sm"
                       >
-                        <Plus className="w-4 h-4 mr-2" /> {t('prescription.addRecipient')}
+                        <Plus className="w-3 sm:w-4 h-3 sm:h-4 mr-1 sm:mr-2" /> {t('prescription.addRecipient')}
                       </Button>
                     </div>
                   </div>
 
-                  <div className="flex-1 w-full space-y-3">
-                    <div className="grid grid-cols-3 gap-3">
+                  {/* Channels Section */}
+                  <div className="w-full space-y-2 sm:space-y-3">
+                    <p className="text-xs sm:text-sm text-muted-foreground font-semibold uppercase">Canaux de notification</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                       <NotificationOption
                         selected={notifConfig.channels.includes('sms')}
                         onClick={() => setNotifConfig({ ...notifConfig, channels: notifConfig.channels.includes('sms') ? notifConfig.channels.filter(c => c !== 'sms') : [...notifConfig.channels, 'sms'] })}
-                        icon={<MessageSquare className="w-4 h-4" />}
+                        icon={<MessageSquare className="w-3 sm:w-4 h-3 sm:h-4" />}
                         label="SMS"
                         color="#10b981"
                       />
                       <NotificationOption
                         selected={notifConfig.channels.includes('whatsapp')}
                         onClick={() => setNotifConfig({ ...notifConfig, channels: notifConfig.channels.includes('whatsapp') ? notifConfig.channels.filter(c => c !== 'whatsapp') : [...notifConfig.channels, 'whatsapp'] })}
-                        icon={<MessageSquare className="w-4 h-4" />}
+                        icon={<MessageSquare className="w-3 sm:w-4 h-3 sm:h-4" />}
                         label="WhatsApp"
                         color="#25d366"
                       />
                       <NotificationOption
                         selected={notifConfig.channels.includes('call')}
                         onClick={() => setNotifConfig({ ...notifConfig, channels: notifConfig.channels.includes('call') ? notifConfig.channels.filter(c => c !== 'call') : [...notifConfig.channels, 'call'] })}
-                        icon={<PhoneCall className="w-4 h-4" />}
+                        icon={<PhoneCall className="w-3 sm:w-4 h-3 sm:h-4" />}
                         label={t('prescription.call')}
                         color="#3b82f6"
                       />
@@ -746,26 +827,26 @@ export default function Prescription() {
                 </div>
               </div>
 
-              <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex gap-3">
-                <Info className="w-5 h-5 text-primary flex-shrink-0" />
-                <p className="text-sm text-primary/80">
+              <div className="p-3 sm:p-4 bg-primary/5 rounded-2xl border border-primary/10 flex gap-2 sm:gap-3">
+                <Info className="w-4 sm:w-5 h-4 sm:h-5 text-primary flex-shrink-0 mt-0.5" />
+                <p className="text-xs sm:text-sm text-primary/80 leading-snug">
                   {t('prescription.infoPrecalculated')}
                 </p>
               </div>
             </div>
 
-            <div className="flex justify-between items-center">
-              <Button variant="ghost" onClick={() => setStep(1)} className="rounded-2xl h-14 px-8">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-between sm:items-center">
+              <Button variant="ghost" onClick={() => setStep(1)} className="rounded-xl sm:rounded-2xl h-10 sm:h-12 md:h-14 px-4 sm:px-8 text-sm sm:text-base order-2 sm:order-1">
                 {t('prescription.backBtn')}
               </Button>
-              <div className="flex gap-4">
-                <span className="text-sm text-muted-foreground italic self-center">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-start sm:items-center order-3 sm:order-2">
+                <span className="text-xs sm:text-sm text-muted-foreground italic">
                   {notifConfig.recipients.filter((r) => r.trim()).length > 0 ? `${t('prescription.recipient')} ${notifConfig.recipients.filter((r) => r.trim()).length} ${t('prescription.recipientCountSuffix')}` : t('prescription.enterPhone')}
                 </span>
                 <Button
                   size="lg"
                   disabled={isSubmitting || notifConfig.recipients.filter((r) => r.trim()).length === 0 || notifConfig.channels.length === 0}
-                  className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700 disabled:opacity-50 min-w-[200px]"
+                  className="w-full sm:w-auto rounded-xl sm:rounded-2xl h-10 sm:h-12 md:h-14 px-4 sm:px-8 md:px-12 text-sm sm:text-base md:text-lg font-bold shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700 disabled:opacity-50"
                   onClick={async () => {
                     if (!user) {
                       toast.error("Vous devez être connecté");
@@ -787,10 +868,13 @@ export default function Prescription() {
                                weight: patient.weight,
                                categorieAge: patient.categorieAge,
                                startDate: patient.startDate,
-                               medications: medications.map(m => ({
-                                 ...m,
-                                 name: m.name
-                               })),
+                               medications: medications.map(m => {
+                                 const effective = getEffectiveMedicationForSave(m);
+                                 return {
+                                   ...effective,
+                                   name: effective.name
+                                 };
+                               }),
                                notifConfig
                             })
                       });

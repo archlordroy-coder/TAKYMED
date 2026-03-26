@@ -100,6 +100,12 @@ interface AccountTypeSetting {
     maxRappels: number | null;
 }
 
+interface MonthlyActivityPoint {
+    name: string;
+    prescriptions: number;
+    inscriptions: number;
+}
+
 export default function AdminDashboard() {
     const { user } = useAuth();
     const { t } = useLanguage();
@@ -139,6 +145,7 @@ export default function AdminDashboard() {
     const [upgradeRequests, setUpgradeRequests] = useState<any[]>([]);
     const [commercials, setCommercials] = useState<any[]>([]);
     const [unassignedClients, setUnassignedClients] = useState<any[]>([]);
+    const [monthlyActivity, setMonthlyActivity] = useState<MonthlyActivityPoint[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [isAddCatOpen, setIsAddCatOpen] = useState(false);
@@ -227,49 +234,74 @@ export default function AdminDashboard() {
     };
 
     const refreshData = async () => {
+        if (!user?.id) return;
+
+        const headers = { "x-user-id": user.id.toString() };
+
         try {
-            const [statsRes, usersRes, medsRes, settingsRes, pharmRes, catRes] = await Promise.all([
-                fetch("/api/admin/stats", { headers: { "x-user-id": user?.id?.toString() || "" } }),
-                fetch("/api/admin/users", { headers: { "x-user-id": user?.id?.toString() || "" } }),
-                fetch("/api/admin/medications", { headers: { "x-user-id": user?.id?.toString() || "" } }),
-                fetch("/api/admin/settings", { headers: { "x-user-id": user?.id?.toString() || "" } }),
-                fetch("/api/admin/pharmacies", { headers: { "x-user-id": user?.id?.toString() || "" } }),
-                fetch("/api/categories", { headers: { "x-user-id": user?.id?.toString() || "" } }),
-                fetch("/api/admin/upgrade-requests", { headers: { "x-user-id": user?.id?.toString() || "" } })
+            const [
+                statsRes,
+                usersRes,
+                medsRes,
+                settingsRes,
+                pharmRes,
+                catRes,
+                upgradeRes,
+                monthlyActivityRes,
+                commRes,
+                unassignedRes,
+            ] = await Promise.all([
+                fetch("/api/admin/stats", { headers }),
+                fetch("/api/admin/users", { headers }),
+                fetch("/api/admin/medications", { headers }),
+                fetch("/api/admin/settings", { headers }),
+                fetch("/api/admin/pharmacies", { headers }),
+                fetch("/api/categories", { headers }),
+                fetch("/api/admin/upgrade-requests", { headers }),
+                fetch("/api/admin/monthly-activity", { headers }),
+                fetch("/api/admin/commercials", { headers }),
+                fetch("/api/admin/unassigned-clients", { headers }),
             ]);
-            if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok && catRes.ok && (arguments.length < 7 || arguments[6].ok)) {
+
+            if (statsRes.ok && usersRes.ok && medsRes.ok && settingsRes.ok && pharmRes.ok && catRes.ok) {
                 setStats(await statsRes.json());
+
                 const uData = await usersRes.json();
                 setUsers(uData.users);
+
                 const mData = await medsRes.json();
                 setMedications(mData.medications);
+
                 const sData = await settingsRes.json();
                 setSettings(sData.types);
+
                 const pData = await pharmRes.json();
                 setPharmacies(pData.pharmacies);
+
                 const cData = await catRes.json();
                 setCategories(cData.categories);
-                
-                const urData = await (await fetch("/api/admin/upgrade-requests", {
-                    headers: { "x-user-id": user?.id?.toString() || "" }
-                })).json();
-                setUpgradeRequests(urData.requests);
 
-                const commRes = await fetch("/api/admin/commercials", {
-                    headers: { "x-user-id": user?.id?.toString() || "" }
-                });
+                if (upgradeRes.ok) {
+                    const urData = await upgradeRes.json();
+                    setUpgradeRequests(urData.requests || []);
+                }
+
+                if (monthlyActivityRes.ok) {
+                    const maData = await monthlyActivityRes.json();
+                    setMonthlyActivity(Array.isArray(maData) ? maData : []);
+                }
+
                 if (commRes.ok) {
                     const commData = await commRes.json();
                     setCommercials(commData.commercials);
                 }
 
-                const unassignedRes = await fetch("/api/admin/unassigned-clients", {
-                    headers: { "x-user-id": user?.id?.toString() || "" }
-                });
                 if (unassignedRes.ok) {
                     const unassignedData = await unassignedRes.json();
                     setUnassignedClients(unassignedData.clients);
                 }
+            } else {
+                toast.error("Impossible de charger toutes les données admin");
             }
         } catch (err) {
             console.error(err);
@@ -278,8 +310,9 @@ export default function AdminDashboard() {
     };
 
     useEffect(() => {
+        if (!user?.id) return;
         refreshData().finally(() => setLoading(false));
-    }, []);
+    }, [user?.id]);
 
     const handleDeleteUser = async (id: number) => {
         if (!confirm("Supprimer cet utilisateur ?")) return;
@@ -734,7 +767,48 @@ export default function AdminDashboard() {
         );
     }
 
-    const sparkData = [{ value: 400 }, { value: 300 }, { value: 600 }, { value: 800 }, { value: 500 }, { value: 900 }, { value: 1100 }];
+    const getTrend = (key: "prescriptions" | "inscriptions") => {
+        if (monthlyActivity.length < 2) return 0;
+        const current = Number(monthlyActivity[monthlyActivity.length - 1]?.[key] || 0);
+        const previous = Number(monthlyActivity[monthlyActivity.length - 2]?.[key] || 0);
+        if (previous <= 0) return current > 0 ? 100 : 0;
+        return Math.round(((current - previous) / previous) * 100);
+    };
+
+    const usersSparkData = monthlyActivity.map((point) => ({ value: point.inscriptions }));
+    const prescriptionsSparkData = monthlyActivity.map((point) => ({ value: point.prescriptions }));
+    const medsSparkData = monthlyActivity.map((point) => ({
+        value: point.prescriptions > 0 && (stats?.prescriptions || 0) > 0
+            ? Math.round(((stats?.medications || 0) / (stats?.prescriptions || 1)) * point.prescriptions)
+            : 0,
+    }));
+    const pharmaciesSparkData = monthlyActivity.map((point) => ({
+        value: point.inscriptions > 0 && (stats?.users || 0) > 0
+            ? Math.round(((stats?.pharmacies || 0) / (stats?.users || 1)) * point.inscriptions)
+            : 0,
+    }));
+
+    const typeLabels: Record<string, string> = {
+        standard: "Standard",
+        professionnel: "Professionnel",
+        professional: "Professionnel",
+        commercial: "Commercial",
+        administrateur: "Administrateur",
+        admin: "Administrateur",
+    };
+
+    const distributionMap = users.reduce((acc, currentUser) => {
+        const rawType = String(currentUser.type || "Autre").toLowerCase();
+        const label = typeLabels[rawType] || currentUser.type || "Autre";
+        acc[label] = (acc[label] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
+
+    const accountDistribution = Object.entries(distributionMap).map(([name, value]) => ({ name, value }));
+
+    const activePrescriptionRate = stats?.users
+        ? Math.round(((stats?.prescriptions || 0) / Math.max(stats.users, 1)) * 100)
+        : 0;
 
     const inputClass = "bg-slate-50 border-slate-200 rounded-xl h-11 text-slate-800 focus:border-teal-400 placeholder:text-slate-400";
     const labelClass = "text-xs font-bold text-slate-500 uppercase tracking-wide";
@@ -787,39 +861,37 @@ export default function AdminDashboard() {
                             <AdminHeroCard
                                 name={user?.name || "Admin"}
                                 amount={stats?.prescriptions?.toString() || "0"}
-                                targetPercent={85}
+                                targetPercent={Math.max(0, Math.min(activePrescriptionRate, 100))}
                             />
                         </div>
                         <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                             <AdminStatCard
                                 label="Utilisateurs"
                                 value={stats?.users?.toLocaleString() || "0"}
-                                trend={12}
-                                data={sparkData}
+                                trend={getTrend("inscriptions")}
+                                data={usersSparkData}
                                 color="bg-[#006093]"
                                 icon={<Users size={22} />}
                             />
                             <AdminStatCard
                                 label="Prescriptions"
                                 value={stats?.prescriptions?.toLocaleString() || "0"}
-                                trend={8}
-                                data={sparkData.map(d => ({ value: d.value * 0.8 }))}
+                                trend={getTrend("prescriptions")}
+                                data={prescriptionsSparkData}
                                 color="bg-[#00A859]"
                                 icon={<Activity size={22} />}
                             />
                             <AdminStatCard
                                 label="Médicaments"
                                 value={stats?.medications?.toLocaleString() || "0"}
-                                trend={2}
-                                data={sparkData.map(d => ({ value: 1000 - d.value }))}
+                                data={medsSparkData}
                                 color="bg-violet-500"
                                 icon={<Pill size={22} />}
                             />
                             <AdminStatCard
                                 label="Pharmacies"
                                 value={stats?.pharmacies?.toLocaleString() || "0"}
-                                trend={15}
-                                data={sparkData.map(d => ({ value: (d.value + 200) * 0.5 }))}
+                                data={pharmaciesSparkData}
                                 color="bg-amber-500"
                                 icon={<Briefcase size={22} />}
                             />
@@ -943,7 +1015,7 @@ export default function AdminDashboard() {
                             </div>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                            <table className="responsive-admin-table responsive-data-table w-full min-w-[760px] text-left">
                                 <thead>
                                     <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Utilisateur</th>
@@ -958,7 +1030,7 @@ export default function AdminDashboard() {
                                         const displayName = u.name || u.email || u.phone || `User #${u.id}`;
                                         return (
                                             <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
-                                                <td className="px-6 py-4">
+                                                <td className="cell-user px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="h-10 w-10 rounded-xl flex items-center justify-center font-extrabold text-white shadow-sm border overflow-hidden">
                                                             <img
@@ -1224,7 +1296,7 @@ export default function AdminDashboard() {
                             </div>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                            <table className="responsive-data-table w-full text-left">
                                 <thead>
                                     <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Désignation</th>
@@ -1281,7 +1353,7 @@ export default function AdminDashboard() {
                             </div>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                            <table className="responsive-data-table w-full text-left">
                                 <thead>
                                     <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Officine</th>
@@ -1391,7 +1463,7 @@ export default function AdminDashboard() {
                             </Dialog>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                            <table className="responsive-data-table w-full text-left">
                                 <thead>
                                     <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Catégorie</th>
@@ -1538,7 +1610,7 @@ export default function AdminDashboard() {
                             </div>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                            <table className="responsive-data-table w-full text-left">
                                 <thead>
                                     <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Agent</th>
@@ -1602,7 +1674,7 @@ export default function AdminDashboard() {
                             </div>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                            <table className="responsive-data-table w-full text-left">
                                 <thead>
                                     <tr className="border-b" style={{ borderColor: "#e2e8f0", background: "#f8fafc" }}>
                                         <th className="px-6 py-4 text-xs font-extrabold uppercase text-slate-700 tracking-widest">Client</th>
@@ -1653,8 +1725,8 @@ export default function AdminDashboard() {
                 {/* ANALYTICS TAB */}
                 <TabsContent value="analytics">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        <div className="lg:col-span-4"><DistributionChart /></div>
-                        <div className="lg:col-span-8"><ActivityChart /></div>
+                        <div className="lg:col-span-4"><DistributionChart data={accountDistribution} /></div>
+                        <div className="lg:col-span-8"><ActivityChart data={monthlyActivity} /></div>
                     </div>
                 </TabsContent>
             </Tabs>
@@ -1854,7 +1926,7 @@ export default function AdminDashboard() {
                                 <p className="text-slate-400 font-bold">Cet agent n'a encore aucun client</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left">
+                            <table className="responsive-data-table w-full text-left">
                                 <thead className="bg-slate-50 border-b sticky top-0 z-10" style={{ borderColor: "#f1f5f9" }}>
                                     <tr>
                                         <th className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">Client</th>

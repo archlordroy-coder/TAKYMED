@@ -29,7 +29,7 @@ else
     RSYNC_SSH="ssh $SSH_OPT"
 fi
 
-echo "📤 Pushing updates to $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR (preserving DB and uploads)..."
+echo "📤 Pushing updates to $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR (preserving DB, uploads, and WhatsApp config)..."
 
 # Start SSH control master (single auth for entire session)
 echo "� Establishing SSH connection..."
@@ -57,7 +57,10 @@ rsync -av -e "$RSYNC_SSH" --progress "$SOURCE_DIR/" "$REMOTE_USER@$REMOTE_HOST:$
     --exclude '.gemini' \
     --exclude 'bd.sqlite*' \
     --exclude '.env' \
-    --exclude 'data/auth_info_baileys/' \
+    --exclude '/data/auth_info_baileys/***' \
+    --exclude 'data/auth_info_baileys/***' \
+    --exclude '/data/wa_backups/***' \
+    --exclude 'data/wa_backups/***' \
     --exclude 'public/uploads/*' || { echo "❌ File synchronization failed."; exit 1; }
 
 # 3. Build on Remote

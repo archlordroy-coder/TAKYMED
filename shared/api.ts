@@ -12,7 +12,7 @@ export interface DemoResponse {
 }
 
 export type CategorieAge = 'bébé' | 'enfant' | 'adulte';
-export type FrequencyType = '1x' | '2x' | '3x' | 'interval' | 'prn';
+export type FrequencyType = '1x' | '2x' | '3x' | '4x' | 'interval' | 'prn';
 
 export interface MedicationEntry {
   id: string; // Changed to string for frontend compatibility (Math.random IDs)

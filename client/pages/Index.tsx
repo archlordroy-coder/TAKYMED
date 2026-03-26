@@ -27,13 +27,13 @@ export default function Index() {
       <section className="relative overflow-hidden py-12 md:py-24 lg:py-32 bg-slate-50">
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-primary/10 to-secondary/10" />
         <div className="container relative z-10 mx-auto px-4 text-center animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          <div className="flex justify-center mb-8 md:mb-12">
+          <div className="flex justify-center mb-4 md:mb-6">
             <div className="inline-flex items-center rounded-full bg-primary/10 px-4 py-1.5 text-sm font-bold text-primary animate-fade-in border border-primary/20">
               <span className="flex h-2.5 w-2.5 rounded-full bg-primary mr-2 animate-pulse shadow-[0_0_8px_rgba(0,114,206,0.8)]" />
               {t('index.badge')}
             </div>
           </div>
-          <Logo className="h-16 md:h-24 mx-auto mb-6" />
+          <Logo size="medium" className="mx-auto -mt-2 mb-2 md:-mt-4 md:mb-4" />
           <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tight leading-[1.1]">
             {t('index.heroTitle1')}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">

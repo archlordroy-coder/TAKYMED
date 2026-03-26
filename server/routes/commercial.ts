@@ -139,7 +139,7 @@ router.post("/register-client", async (req, res) => {
                         currentDate.setDate(baseDate.getDate() + dayOffset);
 
                         if (m.frequencyType === 'interval' && m.intervalHours) {
-                            let currHour = 8;
+                            let currHour = 0;
                             while (currHour < 24) {
                                 const d = new Date(currentDate);
                                 d.setHours(currHour, 0, 0, 0);

@@ -78,9 +78,35 @@ export default function CommercialRegister() {
   const [dbMedications, setDbMedications] = useState<{ id: number, name: string }[]>([]);
   const [interactions, setInteractions] = useState<any[]>([]);
   const [customDates, setCustomDates] = useState<Record<number, string>>({});
+  const [applyCustomReminderHours, setApplyCustomReminderHours] = useState(false);
 
   // Step 3: Schedule preview
   const [scheduleState, setScheduleState] = useState<DoseSchedule[]>([]);
+
+  const getDefaultTimesForFrequency = (frequencyType: FrequencyType): string[] => {
+    if (frequencyType === "1x") return ["08:00"];
+    if (frequencyType === "2x") return ["08:00", "20:00"];
+    if (frequencyType === "3x") return ["08:00", "14:00", "20:00"];
+    if (frequencyType === "4x") return ["00:00", "06:00", "12:00", "18:00"];
+    return [];
+  };
+
+
+  const getEffectiveMedicationForSave = (m: MedicationEntry) => {
+    if (!applyCustomReminderHours) {
+      return {
+        ...m,
+        times: getDefaultTimesForFrequency(m.frequencyType),
+        intervalHours: m.frequencyType === "interval" ? 6 : undefined,
+      };
+    }
+
+    return {
+      ...m,
+      times: m.times,
+      intervalHours: m.frequencyType === "interval" ? (m.intervalHours || 6) : undefined,
+    };
+  };
 
   useEffect(() => {
     async function fetchMeds() {
@@ -142,25 +168,26 @@ export default function CommercialRegister() {
       const computed: DoseSchedule[] = [];
       medications.forEach(m => {
         if (!m.name || m.frequencyType === 'prn') return;
+        const effectiveMedication = getEffectiveMedicationForSave(m);
         for (let day = 1; day <= m.durationDays; day++) {
-          if (m.frequencyType === 'interval' && m.intervalHours) {
-            let hour = 8;
+          if (effectiveMedication.frequencyType === 'interval' && effectiveMedication.intervalHours) {
+            let hour = 0;
             while (hour < 24) {
               computed.push({
-                medicationId: m.id, medicationName: m.name,
+                medicationId: effectiveMedication.id, medicationName: effectiveMedication.name,
                 clientName: clientInfo.name, patientId: 0,
-                dose: m.doseValue, unit: m.unit,
+                dose: effectiveMedication.doseValue, unit: effectiveMedication.unit,
                 time: `${hour.toString().padStart(2, '0')}:00`,
                 day, statusReminderSent: false, statusTaken: false
               });
-              hour += m.intervalHours;
+              hour += effectiveMedication.intervalHours;
             }
           } else {
-            m.times.forEach(timeStr => {
+            effectiveMedication.times.forEach(timeStr => {
               computed.push({
-                medicationId: m.id, medicationName: m.name,
+                medicationId: effectiveMedication.id, medicationName: effectiveMedication.name,
                 clientName: clientInfo.name, patientId: 0,
-                dose: m.doseValue, unit: m.unit,
+                dose: effectiveMedication.doseValue, unit: effectiveMedication.unit,
                 time: timeStr, day,
                 statusReminderSent: false, statusTaken: false
               });
@@ -170,7 +197,7 @@ export default function CommercialRegister() {
       });
       setScheduleState(computed);
     }
-  }, [step, medications, clientInfo.name]);
+  }, [step, medications, clientInfo.name, applyCustomReminderHours]);
 
   const getDateForDay = (day: number): string => {
     if (customDates[day]) return customDates[day];
@@ -260,13 +287,8 @@ export default function CommercialRegister() {
             weight: patient.weight,
             categorieAge: patient.categorieAge,
             medications: medications.map(m => ({
+              ...getEffectiveMedicationForSave(m),
               name: m.name,
-              doseValue: m.doseValue,
-              frequencyType: m.frequencyType,
-              durationDays: m.durationDays,
-              unit: m.unit,
-              times: m.times,
-              intervalHours: m.intervalHours
             }))
           }
         })
@@ -439,12 +461,12 @@ export default function CommercialRegister() {
         {step === 2 && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
             {/* Patient / Prescription Header */}
-            <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6">
-              <div className="flex items-center gap-3 mb-2">
-                <Stethoscope className="w-6 h-6 text-primary" />
-                <h2 className="text-2xl font-bold">Ordonnance pour {clientInfo.name}</h2>
+            <div className="bg-white p-4 sm:p-6 md:p-8 rounded-3xl shadow-sm border space-y-4 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                <Stethoscope className="w-5 sm:w-6 h-5 sm:h-6 text-primary" />
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Ordonnance pour {clientInfo.name}</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                 <div className="space-y-2">
                   <Label>Titre de l'ordonnance</Label>
                   <Input
@@ -515,10 +537,10 @@ export default function CommercialRegister() {
             )}
 
             {/* Medications List */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {medications.map((m) => (
-                <div key={m.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
-                  <div className="flex items-center justify-between">
+                <div key={m.id} className="bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4 sm:space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                     <div className="flex items-center gap-2">
                       <div className="w-full max-w-[320px] space-y-1">
                         <div className="relative group">
@@ -544,14 +566,14 @@ export default function CommercialRegister() {
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
                     {/* Frequency */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 md:col-span-2 lg:col-span-1">
                       <Label className="text-xs uppercase tracking-wider text-muted-foreground">Fréquence des prises</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {['1x', '2x', '3x', '6,8,12', 'prb'].map((freq) => {
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                        {['1x', '2x', '3x', '4x', 'prb'].map((freq) => {
                           const fMap: Record<string, FrequencyType> = {
-                            '1x': '1x', '2x': '2x', '3x': '3x', '6,8,12': 'interval', 'prb': 'prn'
+                            '1x': '1x', '2x': '2x', '3x': '3x', '4x': '4x', 'prb': 'prn'
                           };
                           const currentFreq = fMap[freq];
                           return (
@@ -560,15 +582,16 @@ export default function CommercialRegister() {
                               onClick={() => {
                                 const newTimes = currentFreq === '1x' ? ['08:00']
                                   : currentFreq === '2x' ? ['08:00', '20:00']
-                                    : currentFreq === '3x' ? ['08:00', '14:00', '20:00'] : [];
+                                    : currentFreq === '3x' ? ['08:00', '14:00', '20:00']
+                                      : currentFreq === '4x' ? ['00:00', '06:00', '12:00', '18:00'] : [];
                                 updateMedication(m.id, {
                                   frequencyType: currentFreq,
                                   times: newTimes,
-                                  intervalHours: currentFreq === 'interval' ? 8 : undefined
+                                  intervalHours: undefined
                                 });
                               }}
                               className={cn(
-                                "flex-1 min-w-[50px] h-14 rounded-2xl border text-[10px] md:text-sm font-bold transition-all",
+                                "flex-1 sm:flex-initial min-w-[44px] sm:min-w-[50px] h-10 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl border text-[9px] sm:text-[10px] md:text-sm font-bold transition-all",
                                 m.frequencyType === currentFreq ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-slate-50 hover:bg-slate-100"
                               )}
                             >
@@ -578,17 +601,18 @@ export default function CommercialRegister() {
                         })}
                       </div>
 
-                      {m.frequencyType === '1x' && <p className="text-xs text-primary mt-2">Une fois par jour <span className="opacity-70">(matin)</span></p>}
-                      {m.frequencyType === '2x' && <p className="text-xs text-primary mt-2">Deux fois par jour <span className="opacity-70">(matin et soir)</span></p>}
-                      {m.frequencyType === '3x' && <p className="text-xs text-primary mt-2">Trois fois par jour <span className="opacity-70">(matin, midi et soir)</span></p>}
-                      {m.frequencyType === 'interval' && <p className="text-xs text-primary mt-2">Prises à intervalles réguliers</p>}
-                      {m.frequencyType === 'prn' && <p className="text-xs text-primary mt-2">En cas de besoin</p>}
+                      {m.frequencyType === '1x' && <p className="text-[11px] sm:text-xs text-primary mt-1 sm:mt-2">Une fois par jour <span className="opacity-70">(matin)</span></p>}
+                      {m.frequencyType === '2x' && <p className="text-[11px] sm:text-xs text-primary mt-1 sm:mt-2">Deux fois par jour <span className="opacity-70">(matin et soir)</span></p>}
+                      {m.frequencyType === '3x' && <p className="text-[11px] sm:text-xs text-primary mt-1 sm:mt-2">Trois fois par jour <span className="opacity-70">(matin, midi et soir)</span></p>}
+                      {m.frequencyType === '4x' && <p className="text-[11px] sm:text-xs text-primary mt-1 sm:mt-2">Quatre fois par jour <span className="opacity-70">(toutes les 6h)</span></p>}
+                      {m.frequencyType === 'interval' && <p className="text-[11px] sm:text-xs text-primary mt-1 sm:mt-2">Prises à intervalles réguliers</p>}
+                      {m.frequencyType === 'prn' && <p className="text-[11px] sm:text-xs text-primary mt-1 sm:mt-2">En cas de besoin</p>}
 
-                      {(m.frequencyType === '1x' || m.frequencyType === '2x' || m.frequencyType === '3x') && (
-                        <div className="grid grid-cols-1 gap-2 mt-4">
+                      {(m.frequencyType === '1x' || m.frequencyType === '2x' || m.frequencyType === '3x' || m.frequencyType === '4x') && (
+                        <div className="grid grid-cols-1 gap-1.5 sm:gap-2 mt-2 sm:mt-4">
                           {m.times.map((t, tIdx) => (
-                            <div key={tIdx} className="flex items-center gap-2">
-                              <Clock className="w-3 h-3 text-muted-foreground" />
+                            <div key={tIdx} className="flex items-center gap-1.5 sm:gap-2">
+                              <Clock className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-muted-foreground shrink-0" />
                               <Input
                                 type="time"
                                 value={t}
@@ -597,7 +621,7 @@ export default function CommercialRegister() {
                                   newTimes[tIdx] = e.target.value;
                                   updateMedication(m.id, { times: newTimes });
                                 }}
-                                className="h-8 text-xs rounded-lg"
+                                className="h-7 sm:h-8 text-[11px] sm:text-xs rounded-lg"
                               />
                             </div>
                           ))}
@@ -612,30 +636,39 @@ export default function CommercialRegister() {
                             value={m.intervalHours}
                             onChange={(e) => updateMedication(m.id, { intervalHours: parseInt(e.target.value) })}
                           >
-                            <option value={6}>Toutes les 6 heures</option>
-                            <option value={8}>Toutes les 8 heures</option>
-                            <option value={12}>Toutes les 12 heures</option>
+                            <option value={6}>Toutes les 6 heures (4 prises/jour)</option>
                           </select>
                         </div>
                       )}
+
+                      <div className="mt-2 sm:mt-3 flex items-start gap-1.5 sm:gap-2">
+                        <Checkbox
+                          checked={applyCustomReminderHours}
+                          onCheckedChange={(checked) => setApplyCustomReminderHours(checked === true)}
+                          className="mt-0.5 shrink-0"
+                        />
+                        <p className="text-[11px] sm:text-xs text-primary leading-snug">
+                          Je m'engage formellement a proceder a la modification des horaires de prise
+                        </p>
+                      </div>
                     </div>
 
                     {/* Dose */}
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase">Dose</Label>
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <Label className="text-[10px] sm:text-xs uppercase">Dose</Label>
                           <Input
                             type="number"
                             value={m.doseValue}
                             onChange={(e) => updateMedication(m.id, { doseValue: parseInt(e.target.value) || 0 })}
-                            className="rounded-2xl h-14 w-28 text-center text-lg"
+                            className="rounded-xl sm:rounded-2xl h-10 sm:h-12 md:h-14 w-20 sm:w-28 text-center text-sm sm:text-lg"
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs uppercase">Unité</Label>
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <Label className="text-[10px] sm:text-xs uppercase">Unité</Label>
                           <select
-                            className="w-full h-14 rounded-2xl border bg-slate-50 px-4 text-base font-medium outline-none"
+                            className="w-full h-10 sm:h-12 md:h-14 rounded-xl sm:rounded-2xl border bg-slate-50 px-2 sm:px-4 text-xs sm:text-base font-medium outline-none"
                             value={m.unit}
                             onChange={(e) => updateMedication(m.id, { unit: e.target.value })}
                             aria-label="Unité de dosage"
@@ -650,14 +683,14 @@ export default function CommercialRegister() {
                     </div>
 
                     {/* Duration */}
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs uppercase">Durée (jours)</Label>
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-[10px] sm:text-xs uppercase">Durée (jours)</Label>
                         <Input
                           type="number"
                           value={m.durationDays}
                           onChange={(e) => updateMedication(m.id, { durationDays: parseInt(e.target.value) || 0 })}
-                          className="rounded-2xl h-14 text-center text-lg w-28"
+                          className="rounded-xl sm:rounded-2xl h-10 sm:h-12 md:h-14 text-center text-sm sm:text-lg w-20 sm:w-28"
                         />
                       </div>
                     </div>
@@ -667,20 +700,20 @@ export default function CommercialRegister() {
             </div>
 
             <div className="flex items-center justify-between">
-              <Button onClick={addMedication} variant="outline" className="rounded-xl border-emerald-500 text-emerald-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
-                <Plus className="w-4 h-4 mr-2" />
+              <Button onClick={addMedication} variant="outline" className="rounded-xl border-emerald-500 text-emerald-500 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors text-xs sm:text-sm">
+                <Plus className="w-3 sm:w-4 h-3 sm:h-4 mr-1 sm:mr-2" />
                 Ajouter un médicament
               </Button>
             </div>
 
-            <div className="flex justify-between pt-8">
-              <Button variant="ghost" onClick={() => setStep(1)} className="rounded-2xl h-14 px-8">
-                <ArrowLeft className="mr-2 w-5 h-5" />
+            <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-8">
+              <Button variant="ghost" onClick={() => setStep(1)} className="rounded-xl sm:rounded-2xl h-10 sm:h-12 md:h-14 px-4 sm:px-8 text-sm sm:text-base">
+                <ArrowLeft className="mr-1 sm:mr-2 w-4 sm:w-5 h-4 sm:h-5" />
                 Retour
               </Button>
-              <Button size="lg" className="rounded-2xl h-14 px-12 text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNextStep}>
+              <Button size="lg" className="rounded-xl sm:rounded-2xl h-10 sm:h-12 md:h-14 px-6 sm:px-12 text-sm sm:text-lg font-bold shadow-xl shadow-primary/20" onClick={handleNextStep}>
                 Suivant : Calendrier
-                <ArrowRight className="ml-2 w-5 h-5" />
+                <ArrowRight className="ml-1 sm:ml-2 w-4 sm:w-5 h-4 sm:h-5" />
               </Button>
             </div>
           </div>
@@ -715,14 +748,45 @@ export default function CommercialRegister() {
             </div>
 
             {/* Schedule Table */}
-            <div className="bg-white p-8 rounded-3xl shadow-sm border space-y-6">
-              <div className="flex items-center gap-3 mb-4">
+            <div className="bg-white p-4 sm:p-6 md:p-8 rounded-3xl shadow-sm border space-y-4 sm:space-y-6">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-4">
                 <Table className="w-6 h-6 text-primary" />
-                <h2 className="text-2xl font-bold">Calendrier des prises</h2>
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Calendrier des prises</h2>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border">
-                <table className="w-full border-collapse">
+              <div className="md:hidden space-y-2">
+                {scheduleState.map((s, idx) => {
+                  const dateStr = getDateForDay(s.day);
+                  return (
+                    <div key={idx} className="rounded-2xl border bg-white p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <input
+                            type="date"
+                            value={dateStr}
+                            onChange={(e) => handleDateChange(s.day, e.target.value)}
+                            className="text-xs font-semibold bg-transparent border-b border-transparent hover:border-primary focus:border-primary focus:outline-none cursor-pointer"
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">({formatDateShort(dateStr)})</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-mono text-muted-foreground">{s.time}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-primary truncate">{s.medicationName}</span>
+                        <span className="text-xs bg-slate-100 px-2 py-1 rounded-lg font-medium shrink-0">
+                          {s.dose} {s.unit}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto rounded-2xl border">
+                <table className="responsive-data-table w-full border-collapse min-w-[700px]">
                   <thead>
                     <tr className="bg-slate-50 text-left border-b">
                       <th className="p-4 text-xs font-bold uppercase tracking-wider">Jour</th>
@@ -739,7 +803,13 @@ export default function CommercialRegister() {
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               <Calendar className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-semibold">{formatDateShort(dateStr)}</span>
+                              <input
+                                type="date"
+                                value={dateStr}
+                                onChange={(e) => handleDateChange(s.day, e.target.value)}
+                                className="font-semibold bg-transparent border-b border-transparent hover:border-primary focus:border-primary focus:outline-none cursor-pointer"
+                              />
+                              <span className="text-xs text-muted-foreground">({formatDateShort(dateStr)})</span>
                             </div>
                           </td>
                           <td className="p-4">

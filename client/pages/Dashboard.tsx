@@ -140,6 +140,24 @@ export default function Dashboard() {
     return <Navigate to="/commercial" replace />;
   }
 
+  const ordonnanceQuota = stats?.quota?.ordonnances;
+  const reminderQuota = stats?.quota?.rappels;
+  const normalizedUserType = String(user.type || "").toLowerCase();
+  const isProAccount =
+    normalizedUserType === "professional" ||
+    normalizedUserType === "professionnel" ||
+    normalizedUserType === "pharmacist";
+
+  const formatQuotaLimit = (quota: any) => {
+    if (!quota) return "--";
+    return quota.unlimited ? "Illimité" : String(quota.max ?? 0);
+  };
+
+  const formatQuotaRemaining = (quota: any) => {
+    if (!quota) return "--";
+    return quota.unlimited ? "∞" : String(Math.max(Number(quota.remaining ?? 0), 0));
+  };
+
   return (
     <div className="bg-slate-50 min-h-screen pb-20">
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-6xl animate-in fade-in duration-700">
@@ -189,9 +207,41 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="bg-white rounded-3xl p-5 border shadow-sm">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">
+              Quota ordonnances actives
+            </p>
+            <p className="text-2xl font-black mt-1">
+              {ordonnanceQuota ? ordonnanceQuota.used : 0}
+              <span className="text-base font-bold text-muted-foreground ml-1">
+                / {formatQuotaLimit(ordonnanceQuota)}
+              </span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Restant: <span className="font-bold">{formatQuotaRemaining(ordonnanceQuota)}</span>
+            </p>
+          </div>
+
+          <div className="bg-white rounded-3xl p-5 border shadow-sm">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">
+              Quota rappels actifs
+            </p>
+            <p className="text-2xl font-black mt-1">
+              {reminderQuota ? reminderQuota.used : 0}
+              <span className="text-base font-bold text-muted-foreground ml-1">
+                / {formatQuotaLimit(reminderQuota)}
+              </span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Restant: <span className="font-bold">{formatQuotaRemaining(reminderQuota)}</span>
+            </p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {(user.type as string) === "standard" ? (
-            <div className="col-span-full bg-white rounded-3xl p-8 border shadow-sm text-center space-y-4">
+            <div className="col-span-full hidden md:block bg-white rounded-3xl p-8 border shadow-sm text-center space-y-4">
               <Crown className="w-12 h-12 text-primary mx-auto" />
               <h3 className="text-xl font-bold">
                 {t("dashboard.upgradeTitle")}
@@ -268,9 +318,6 @@ export default function Dashboard() {
             value="today"
             className="animate-in fade-in slide-in-from-bottom-4 duration-500"
           >
-            <div className="lg:hidden mb-8">
-              <QuickAccessPanel user={user} t={t} compact />
-            </div>
             <div
               className={cn(
                 "grid grid-cols-1 gap-8",
@@ -278,7 +325,7 @@ export default function Dashboard() {
               )}
             >
               {/* Left Column: Quick Actions */}
-              <div className="hidden lg:block">
+              <div className="hidden md:hidden lg:block">
                 <QuickAccessPanel user={user} t={t} />
               </div>
 
@@ -394,7 +441,9 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between px-2">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                       <Store className="w-5 h-5 text-primary" />
-                      {t("dashboard.clientList")}
+                      {isProAccount
+                        ? "Liste ordonnances"
+                        : t("dashboard.clientList")}
                     </h2>
                     {selectedPatientId && (
                       <Button
@@ -411,7 +460,11 @@ export default function Dashboard() {
                     {patients.length === 0 ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-center text-muted-foreground opacity-60">
                         <Store className="w-12 h-12 mb-4" />
-                        <p>Aucun client enregistré.</p>
+                        <p>
+                          {isProAccount
+                            ? "Aucune ordonnance enregistrée."
+                            : "Aucun client enregistré."}
+                        </p>
                       </div>
                     ) : (
                       <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
@@ -435,7 +488,10 @@ export default function Dashboard() {
                                     : "text-slate-800 group-hover:text-primary",
                                 )}
                               >
-                                {p.name || t("dashboard.unknownClient")}
+                                {p.name ||
+                                  (isProAccount
+                                    ? "Ordonnance inconnue"
+                                    : t("dashboard.unknownClient"))}
                               </h4>
                               <p className="text-[10px] text-muted-foreground mt-1 truncate">
                                 {t("dashboard.registeredOn")}{" "}
@@ -596,6 +652,11 @@ function CalendarView({
   const [calFilterPatient, setCalFilterPatient] = useState<number | null>(null);
 
   const isNonStandard = user?.type !== "standard";
+  const normalizedUserType = String(user?.type || "").toLowerCase();
+  const isProAccount =
+    normalizedUserType === "professional" ||
+    normalizedUserType === "professionnel" ||
+    normalizedUserType === "pharmacist";
 
   // Filter doses by selected patient if applicable
   const filteredDoses = calFilterPatient
@@ -703,7 +764,7 @@ function CalendarView({
         >
           <div className="flex items-center justify-between">
             <p className="text-xs font-black text-slate-300 uppercase tracking-widest">
-              Clients
+              {isProAccount ? "Ordonnances" : "Clients"}
             </p>
             {calFilterPatient && (
               <button
@@ -716,7 +777,9 @@ function CalendarView({
           </div>
           <div className="flex xl:flex-col gap-2 overflow-x-auto xl:overflow-y-auto xl:max-h-[520px] pb-1">
             {patients.length === 0 ? (
-              <p className="text-slate-500 text-xs italic">Aucun client</p>
+              <p className="text-slate-500 text-xs italic">
+                {isProAccount ? "Aucune ordonnance" : "Aucun client"}
+              </p>
             ) : (
               patients.map((p) => (
                 <button
@@ -735,7 +798,10 @@ function CalendarView({
                     {(p.name || "?")[0].toUpperCase()}
                   </span>
                   <span className="truncate max-w-[140px]">
-                    {p.name || "Client inconnu"}
+                    {p.name ||
+                      (isProAccount
+                        ? "Ordonnance inconnue"
+                        : "Client inconnu")}
                   </span>
                 </button>
               ))

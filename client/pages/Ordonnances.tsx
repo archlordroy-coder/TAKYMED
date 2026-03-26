@@ -182,7 +182,16 @@ export default function Ordonnances() {
         toast.success("Ordonnance réactivée");
         fetchOrdonnances();
       } else {
-        toast.error("Erreur lors de la réactivation");
+        let errorMessage = "Erreur lors de la réactivation";
+        try {
+          const data = await res.json();
+          if (data?.error) {
+            errorMessage = data.error;
+          }
+        } catch {
+          // Keep fallback message if response body is not JSON.
+        }
+        toast.error(errorMessage);
       }
     } catch (error) {
       toast.error("Erreur lors de la réactivation");

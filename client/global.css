@@ -107,9 +107,20 @@
     @apply bg-background text-foreground;
   }
 
-  :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label, td, th) {
+  :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label) {
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  th,
+  td {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  table :where(p, span, li, h1, h2, h3, h4, h5, h6, a, button, label) {
+    overflow-wrap: normal;
+    word-break: normal;
   }
 
   pre,
@@ -135,5 +146,48 @@
 
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  .responsive-admin-table {
+    font-size: clamp(0.72rem, 1.7vw, 0.92rem);
+  }
+
+  .responsive-data-table {
+    width: 100%;
+    min-width: 700px;
+    font-size: clamp(0.72rem, 1.7vw, 0.92rem);
+  }
+
+  .responsive-admin-table th,
+  .responsive-admin-table td,
+  .responsive-data-table th,
+  .responsive-data-table td {
+    white-space: nowrap;
+  }
+
+  .responsive-admin-table .cell-user {
+    white-space: normal;
+  }
+
+  @media (max-width: 768px) {
+    .responsive-admin-table,
+    .responsive-data-table {
+      font-size: clamp(0.7rem, 2.4vw, 0.86rem);
+      min-width: 640px;
+    }
+
+    .responsive-admin-table th,
+    .responsive-admin-table td,
+    .responsive-data-table th,
+    .responsive-data-table td {
+      white-space: nowrap;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .responsive-data-table th:last-child,
+    .responsive-data-table td:last-child {
+      display: none;
+    }
   }
 }

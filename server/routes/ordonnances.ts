@@ -1,7 +1,33 @@
 import { Router } from "express";
 import { db } from "../db";
+import {
+    countActiveOrdonnances,
+    countPendingRappels,
+    getUserAccountLimits,
+    isUnlimited,
+    refreshOrdonnanceActiveState,
+} from "../services/accountLimits";
 
 const router = Router();
+
+function estimateReminderCount(type: string, intervalHours: any, durationDays: any, times: any): number {
+    const days = Number(durationDays) || 0;
+    if (days <= 0 || type === "prn") return 0;
+
+    if (type === "interval" && Number(intervalHours) > 0) {
+        const interval = Number(intervalHours);
+        let countPerDay = 0;
+        let hour = 0;
+        while (hour < 24) {
+            countPerDay += 1;
+            hour += interval;
+        }
+        return countPerDay * days;
+    }
+
+    const timesPerDay = Array.isArray(times) && times.length > 0 ? times.length : 1;
+    return timesPerDay * days;
+}
 
 // Get all ordonnances for a user with stats
 router.get("/", (req, res) => {
@@ -161,6 +187,50 @@ router.patch("/:id/reactivate", (req, res) => {
     const { id } = req.params;
 
     try {
+        const ordonnanceMeta = db.prepare(`
+            SELECT id_ordonnance, id_utilisateur, est_active
+            FROM Ordonnances
+            WHERE id_ordonnance = ?
+        `).get(id) as { id_ordonnance: number; id_utilisateur: number; est_active: number } | undefined;
+
+        if (!ordonnanceMeta) {
+            return res.status(404).json({ error: "Ordonnance not found" });
+        }
+
+        if (Number(ordonnanceMeta.est_active) === 1) {
+            return res.json({ success: true, message: "Ordonnance déjà active" });
+        }
+
+        refreshOrdonnanceActiveState(ordonnanceMeta.id_utilisateur);
+
+        const limits = getUserAccountLimits(ordonnanceMeta.id_utilisateur);
+        if (!limits) {
+            return res.status(404).json({ error: "Compte utilisateur introuvable" });
+        }
+
+        const activeOrdonnances = countActiveOrdonnances(ordonnanceMeta.id_utilisateur);
+        if (!isUnlimited(limits.maxOrdonnances) && activeOrdonnances >= Number(limits.maxOrdonnances)) {
+            return res.status(403).json({
+                error: `Quota dépassé: vous avez déjà ${activeOrdonnances}/${limits.maxOrdonnances} ordonnance(s) active(s).`,
+            });
+        }
+
+        const pendingRappelsCurrent = countPendingRappels(ordonnanceMeta.id_utilisateur);
+        const pendingRappelsForOrdonnance = db.prepare(`
+            SELECT COUNT(*) as count
+            FROM CalendrierPrises cp
+            JOIN ElementsOrdonnance eo ON cp.id_element_ordonnance = eo.id_element_ordonnance
+            WHERE eo.id_ordonnance = ?
+              AND cp.statut_prise = 0
+        `).get(id) as { count: number };
+
+        const projectedRappels = pendingRappelsCurrent + (pendingRappelsForOrdonnance?.count || 0);
+        if (!isUnlimited(limits.maxRappels) && projectedRappels > Number(limits.maxRappels)) {
+            return res.status(403).json({
+                error: `Quota dépassé: cette validation créerait ${projectedRappels}/${limits.maxRappels} rappels actifs.`,
+            });
+        }
+
         const result = db.prepare(`
             UPDATE Ordonnances 
             SET est_active = 1 
@@ -226,6 +296,28 @@ router.post("/:id/medicaments", (req, res) => {
     }
 
     try {
+        const ordonnanceOwner = db.prepare(`SELECT id_utilisateur FROM Ordonnances WHERE id_ordonnance = ?`).get(id) as { id_utilisateur: number } | undefined;
+        if (!ordonnanceOwner) {
+            return res.status(404).json({ error: "Ordonnance not found" });
+        }
+
+        const limits = getUserAccountLimits(ordonnanceOwner.id_utilisateur);
+        if (!limits) {
+            return res.status(404).json({ error: "User account not found" });
+        }
+
+        refreshOrdonnanceActiveState(ordonnanceOwner.id_utilisateur);
+
+        const newReminderCount = estimateReminderCount(type_frequence, intervalle_heures, duree_jours, times);
+        if (!isUnlimited(limits.maxRappels)) {
+            const currentPending = countPendingRappels(ordonnanceOwner.id_utilisateur);
+            if (currentPending + newReminderCount > Number(limits.maxRappels)) {
+                return res.status(403).json({
+                    error: `Limite de rappels atteinte (${limits.maxRappels}). Rappels actuels: ${currentPending}, nouveaux: ${newReminderCount}.`,
+                });
+            }
+        }
+
         // Find or create medicament
         let med = db.prepare(`SELECT id_medicament FROM Medicaments WHERE nom = ?`).get(medicamentName);
         if (!med) {
@@ -242,8 +334,8 @@ router.post("/:id/medicaments", (req, res) => {
         const elementId = elementResult.lastInsertRowid;
 
         // Generate CalendrierPrises based on frequency
-        const ordonnance = db.prepare(`SELECT date_ordonnance FROM Ordonnances WHERE id_ordonnance = ?`).get(id) as any;
-        const startDate = new Date(ordonnance.date_ordonnance);
+        const ordonnanceDate = db.prepare(`SELECT date_ordonnance FROM Ordonnances WHERE id_ordonnance = ?`).get(id) as any;
+        const startDate = new Date(ordonnanceDate.date_ordonnance);
 
         const parseTime = (timeStr: string): [number, number] => {
             const [h, m] = timeStr.split(':').map(Number);
@@ -260,7 +352,7 @@ router.post("/:id/medicaments", (req, res) => {
             dayDate.setDate(dayDate.getDate() + day);
 
             if (type_frequence === 'interval' && intervalle_heures) {
-                let hour = 8;
+                let hour = 0;
                 while (hour < 24) {
                     const priseDate = new Date(dayDate);
                     priseDate.setHours(hour, 0, 0, 0);
@@ -295,6 +387,28 @@ router.put("/:id/medicaments/:elementId", (req, res) => {
     const { dose, type_frequence, intervalle_heures, duree_jours, times } = req.body;
 
     try {
+        const ordonnanceOwner = db.prepare(`SELECT id_utilisateur FROM Ordonnances WHERE id_ordonnance = ?`).get(id) as { id_utilisateur: number } | undefined;
+        if (!ordonnanceOwner) {
+            return res.status(404).json({ error: "Ordonnance not found" });
+        }
+
+        const limits = getUserAccountLimits(ordonnanceOwner.id_utilisateur);
+        if (!limits) {
+            return res.status(404).json({ error: "User account not found" });
+        }
+
+        refreshOrdonnanceActiveState(ordonnanceOwner.id_utilisateur);
+
+        const newReminderCount = estimateReminderCount(type_frequence, intervalle_heures, duree_jours, times);
+        if (!isUnlimited(limits.maxRappels)) {
+            const pendingExcludingCurrent = countPendingRappels(ordonnanceOwner.id_utilisateur, Number(elementId));
+            if (pendingExcludingCurrent + newReminderCount > Number(limits.maxRappels)) {
+                return res.status(403).json({
+                    error: `Limite de rappels atteinte (${limits.maxRappels}). Rappels actuels: ${pendingExcludingCurrent}, nouveaux: ${newReminderCount}.`,
+                });
+            }
+        }
+
         // Update element
         db.prepare(`
             UPDATE ElementsOrdonnance 
@@ -307,8 +421,8 @@ router.put("/:id/medicaments/:elementId", (req, res) => {
         db.prepare(`DELETE FROM CalendrierPrises WHERE id_element_ordonnance = ?`).run(elementId);
 
         // Get ordonnance start date
-        const ordonnance = db.prepare(`SELECT date_ordonnance FROM Ordonnances WHERE id_ordonnance = ?`).get(id) as any;
-        const startDate = new Date(ordonnance.date_ordonnance);
+        const ordonnanceDate = db.prepare(`SELECT date_ordonnance FROM Ordonnances WHERE id_ordonnance = ?`).get(id) as any;
+        const startDate = new Date(ordonnanceDate.date_ordonnance);
 
         const parseTime = (timeStr: string): [number, number] => {
             const [h, m] = timeStr.split(':').map(Number);
@@ -325,7 +439,7 @@ router.put("/:id/medicaments/:elementId", (req, res) => {
             dayDate.setDate(dayDate.getDate() + day);
 
             if (type_frequence === 'interval' && intervalle_heures) {
-                let hour = 8;
+                let hour = 0;
                 while (hour < 24) {
                     const priseDate = new Date(dayDate);
                     priseDate.setHours(hour, 0, 0, 0);

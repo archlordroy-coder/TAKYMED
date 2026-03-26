@@ -80,14 +80,14 @@ export function AdminHeroCard({ name, amount, targetPercent }: AdminHeroCardProp
 interface AdminStatCardProps {
     label: string;
     value: string;
-    trend: number;
-    data: { value: number }[];
+    trend?: number;
+    data?: { value: number }[];
     color: string;
     icon: React.ReactNode;
 }
 
-export function AdminStatCard({ label, value, trend, data, color, icon }: AdminStatCardProps) {
-    const isPositive = trend > 0;
+export function AdminStatCard({ label, value, trend = 0, data = [], color, icon }: AdminStatCardProps) {
+    const isPositive = trend >= 0;
 
     return (
         <motion.div
@@ -113,38 +113,59 @@ export function AdminStatCard({ label, value, trend, data, color, icon }: AdminS
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
             </div>
 
-            <div className="h-14 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data}>
-                        <defs>
-                            <linearGradient id={`grad-${label}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={isPositive ? EMERALD : "#f43f5e"} stopOpacity={0.2} />
-                                <stop offset="95%" stopColor={isPositive ? EMERALD : "#f43f5e"} stopOpacity={0} />
-                            </linearGradient>
-                        </defs>
-                        <Area
-                            type="monotone"
-                            dataKey="value"
-                            stroke={isPositive ? EMERALD : "#f43f5e"}
-                            strokeWidth={2}
-                            fillOpacity={1}
-                            fill={`url(#grad-${label})`}
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
+            {data.length > 0 && (
+                <div className="h-14 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={data}>
+                            <defs>
+                                <linearGradient id={`grad-${label}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={isPositive ? EMERALD : "#f43f5e"} stopOpacity={0.2} />
+                                    <stop offset="95%" stopColor={isPositive ? EMERALD : "#f43f5e"} stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <Area
+                                type="monotone"
+                                dataKey="value"
+                                stroke={isPositive ? EMERALD : "#f43f5e"}
+                                strokeWidth={2}
+                                fillOpacity={1}
+                                fill={`url(#grad-${label})`}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
         </motion.div>
     );
 }
 
 // --- DISTRIBUTION CHART (PIE) ---
-const PIE_DATA = [
-    { name: 'Standard', value: 400, color: TEAL },
-    { name: 'Professionnel', value: 300, color: EMERALD },
-    { name: 'Pharmacien', value: 300, color: '#f59e0b' },
-];
+interface DistributionSlice {
+    name: string;
+    value: number;
+    color?: string;
+}
 
-export function DistributionChart() {
+const DISTRIBUTION_COLORS = [TEAL, EMERALD, '#f59e0b', '#ef4444', '#6366f1', '#06b6d4'];
+
+export function DistributionChart({ data }: { data: DistributionSlice[] }) {
+    const normalizedData = (data || [])
+        .filter((item) => Number(item.value) > 0)
+        .map((item, index) => ({
+            ...item,
+            color: item.color || DISTRIBUTION_COLORS[index % DISTRIBUTION_COLORS.length],
+        }));
+
+    const total = normalizedData.reduce((sum, item) => sum + item.value, 0);
+
+    if (normalizedData.length === 0) {
+        return (
+            <div className="bg-white rounded-[2.5rem] p-8 border shadow-sm h-full flex items-center justify-center" style={{ borderColor: "#e2e8f0" }}>
+                <p className="text-sm text-slate-400 font-semibold">Aucune donnée de répartition disponible.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white rounded-[2.5rem] p-8 border shadow-sm h-full" style={{ borderColor: "#e2e8f0" }}>
             <div className="flex items-center justify-between mb-8">
@@ -158,7 +179,7 @@ export function DistributionChart() {
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
-                            data={PIE_DATA}
+                            data={normalizedData}
                             cx="50%"
                             cy="50%"
                             innerRadius={55}
@@ -166,7 +187,7 @@ export function DistributionChart() {
                             paddingAngle={6}
                             dataKey="value"
                         >
-                            {PIE_DATA.map((entry, index) => (
+                            {normalizedData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                             ))}
                         </Pie>
@@ -177,19 +198,19 @@ export function DistributionChart() {
                     </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-                    <p className="text-2xl font-black text-slate-800">68%</p>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Actifs</p>
+                    <p className="text-2xl font-black text-slate-800">{total}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Comptes</p>
                 </div>
             </div>
 
             <div className="mt-6 space-y-3">
-                {PIE_DATA.map((item) => (
+                {normalizedData.map((item) => (
                     <div key={item.name} className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                             <span className="text-sm text-slate-600 font-medium">{item.name}</span>
                         </div>
-                        <span className="text-sm font-bold text-slate-800">{Math.round(item.value / 10)}%</span>
+                        <span className="text-sm font-bold text-slate-800">{Math.round((item.value / total) * 100)}%</span>
                     </div>
                 ))}
             </div>
@@ -199,7 +220,7 @@ export function DistributionChart() {
 
 // --- ACTIVITY CHART (BAR) ---
 interface ActivityChartProps {
-    data?: { name: string; prescriptions: number; visites: number }[];
+    data?: { name: string; prescriptions: number; inscriptions: number }[];
 }
 
 export function ActivityChart({ data }: ActivityChartProps) {

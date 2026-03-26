@@ -40,6 +40,16 @@ export function createServer() {
   });
 
   // Example API routes
+  app.get("/api", (_req, res) => {
+    res.json({
+      status: "ok",
+      message: "TAKYMED API is running",
+      endpoints: {
+        ping: "/api/ping",
+      },
+    });
+  });
+
   app.get("/api/ping", (_req, res) => {
     const ping = process.env.PING_MESSAGE ?? "ping";
     res.json({ message: ping });

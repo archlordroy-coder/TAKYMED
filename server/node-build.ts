@@ -17,7 +17,7 @@ app.use(express.static(distPath));
 // Handle React Router - serve index.html for all non-API routes
 app.use((req, res, next) => {
   // Pass to the next middleware (or 404 handler) if it's an API request
-  if (req.path.startsWith("/api/") || req.path.startsWith("/health")) {
+  if (req.path === "/api" || req.path.startsWith("/api/") || req.path.startsWith("/health")) {
     return next();
   }
 
