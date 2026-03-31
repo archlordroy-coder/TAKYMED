@@ -921,7 +921,7 @@ export default function CommercialRegister() {
                       if (window.confirm("Voulez-vous vraiment annuler ? Le client sera supprimé.")) {
                         try {
                            if (registeredClientId) {
-                             await fetch(`/api/commercial/clients/${registeredClientId}`, { 
+                             await fetch(getApiUrl(`/api/commercial/clients/${registeredClientId}`), { 
                                method: 'DELETE',
                                headers: { "x-user-id": user?.id?.toString() || "" }
                              });

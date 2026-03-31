@@ -46,7 +46,7 @@ export default function Dashboard() {
         if (selectedPatientId) {
           url += `&patientId=${selectedPatientId}`;
         }
-        const res = await fetch(url);
+        const res = await fetch(getApiUrl(url));
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         setDoses(data.doses);
@@ -69,7 +69,7 @@ export default function Dashboard() {
     try {
       const endpoint = isTaken ? "take" : "untake";
       const res = await fetch(
-        `/api/prescriptions/doses/${doseId}/${endpoint}`,
+        getApiUrl(`/api/prescriptions/doses/${doseId}/${endpoint}`),
         { method: "POST" },
       );
       if (!res.ok) throw new Error("Error updating dose status");
@@ -80,7 +80,7 @@ export default function Dashboard() {
       const url = selectedPatientId
         ? `/api/prescriptions?userId=${user?.id}&patientId=${selectedPatientId}`
         : `/api/prescriptions?userId=${user?.id}`;
-      const refreshRes = await fetch(url);
+      const refreshRes = await fetch(getApiUrl(url));
       if (refreshRes.ok) {
         const data = await refreshRes.json();
         setDoses(data.doses);
@@ -94,7 +94,7 @@ export default function Dashboard() {
 
   const handleDelayMedication = async (doseId: number) => {
     try {
-      const res = await fetch(`/api/prescriptions/doses/${doseId}/delay`, {
+      const res = await fetch(getApiUrl(`/api/prescriptions/doses/${doseId}/delay`), {
         method: "POST",
       });
       if (!res.ok) throw new Error("Error delaying dose");

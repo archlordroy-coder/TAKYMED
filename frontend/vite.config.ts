@@ -21,12 +21,21 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "dist",
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      external: [/^@babel\/runtime/],
+    },
   },
   plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./client"),
       "@shared": path.resolve(__dirname, "../backend/shared"),
+      "lodash": "lodash-es",
+      "lodash/first": "lodash-es/first",
+      "lodash/flatMap": "lodash-es/flatMap",
     },
   },
 }));

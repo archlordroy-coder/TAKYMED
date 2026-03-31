@@ -85,12 +85,12 @@ export default function PharmacyManagement() {
 
   const fetchPharmacies = async () => {
     try {
-      const res = await fetch(`/api/pharmacies?userId=${user?.id}`);
+      const res = await fetch(getApiUrl(`/api/pharmacies?userId=${user?.id}`));
       if (res.ok) {
         const data = await res.json();
         // Fetch stocks for each pharmacy
         const pharmaciesWithStock = await Promise.all(data.pharmacies.map(async (p: any) => {
-          const stockRes = await fetch(`/api/pharmacies/${p.id}/stock`);
+          const stockRes = await fetch(getApiUrl(`/api/pharmacies/${p.id}/stock`));
           const stockData = await stockRes.json();
           return { ...p, stocks: stockData.stock.map((s: any) => ({ medId: s.medicationId, medName: s.medicationName, quantity: s.quantity })) };
         }));
@@ -129,7 +129,7 @@ export default function PharmacyManagement() {
     if (!selectedPharmacyForStock || !stockUpdate.medicationId) return;
 
     try {
-      const res = await fetch(`/api/pharmacies/${selectedPharmacyForStock}/stock`, {
+      const res = await fetch(getApiUrl(`/api/pharmacies/${selectedPharmacyForStock}/stock`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(stockUpdate)
@@ -202,7 +202,7 @@ export default function PharmacyManagement() {
   const deletePharmacy = async (id: string) => {
     if (!confirm("Êtes-vous sûr de vouloir supprimer cette pharmacie ?")) return;
     try {
-      const res = await fetch(`/api/pharmacies/${id}`, { method: "DELETE" });
+      const res = await fetch(getApiUrl(`/api/pharmacies/${id}`), { method: "DELETE" });
       if (res.ok) {
         fetchPharmacies();
         toast.info("Pharmacie supprimée.");

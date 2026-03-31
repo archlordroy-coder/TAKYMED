@@ -10,10 +10,11 @@ fi
 # Config (can be overridden by .env)
 REMOTE_USER=${SERVER_USER:-"root"}
 REMOTE_HOST=${SERVER_IP:-"localhost"}
-REMOTE_DIR=${DEST_DIR:-"/home/TAKYMED"}
+REMOTE_DIR=${DEST_DIR:-"/root/TAKYMED/backend"}
 PASS=${SERVER_PASS:-""}
-PM2_APP=${PM2_APP_NAME:-"takymed"}
+PM2_APP=${PM2_APP_NAME:-"takymed-backend"}
 WA_WAIT_TIMEOUT=${WA_WAIT_TIMEOUT:-300}
+WA_NO_WATCH=${WA_NO_WATCH:-0}
 
 CONTROL_SOCKET="/tmp/ssh-takymed-whatsapp-$USER"
 SSH_OPT="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ControlMaster=auto -o ControlPath=$CONTROL_SOCKET -o ControlPersist=60"
@@ -32,7 +33,7 @@ $SSH_CMD -f $REMOTE_USER@$REMOTE_HOST "exit" 2>/dev/null || true
 
 cleanup() {
     echo "🧹 Closing SSH connection..."
-    ssh -o ControlPath=$CONTROL_SOCKET -O exit $REMOTE_USER@$REMOTE_HOST 2>/dev/null || true
+    $SSH_CMD -O exit $REMOTE_USER@$REMOTE_HOST 2>/dev/null || true
     rm -f "$CONTROL_SOCKET"
 }
 trap cleanup EXIT
@@ -70,6 +71,12 @@ $SSH_CMD $REMOTE_USER@$REMOTE_HOST "
         exit 1
     fi
 "
+
+if [ "$WA_NO_WATCH" = "1" ]; then
+    echo "✅ Reset appliqué. Mode sans suivi activé (WA_NO_WATCH=1)."
+    echo "ℹ️ Lance ensuite: $SSH_CMD $REMOTE_USER@$REMOTE_HOST \"pm2 logs '$PM2_APP' --lines 50 --raw\""
+    exit 0
+fi
 
 echo "📱 Suivi des logs WhatsApp en direct (QR dans ce terminal). Timeout: ${WA_WAIT_TIMEOUT}s"
 echo "ℹ️ Scanne le QR dès qu'il apparaît. Le script se termine automatiquement quand la connexion s'ouvre."

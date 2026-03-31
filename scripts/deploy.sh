@@ -9,7 +9,7 @@ fi
 # Fallback values if not in .env
 REMOTE_USER=${SERVER_USER:-"root"}
 REMOTE_HOST=${SERVER_IP:-"localhost"}
-REMOTE_DIR=${DEST_DIR:-"/home/TAKYMED"}
+REMOTE_DIR=${DEST_DIR:-"/root/TAKYMED"}
 SOURCE_DIR="$(pwd)"
 PORT=${PORT:-3500}
 PASS=${SERVER_PASS:-""}
@@ -92,8 +92,8 @@ $SSH_CMD $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_DIR && \
 # 4. Start the application with PM2
 echo "🟢 Starting application with PM2 (Production Mode)..."
 $SSH_CMD $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_DIR && \
-    pm2 delete takymed || true && \
-    PORT=$PORT pm2 start dist/server/node-build.mjs --name takymed && \
+    pm2 delete takymed-backend || true && \
+    PORT=$PORT pm2 start dist/server/node-build.mjs --name takymed-backend && \
     pm2 save" || { echo "❌ Failed to start application with PM2."; exit 1; }
 
 # 5. Health Check

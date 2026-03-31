@@ -13,7 +13,7 @@ fi
 # Configuration
 REMOTE_USER=${SERVER_USER:-"root"}
 REMOTE_HOST=${SERVER_IP:-"localhost"}
-DEST_DIR=${DEST_DIR:-"/home/TAKYMED"}
+DEST_DIR=${DEST_DIR:-"/root/TAKYMED"}
 BACKEND_DIR="$DEST_DIR/backend"
 SOURCE_DIR="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")"
 PASS=${SERVER_PASS:-""}
@@ -106,11 +106,11 @@ sleep 2
 # Check if backend is running
 echo ""
 echo "✅ Checking backend status..."
-if $SSH_CMD "$REMOTE_USER@$REMOTE_HOST" "curl -s http://localhost:3001/api | grep -q 'TAKYMED API'"; then
+if $SSH_CMD "$REMOTE_USER@$REMOTE_HOST" "curl -s http://localhost:3500/api | grep -q 'TAKYMED API'"; then
     echo "✅ Backend is running successfully!"
     echo ""
     echo "📊 Summary:"
-    echo "   Backend: http://$REMOTE_HOST:3001"
+    echo "   Backend: http://$REMOTE_HOST:3500"
     echo "   Status: ✓ Running"
 else
     echo "⚠️  Backend might not be responding yet (check logs)"

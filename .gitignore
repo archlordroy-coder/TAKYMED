@@ -6,6 +6,8 @@ node_modules
 
 # Environment variables (Sensitive)
 .env
+backend/.env
+frontend/.env
 .env.local
 .env.development.local
 .env.test.local
@@ -37,6 +39,13 @@ pnpm-debug.log*
 # Internal
 .gemini/
 .config/
+.codex
+
+# Private keys / cert material
+backend/key/
+
+# Local archives
+*.zip
 
 # Uploads
 public/uploads/

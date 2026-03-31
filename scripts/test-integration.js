@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const ROOT = path.dirname(path.dirname(__filename));
 
 // Configuration
-const BACKEND_PORT = 3001;
+const BACKEND_PORT = 3500;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
 const TESTS = [];
 let passedTests = 0;

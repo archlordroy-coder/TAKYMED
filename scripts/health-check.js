@@ -9,7 +9,7 @@ import http from "http";
 import https from "https";
 
 const BACKEND_HOST = "82.165.150.150";
-const BACKEND_PORT = 3001;
+const BACKEND_PORT = 3500;
 const API_URL = `http://${BACKEND_HOST}:${BACKEND_PORT}`;
 
 console.log("🔍 TAKYMED Backend Health Check");
@@ -151,8 +151,8 @@ async function runTests() {
   if (!results[0]) {
     console.log("❌ Cannot reach backend. Check:");
     console.log("   1. Server IP: 82.165.150.150");
-    console.log("   2. Port: 3001");
-    console.log("   3. Firewall rules allowing port 3001");
+    console.log("   2. Port: 3500");
+    console.log("   3. Firewall rules allowing port 3500");
     console.log("   4. Backend running: ssh root@82.165.150.150 'ps aux | grep node'\n");
     return;
   }
@@ -168,8 +168,8 @@ async function runTests() {
   if (results.every((r) => r)) {
     console.log("✨ Backend is healthy and ready for frontend communication!\n");
     console.log("Frontend configuration:");
-    console.log("   VITE_API_BASE_URL=http://82.165.150.150:3001");
-    console.log("   Or with DNS: VITE_API_BASE_URL=https://api.takymed.com");
+    console.log("   VITE_API_BASE_URL=http://82.165.150.150:3500");
+    console.log("   Or with DNS: VITE_API_BASE_URL=https://dev.takymed.com");
   } else {
     console.log("⚠️  Some tests failed. Check the output above.");
   }

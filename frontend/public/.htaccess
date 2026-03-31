@@ -1,0 +1,18 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+
+# Avoid rewrite loops on proxy file itself
+RewriteRule ^api-proxy\.php$ - [L]
+
+# Proxy all API requests to PHP proxy (same-origin HTTPS in browser)
+RewriteRule ^api(/.*)?$ api-proxy.php [QSA,L]
+
+# Serve existing files/directories directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# SPA fallback for client-side routes
+RewriteRule . index.html [L]
+</IfModule>

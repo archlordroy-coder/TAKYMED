@@ -4,8 +4,11 @@
  */
 
 // Get API base URL from environment or use default
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  RAW_API_BASE_URL === "SAME_ORIGIN"
+    ? ""
+    : RAW_API_BASE_URL || "http://localhost:3500";
 
 export default API_BASE_URL;
 
@@ -31,4 +34,3 @@ export async function apiFetch(
   const url = getApiUrl(endpoint);
   return fetch(url, options);
 }
-

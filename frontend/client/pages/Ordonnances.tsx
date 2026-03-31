@@ -17,6 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { getApiUrl } from "@/lib/api-config";
 
 interface Medicament {
   id: number;
@@ -84,7 +85,7 @@ export default function Ordonnances() {
   async function fetchOrdonnances() {
     if (!user) return;
     try {
-      const res = await fetch(`/api/ordonnances?userId=${user.id}`);
+      const res = await fetch(getApiUrl(`/api/ordonnances?userId=${user.id}`));
       if (res.ok) {
         const data = await res.json();
         setOrdonnances(data.ordonnances || []);
@@ -98,7 +99,7 @@ export default function Ordonnances() {
 
   async function fetchOrdonnanceDetails(id: number) {
     try {
-      const res = await fetch(`/api/ordonnances/${id}`);
+      const res = await fetch(getApiUrl(`/api/ordonnances/${id}`));
       if (res.ok) {
         const data = await res.json();
         // Update the ordonnance in the list with details
@@ -137,7 +138,7 @@ export default function Ordonnances() {
 
   const saveEdit = async (id: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/${id}`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/${id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editForm)
@@ -160,7 +161,7 @@ export default function Ordonnances() {
 
   const cancelOrdonnance = async (id: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/${id}/cancel`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/${id}/cancel`), {
         method: "PATCH"
       });
       if (res.ok) {
@@ -176,7 +177,7 @@ export default function Ordonnances() {
 
   const reactivateOrdonnance = async (id: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/${id}/reactivate`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/${id}/reactivate`), {
         method: "PATCH"
       });
       if (res.ok) {
@@ -201,7 +202,7 @@ export default function Ordonnances() {
 
   const deleteOrdonnance = async (id: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/${id}`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/${id}`), {
         method: "DELETE"
       });
       if (res.ok) {
@@ -230,7 +231,7 @@ export default function Ordonnances() {
 
   const saveEditMed = async (ordonnanceId: number, medId: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/${ordonnanceId}/medicaments/${medId}`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/${ordonnanceId}/medicaments/${medId}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editMedForm)
@@ -250,7 +251,7 @@ export default function Ordonnances() {
 
   const deleteMedicament = async (ordonnanceId: number, medId: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/${ordonnanceId}/medicaments/${medId}`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/${ordonnanceId}/medicaments/${medId}`), {
         method: "DELETE"
       });
       if (res.ok) {
@@ -270,7 +271,7 @@ export default function Ordonnances() {
       return;
     }
     try {
-      const res = await fetch(`/api/ordonnances/${ordonnanceId}/medicaments`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/${ordonnanceId}/medicaments`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newMedForm)
@@ -298,7 +299,7 @@ export default function Ordonnances() {
   // Rappel functions
   const updateRappelTime = async (rappelId: number, heure_prevue: string, ordonnanceId: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/prises/${rappelId}`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/prises/${rappelId}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ heure_prevue })
@@ -317,7 +318,7 @@ export default function Ordonnances() {
 
   const togglePriseStatus = async (rappelId: number, currentStatus: boolean, ordonnanceId: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/prises/${rappelId}`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/prises/${rappelId}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statut_prise: !currentStatus })
@@ -334,7 +335,7 @@ export default function Ordonnances() {
 
   const markAllPrisesTaken = async (ordonnanceId: number) => {
     try {
-      const res = await fetch(`/api/ordonnances/${ordonnanceId}/prises/mark-all-taken`, {
+      const res = await fetch(getApiUrl(`/api/ordonnances/${ordonnanceId}/prises/mark-all-taken`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({})

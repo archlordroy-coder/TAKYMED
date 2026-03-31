@@ -27,11 +27,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { AdminHeroCard, AdminStatCard, DistributionChart, ActivityChart } from "@/components/AdminComponents";
 import { motion } from "framer-motion";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import logoImg from "@/components/images/takymed.png";
 import {
-import { getApiUrl } from "@/lib/api-config";
     Dialog,
     DialogContent,
     DialogHeader,
@@ -40,6 +37,7 @@ import { getApiUrl } from "@/lib/api-config";
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
+import { getApiUrl } from "@/lib/api-config";
 
 const TEAL = "#006093";
 const EMERALD = "#00A859";
@@ -700,65 +698,9 @@ export default function AdminDashboard() {
         e.target.value = ''; // Reset file input
     };
 
-    // ============== PDF EXPORT ==============
+    // ============== PDF EXPORT (DÉSACTIVÉ) ==============
     const handleExportPDF = () => {
-        if (medications.length === 0) { toast.error("Aucun médicament à exporter"); return; }
-
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-
-        // Add logo
-        try {
-            doc.addImage(logoImg, 'PNG', 14, 10, 30, 30);
-        } catch { /* logo load failed, continue without */ }
-
-        // Header text
-        doc.setFontSize(20);
-        doc.setTextColor(0, 96, 147); // TEAL
-        doc.text('TAKYMED', 50, 25);
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text('Catalogue des Médicaments', 50, 32);
-        doc.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 50, 38);
-
-        // Separator
-        doc.setDrawColor(0, 168, 89); // EMERALD
-        doc.setLineWidth(0.8);
-        doc.line(14, 45, pageWidth - 14, 45);
-
-        // Table
-        autoTable(doc, {
-            startY: 50,
-            head: [['#', 'Désignation', 'Forme', 'Dose Défaut']],
-            body: medications.map((m, i) => [
-                (i + 1).toString(),
-                m.name,
-                m.unitId === 1 ? 'Comprimé' : m.unitId === 2 ? 'Gélule' : 'Sirop',
-                `${m.defaultDose} unité(s)`
-            ]),
-            theme: 'grid',
-            headStyles: {
-                fillColor: [0, 96, 147],
-                textColor: 255,
-                fontStyle: 'bold',
-                fontSize: 9,
-            },
-            alternateRowStyles: { fillColor: [245, 248, 250] },
-            styles: { fontSize: 9, cellPadding: 4 },
-            margin: { left: 14, right: 14 },
-        });
-
-        // Footer
-        const pageCount = (doc as any).getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text(`TAKYMED - Page ${i}/${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-        }
-
-        doc.save(`takymed_catalogue_${new Date().toISOString().slice(0, 10)}.pdf`);
-        toast.success("Export PDF téléchargé !");
+        toast.error("Export PDF indisponible - utilisez CSV");
     };
 
     if (loading) {

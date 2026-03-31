@@ -1,6 +1,6 @@
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
+import cors, { type CorsOptions } from "cors";
 import { handleDemo } from "./routes/demo";
 import { authRouter } from "./routes/auth";
 import { prescriptionRouter } from "./routes/prescriptions";
@@ -26,11 +26,49 @@ export function createServer() {
 
   // Middleware
   // CORS Configuration - Accept requests from frontend domains
-  const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:3500").split(",").map(origin => origin.trim());
-  app.use(cors({
-    origin: corsOrigins,
+  const configuredOrigins = (process.env.CORS_ORIGIN || "")
+    .split(",")
+    .map(origin => origin.trim())
+    .filter(Boolean);
+  const defaultOrigins = [
+    "https://takymed.com",
+    "https://www.takymed.com",
+    "http://takymed.com",
+    "http://www.takymed.com",
+    "https://dev.takymed.com",
+    "http://dev.takymed.com",
+    "http://localhost:3500",
+  ];
+  const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
+
+  const corsOptions: CorsOptions = {
+    origin: (origin, callback) => {
+      // Allow non-browser tools (curl, server-to-server calls)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
-  }));
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-user-id",
+      "X-Requested-With",
+    ],
+    optionsSuccessStatus: 204,
+  };
+
+  app.use(cors(corsOptions));
+  app.options("*", cors(corsOptions));
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
   app.use(express.static("public"));
@@ -44,12 +82,18 @@ export function createServer() {
     next();
   });
 
-  // Example API routes
-  app.get("/api", (_req, res) => {
+  // Root route - redirect to /api
+  app.get("/", (_req, res) => {
+    res.redirect("/api");
+  });
+
+  // API healthcheck routes (support both /api and /api/)
+  app.get(["/api", "/api/"], (_req, res) => {
     res.json({
       status: "ok",
       message: "TAKYMED API is running",
       endpoints: {
+        health: "/api",
         ping: "/api/ping",
       },
     });

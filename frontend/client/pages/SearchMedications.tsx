@@ -96,7 +96,7 @@ export default function SearchMedications() {
       }
       setLoading(true);
       try {
-        const res = await fetch(`/api/medications?q=${encodeURIComponent(query)}`);
+        const res = await fetch(getApiUrl(`/api/medications?q=${encodeURIComponent(query)}`));
         if (res.ok) {
           const data = await res.json();
           setMedications(data.medications);

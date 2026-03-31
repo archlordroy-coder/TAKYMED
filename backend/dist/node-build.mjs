@@ -13,6 +13,8 @@ import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, makeCac
 import qrcode from "qrcode-terminal";
 import pino from "pino";
 import gTTS from "gtts";
+import https from "https";
+import http from "http";
 const __filename$4 = fileURLToPath(import.meta.url);
 const __dirname$2 = path.dirname(__filename$4);
 const projectRoot = __dirname$2.includes("dist") ? path.join(__dirname$2, "../../") : path.join(__dirname$2, "../");
@@ -3510,11 +3512,41 @@ const whatsappProvider = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.de
 initializeDatabase();
 function createServer() {
   const app2 = express__default();
-  const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:3500").split(",").map((origin) => origin.trim());
-  app2.use(cors({
-    origin: corsOrigins,
-    credentials: true
-  }));
+  const configuredOrigins = (process.env.CORS_ORIGIN || "").split(",").map((origin) => origin.trim()).filter(Boolean);
+  const defaultOrigins = [
+    "https://takymed.com",
+    "https://www.takymed.com",
+    "http://takymed.com",
+    "http://www.takymed.com",
+    "https://dev.takymed.com",
+    "http://dev.takymed.com",
+    "http://localhost:3500"
+  ];
+  const allowedOrigins = /* @__PURE__ */ new Set([...defaultOrigins, ...configuredOrigins]);
+  const corsOptions = {
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-user-id",
+      "X-Requested-With"
+    ],
+    optionsSuccessStatus: 204
+  };
+  app2.use(cors(corsOptions));
+  app2.options("*", cors(corsOptions));
   app2.use(express__default.json({ limit: "10mb" }));
   app2.use(express__default.urlencoded({ extended: true, limit: "10mb" }));
   app2.use(express__default.static("public"));
@@ -3525,11 +3557,15 @@ function createServer() {
     );
     next();
   });
-  app2.get("/api", (_req, res) => {
+  app2.get("/", (_req, res) => {
+    res.redirect("/api");
+  });
+  app2.get(["/api", "/api/"], (_req, res) => {
     res.json({
       status: "ok",
       message: "TAKYMED API is running",
       endpoints: {
+        health: "/api",
         ping: "/api/ping"
       }
     });
@@ -3556,6 +3592,8 @@ function createServer() {
 }
 const app = createServer();
 const port = Number(process.env.PORT) || 3e3;
+const sslPort = Number(process.env.SSL_PORT) || 443;
+const domain = process.env.DOMAIN || "localhost";
 const __filename$1 = fileURLToPath(import.meta.url);
 const __dirname$1 = path.dirname(__filename$1);
 const distPath = path.join(__dirname$1, "../spa");
@@ -3566,11 +3604,34 @@ app.use((req, res, next) => {
   }
   res.sendFile(path.join(distPath, "index.html"));
 });
-app.listen(port, "0.0.0.0", () => {
-  console.log(`🚀 Fusion Starter server running on port ${port}`);
-  console.log(`📱 Frontend: http://localhost:${port}`);
-  console.log(`🔧 API: http://localhost:${port}/api`);
-});
+const certPath = `/etc/letsencrypt/live/${domain}/fullchain.pem`;
+const keyPath = `/etc/letsencrypt/live/${domain}/privkey.pem`;
+const hasSSL = fs.existsSync(certPath) && fs.existsSync(keyPath);
+if (hasSSL) {
+  const sslOptions = {
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath)
+  };
+  https.createServer(sslOptions, app).listen(sslPort, "0.0.0.0", () => {
+    console.log(`� HTTPS Server running on port ${sslPort}`);
+    console.log(`📱 Frontend: https://${domain}:${sslPort}`);
+    console.log(`🔧 API: https://${domain}:${sslPort}/api`);
+  });
+  http.createServer((req, res) => {
+    res.writeHead(301, { Location: `https://${domain}:${sslPort}${req.url}` });
+    res.end();
+  }).listen(port, "0.0.0.0", () => {
+    console.log(`🔄 HTTP redirect server on port ${port} → HTTPS ${sslPort}`);
+  });
+} else {
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`🚀 HTTP Server running on port ${port}`);
+    console.log(`📱 Frontend: http://localhost:${port}`);
+    console.log(`🔧 API: http://localhost:${port}/api`);
+    console.log(`⚠️  SSL certificates not found at ${certPath}`);
+    console.log(`   Run: certbot certonly --standalone -d ${domain}`);
+  });
+}
 process.on("SIGTERM", () => {
   console.log("🛑 Received SIGTERM, shutting down gracefully");
   process.exit(0);

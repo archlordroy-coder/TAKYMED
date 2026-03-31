@@ -8,10 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   ArrowRight,
-  Phone,
-  ShieldCheck,
   AlertCircle,
-  Info,
   Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -47,10 +44,15 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
   }, []);
 
   const fullPhone = useMemo(() => {
-    if (phone.trim() === "admin") return "admin";
+    const raw = phone.trim();
+    if (!raw) return raw;
+
+    // Allow non-numeric identifiers (e.g. admin) without country prefixing.
+    if (/[^0-9+]/.test(raw)) return raw;
+
     const country = countries.find(c => c.code === selectedCountry);
-    if (!country) return phone.trim();
-    const cleanPhone = phone.trim().replace(/^\+/, '');
+    if (!country) return raw;
+    const cleanPhone = raw.replace(/^\+/, '');
     const cleanDialCode = country.dialCode.replace(/^\+/, '');
     if (cleanPhone.startsWith(cleanDialCode)) {
       return '+' + cleanPhone;
@@ -116,13 +118,6 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
     }
   };
 
-  const setTestUser = (testPhone: string, testPin: string, testType?: AccountType) => {
-    setPhone(testPhone);
-    setPin(testPin);
-    if (testType) setSelectedType(testType);
-    toast.info(t('auth.testFilled'));
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -168,14 +163,11 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                     <Smartphone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="phone"
-                      type="tel"
+                      type="text"
                       placeholder="6XXXXXXXX"
                       value={phone}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "" || /^[0-9]+$/.test(val) || val === "admin") {
-                          setPhone(val);
-                        }
+                        setPhone(e.target.value);
                       }}
                       className="pl-10 h-11 rounded-xl w-full"
                       required
@@ -204,16 +196,11 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
                 <Label htmlFor="pin">{t('auth.pin')}</Label>
                 <Input
                   id="pin"
-                  type={phone.trim() === "admin" ? "password" : "text"}
+                  type="text"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  className={cn(
-                    "h-14 text-center rounded-xl",
-                    phone.trim() === "admin"
-                      ? "text-xl px-4"
-                      : "text-3xl font-mono tracking-[1em]",
-                  )}
-                  maxLength={phone.trim() === "admin" ? 20 : 6}
+                  className={cn("h-14 text-center rounded-xl text-3xl font-mono tracking-[1em]")}
+                  maxLength={6}
                   required
                 />
               </div>
@@ -238,42 +225,6 @@ export default function Auth({ mode }: { mode: "login" | "register" }) {
             </form>
           )}
 
-          <div className="mt-8 p-4 bg-primary/5 rounded-2xl border border-primary/10">
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
-              <Info className="h-3 w-3" />
-              {t('auth.testAccounts')}
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => { setSelectedCountry("CM"); setTestUser("600000001", "1234"); }}
-                className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
-              >
-                Standard
-              </button>
-              <button
-                type="button"
-                onClick={() => { setSelectedCountry("CM"); setTestUser("612345678", "1234", "professional"); }}
-                className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
-              >
-                Pro
-              </button>
-              <button
-                type="button"
-                onClick={() => { setSelectedCountry("CM"); setTestUser("commercial", "1234", "commercial"); }}
-                className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
-              >
-                Commercial
-              </button>
-              <button
-                type="button"
-                onClick={() => setTestUser("admin", "admin", "admin")}
-                className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-lg"
-              >
-                Admin
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

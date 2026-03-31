@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getApiUrl } from "@/lib/api-config";
 
 interface Client {
   id: number;
@@ -45,7 +46,7 @@ export default function CommercialDashboard() {
   const fetchClients = async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`/api/commercial/clients?commercialId=${user.id}`, {
+      const res = await fetch(getApiUrl(`/api/commercial/clients?commercialId=${user.id}`), {
         headers: { "x-user-id": user.id.toString() }
       });
       if (!res.ok) throw new Error("Erreur chargement clients");
@@ -64,7 +65,7 @@ export default function CommercialDashboard() {
     if (!newName || newName === currentName || !user?.id) return;
 
     try {
-      const res = await fetch(`/api/commercial/clients/${id}`, {
+      const res = await fetch(getApiUrl(`/api/commercial/clients/${id}`), {
         method: "PATCH",
         headers: { 
           "Content-Type": "application/json",
@@ -84,7 +85,7 @@ export default function CommercialDashboard() {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer le client ${name} ? cette action est irreversible.`)) return;
     
     try {
-      const res = await fetch(`/api/commercial/clients/${id}?commercialId=${user?.id}`, {
+      const res = await fetch(getApiUrl(`/api/commercial/clients/${id}?commercialId=${user?.id}`), {
         method: "DELETE",
         headers: { "x-user-id": user?.id.toString() || "" }
       });
